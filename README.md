@@ -1,20 +1,27 @@
 Markdown Utils (Name Pending)
 =============================
 
-A Rust utility that extracts markdown tables from input and outputs them to STDOUT.
+A Rust CLI tool for markdown processing with multiple subcommands.
 
 ## Usage
 
-The tool reads markdown from STDIN and outputs only the tables found in the input.
+### Table Extraction
+
+Extract markdown tables from input and output them to STDOUT.
 
 **Extract tables from a markdown file:**
 ```bash
-./result/bin/mdutils < document.md
+./result/bin/md table < document.md
 ```
 
 **Extract tables from piped input:**
 ```bash
-cat document.md | ./result/bin/mdutils
+cat document.md | ./result/bin/md table
+```
+
+**View available commands:**
+```bash
+./result/bin/md --help
 ```
 
 **Example:**
@@ -59,18 +66,18 @@ Build the project using Nix:
 nix build
 ```
 
-The binary will be available at `./result/bin/mdutils`.
+The binary will be available at `./result/bin/md`.
 
 ### Run
 
 Run the built binary:
 ```bash
-./result/bin/mdutils
+./result/bin/md table < input.md
 ```
 
 Or run directly through the development shell:
 ```bash
-nix develop --command cargo run
+nix develop --command cargo run -- table < input.md
 ```
 
 ### Test
@@ -89,16 +96,16 @@ nix develop
 
 Inside the shell, you can use standard Cargo commands:
 ```bash
-cargo build       # Build the project
-cargo run         # Run the project
-cargo test        # Run tests
-cargo check       # Check for errors without building
-cargo clippy      # Run linter
-cargo fmt         # Format code
+cargo build              # Build the project
+cargo run -- table       # Run the project with table subcommand
+cargo test               # Run tests
+cargo check              # Check for errors without building
+cargo clippy             # Run linter
+cargo fmt                # Format code
 ```
 
 For debugging with GDB or LLDB:
 ```bash
 nix develop --command cargo build
-nix develop --command gdb ./target/debug/mdutils
+nix develop --command gdb ./target/debug/md
 ```
