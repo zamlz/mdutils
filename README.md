@@ -5,16 +5,16 @@ A Rust CLI tool for markdown processing with multiple subcommands.
 
 ## Usage
 
-### Table Extraction
+### Table Formatting
 
-Extract markdown tables from input and output them to STDOUT.
+The `table` subcommand reads markdown from STDIN, formats and aligns any markdown tables it finds, and outputs the entire document to STDOUT with nicely formatted tables.
 
-**Extract tables from a markdown file:**
+**Format tables in a markdown file:**
 ```bash
 ./result/bin/md table < document.md
 ```
 
-**Extract tables from piped input:**
+**Format tables from piped input:**
 ```bash
 cat document.md | ./result/bin/md table
 ```
@@ -32,28 +32,77 @@ Input:
 
 Some introductory text.
 
-| Name  | Age | City |
-|-------|-----|------|
-| Alice | 30  | NYC  |
-| Bob   | 25  | LA   |
+| Name | Age | City |
+|---|---|---|
+| Alice | 30 | New York |
+| Bob | 25 | LA |
 
 More text here.
-
-| Product | Price |
-|---------|-------|
-| Apple   | $1.00 |
 ```
 
 Output:
+```markdown
+# My Document
+
+Some introductory text.
+
+| Name  | Age | City     |
+| ----- | --- | -------- |
+| Alice | 30  | New York |
+| Bob   | 25  | LA       |
+
+More text here.
 ```
-| Name  | Age | City |
-|-------|-----|------|
-| Alice | 30  | NYC  |
-| Bob   | 25  | LA   |
-| Product | Price |
-|---------|-------|
-| Apple   | $1.00 |
+
+All content is preserved, but tables are properly aligned based on column widths.
+
+### Table Formulas (Spreadsheet Functionality)
+
+Tables can include spreadsheet-like formulas using HTML comments with the `<!-- md-table: -->` marker.
+
+**Basic formula syntax:**
+- Formulas are defined in HTML comments after the table
+- Format: `CELL = EXPRESSION` (e.g., `C2 = A2 + B2`)
+- Cell references use spreadsheet notation: A1, B2, C3, etc. (Column letter + Row number)
+- Row 1 is the header row, Row 2 is the first data row
+- Multiple formulas can be separated by semicolons in one comment or placed on separate comment lines
+
+**Supported operators:**
+- Addition: `+`
+- Subtraction: `-`
+- Multiplication: `*`
+- Division: `/`
+
+**Example:**
+
+Input:
+```markdown
+| Item | Price | Quantity | Total |
+|---|---|---|---|
+| Apple | 1.50 | 10 | 0 |
+| Banana | 0.75 | 20 | 0 |
+<!-- md-table: D2 = B2 * C2; D3 = B3 * C3 -->
 ```
+
+Output:
+```markdown
+| Item   | Price | Quantity | Total |
+| ------ | ----- | -------- | ----- |
+| Apple  | 1.50  | 10       | 15    |
+| Banana | 0.75  | 20       | 15    |
+<!-- md-table: D2 = B2 * C2; D3 = B3 * C3 -->
+```
+
+**Multiple comment lines example:**
+```markdown
+| Product | Price | Tax | Total |
+|---|---|---|---|
+| Laptop | 1000 | 0 | 0 |
+<!-- md-table: C2 = B2 * 0.08 -->
+<!-- D2 = B2 + C2 -->
+```
+
+Formulas are evaluated in order, so later formulas can reference cells updated by earlier formulas.
 
 ## Development
 
