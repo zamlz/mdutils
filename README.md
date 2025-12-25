@@ -1,7 +1,52 @@
 Markdown Utils (Name Pending)
 =============================
 
-A simple Rust utility for processing markdown (currently echoes STDIN to STDOUT).
+A Rust utility that extracts markdown tables from input and outputs them to STDOUT.
+
+## Usage
+
+The tool reads markdown from STDIN and outputs only the tables found in the input.
+
+**Extract tables from a markdown file:**
+```bash
+./result/bin/mdutils < document.md
+```
+
+**Extract tables from piped input:**
+```bash
+cat document.md | ./result/bin/mdutils
+```
+
+**Example:**
+
+Input:
+```markdown
+# My Document
+
+Some introductory text.
+
+| Name  | Age | City |
+|-------|-----|------|
+| Alice | 30  | NYC  |
+| Bob   | 25  | LA   |
+
+More text here.
+
+| Product | Price |
+|---------|-------|
+| Apple   | $1.00 |
+```
+
+Output:
+```
+| Name  | Age | City |
+|-------|-----|------|
+| Alice | 30  | NYC  |
+| Bob   | 25  | LA   |
+| Product | Price |
+|---------|-------|
+| Apple   | $1.00 |
+```
 
 ## Development
 
