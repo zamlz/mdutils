@@ -101,7 +101,7 @@ fn reconstruct_document(
                 }
             }
         } else if is_code_fence(lines[i]) {
-            // This might be an output block, check next line after closing fence
+            // This might be an output block or a regular code fence
             output_lines.push(lines[i].to_string());
             i += 1;
 
@@ -110,6 +110,11 @@ fn reconstruct_document(
             while i < lines.len() && !is_code_fence(lines[i]) {
                 content_lines.push(lines[i]);
                 i += 1;
+            }
+
+            // Output the content lines
+            for line in &content_lines {
+                output_lines.push(line.to_string());
             }
 
             if i < lines.len() {
@@ -139,14 +144,8 @@ fn reconstruct_document(
                     // Output the directive comment
                     output_lines.push(lines[i].to_string());
                     i += 1;
-                } else {
-                    // Not an output block, just continue
                 }
-            } else {
-                // Just output the content we collected
-                for line in content_lines {
-                    output_lines.push(line.to_string());
-                }
+                // If not an output block, content is already output, just continue
             }
         } else {
             // Regular line
