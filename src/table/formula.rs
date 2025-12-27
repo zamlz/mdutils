@@ -1,3 +1,6 @@
+use rust_decimal::Decimal;
+use std::str::FromStr;
+
 /// Applies formulas to table cells
 pub fn apply_formulas(rows: &mut Vec<Vec<String>>, formulas: &[String]) {
     for formula in formulas {
@@ -71,9 +74,9 @@ fn evaluate_expression(expr: &str, rows: &Vec<Vec<String>>) -> Option<String> {
             if let Some((row_idx, col_idx)) = cell_ref_to_index(&token) {
                 if row_idx < rows.len() && col_idx < rows[row_idx].len() {
                     let cell_value = &rows[row_idx][col_idx];
-                    // Parse as number
-                    if let Ok(num) = cell_value.parse::<f64>() {
-                        resolved_tokens.push(num.to_string());
+                    // Parse as decimal number
+                    if Decimal::from_str(cell_value).is_ok() {
+                        resolved_tokens.push(cell_value.clone());
                     } else {
                         // Can't evaluate non-numeric cell
                         return None;
@@ -159,26 +162,22 @@ fn evaluate_math_expression(expr: &str) -> Option<String> {
         return None;
     }
 
-    // For now, use a simple left-to-right evaluation with proper operator precedence
+    // Evaluate with proper operator precedence using Decimal for precision
     let result = eval_tokens(&tokens)?;
 
-    // Format the result (remove unnecessary decimals)
-    if result.fract() == 0.0 {
-        Some(format!("{:.0}", result))
-    } else {
-        Some(format!("{}", result))
-    }
+    // Format the result, preserving decimal precision
+    Some(result.to_string())
 }
 
 /// Evaluates tokens with proper operator precedence and parentheses support
-fn eval_tokens(tokens: &[&str]) -> Option<f64> {
+fn eval_tokens(tokens: &[&str]) -> Option<Decimal> {
     if tokens.is_empty() {
         return None;
     }
 
     // Handle single number
     if tokens.len() == 1 {
-        return tokens[0].parse::<f64>().ok();
+        return Decimal::from_str(tokens[0]).ok();
     }
 
     // First, handle parentheses by finding and evaluating them
@@ -299,35 +298,52 @@ mod tests {
     fn test_parentheses_basic() {
         // Test basic parentheses: (2 + 3) * 4 = 20
         let tokens = vec!["(", "2", "+", "3", ")", "*", "4"];
-        assert_eq!(eval_tokens(&tokens), Some(20.0));
+        assert_eq!(eval_tokens(&tokens), Some(Decimal::from(20)));
     }
 
     #[test]
     fn test_parentheses_nested() {
         // Test nested parentheses: ((2 + 3) * 4) + 1 = 21
         let tokens = vec!["(", "(", "2", "+", "3", ")", "*", "4", ")", "+", "1"];
-        assert_eq!(eval_tokens(&tokens), Some(21.0));
+        assert_eq!(eval_tokens(&tokens), Some(Decimal::from(21)));
     }
 
     #[test]
     fn test_parentheses_precedence() {
         // Test that parentheses override precedence: 10 - (2 * 3) = 4
         let tokens = vec!["10", "-", "(", "2", "*", "3", ")"];
-        assert_eq!(eval_tokens(&tokens), Some(4.0));
+        assert_eq!(eval_tokens(&tokens), Some(Decimal::from(4)));
 
         // Without parentheses: 10 - 2 * 3 = 4 (same due to precedence)
         let tokens2 = vec!["10", "-", "2", "*", "3"];
-        assert_eq!(eval_tokens(&tokens2), Some(4.0));
+        assert_eq!(eval_tokens(&tokens2), Some(Decimal::from(4)));
 
         // But (10 - 2) * 3 = 24
         let tokens3 = vec!["(", "10", "-", "2", ")", "*", "3"];
-        assert_eq!(eval_tokens(&tokens3), Some(24.0));
+        assert_eq!(eval_tokens(&tokens3), Some(Decimal::from(24)));
     }
 
     #[test]
     fn test_parentheses_complex() {
         // Test complex expression: (5 + 3) * (10 - 2) / 4 = 16
         let tokens = vec!["(", "5", "+", "3", ")", "*", "(", "10", "-", "2", ")", "/", "4"];
-        assert_eq!(eval_tokens(&tokens), Some(16.0));
+        assert_eq!(eval_tokens(&tokens), Some(Decimal::from(16)));
+    }
+
+    #[test]
+    fn test_decimal_precision() {
+        // Test that decimal precision is preserved: 0.1 + 0.2 = 0.3 (exactly!)
+        let tokens = vec!["0.1", "+", "0.2"];
+        assert_eq!(eval_tokens(&tokens), Some(Decimal::from_str("0.3").unwrap()));
+
+        // Test multiplication with decimals: 1.5 * 2.5 = 3.75
+        let tokens2 = vec!["1.5", "*", "2.5"];
+        assert_eq!(eval_tokens(&tokens2), Some(Decimal::from_str("3.75").unwrap()));
+
+        // Test division with precise result: 1 / 3 (will be precise to available decimal places)
+        let tokens3 = vec!["1", "/", "3"];
+        let result = eval_tokens(&tokens3).unwrap();
+        // Check that the result starts with 0.333...
+        assert!(result.to_string().starts_with("0.333333"));
     }
 }
