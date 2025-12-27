@@ -255,7 +255,7 @@ With some text but no tables.
         let input = r#"| A | B | C |
 |---|---|---|
 | 5 | 10 | 0 |
-<!-- md-table: C2 = A2 + B2 -->"#;
+<!-- md-table: C1 = A1 + B1 -->"#;
 
         let output = format_tables(input);
         assert!(output.contains("15"));
@@ -268,7 +268,7 @@ With some text but no tables.
 | Apple | 1.50 | 10 | 0 |
 | Banana | 0.75 | 20 | 0 |
 | Orange | 2.00 | 5 | 0 |
-<!-- md-table: D2 = B2 * C2; D3 = B3 * C3; D4 = B4 * C4 -->"#;
+<!-- md-table: D1 = B1 * C1; D2 = B2 * C2; D3 = B3 * C3 -->"#;
 
         let output = format_tables(input);
         // Check that all formulas were evaluated

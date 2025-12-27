@@ -89,9 +89,9 @@ Tables can include spreadsheet-like formulas using HTML comments with the `<!-- 
 
 **Basic formula syntax:**
 - Formulas are defined in HTML comments after the table
-- Format: `CELL = EXPRESSION` (e.g., `C2 = A2 + B2`)
+- Format: `CELL = EXPRESSION` (e.g., `C1 = A1 + B1`)
 - Cell references use spreadsheet notation: A1, B2, C3, etc. (Column letter + Row number)
-- Row 1 is the header row, Row 2 is the first data row
+- Row 1 is the first data row (header rows are not addressable in formulas)
 - Multiple formulas can be separated by semicolons in one comment or placed on separate comment lines
 
 **Supported operators:**
@@ -99,6 +99,7 @@ Tables can include spreadsheet-like formulas using HTML comments with the `<!-- 
 - Subtraction: `-`
 - Multiplication: `*`
 - Division: `/`
+- Parentheses: `()` for grouping expressions (e.g., `(A1 + B1) * C1`)
 
 **Example:**
 
@@ -108,7 +109,7 @@ Input:
 |---|---|---|---|
 | Apple | 1.50 | 10 | 0 |
 | Banana | 0.75 | 20 | 0 |
-<!-- md-table: D2 = B2 * C2; D3 = B3 * C3 -->
+<!-- md-table: D1 = B1 * C1; D2 = B2 * C2 -->
 ```
 
 Output:
@@ -117,7 +118,7 @@ Output:
 | ------ | ----- | -------- | ----- |
 | Apple  | 1.50  | 10       | 15    |
 | Banana | 0.75  | 20       | 15    |
-<!-- md-table: D2 = B2 * C2; D3 = B3 * C3 -->
+<!-- md-table: D1 = B1 * C1; D2 = B2 * C2 -->
 ```
 
 **Multiple comment lines example:**
@@ -125,8 +126,8 @@ Output:
 | Product | Price | Tax | Total |
 |---|---|---|---|
 | Laptop | 1000 | 0 | 0 |
-<!-- md-table: C2 = B2 * 0.08 -->
-<!-- D2 = B2 + C2 -->
+<!-- md-table: C1 = B1 * 0.08 -->
+<!-- D1 = B1 + C1 -->
 ```
 
 Formulas are evaluated in order, so later formulas can reference cells updated by earlier formulas.

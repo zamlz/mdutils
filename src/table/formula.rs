@@ -26,7 +26,7 @@ fn parse_formula(formula: &str) -> Option<(String, String)> {
 }
 
 /// Converts cell reference (like "A1", "B2") to (row_index, col_index)
-/// Note: Row 1 is the header row, Row 2 is the first data row
+/// Note: Row 1 is the first data row (headers are not addressable)
 /// The separator row (|---|---|) is automatically skipped
 fn cell_ref_to_index(cell_ref: &str) -> Option<(usize, usize)> {
     let cell_ref = cell_ref.trim().to_uppercase();
@@ -46,18 +46,14 @@ fn cell_ref_to_index(cell_ref: &str) -> Option<(usize, usize)> {
     let row_num: usize = row_str.parse().ok()?;
 
     // Convert to 0-based index
-    // Row 1 = index 0 (header)
-    // Row 2 = index 2 (first data row, skipping separator at index 1)
-    // Row 3 = index 3, etc.
+    // Row 1 = index 2 (first data row, skipping header at 0 and separator at 1)
+    // Row 2 = index 3 (second data row)
+    // Row 3 = index 4, etc.
     if row_num == 0 {
         return None;
     }
 
-    let row_idx = if row_num == 1 {
-        0 // Header row
-    } else {
-        row_num // Skip separator row at index 1
-    };
+    let row_idx = row_num + 1; // Add 1 to skip header and separator
 
     Some((row_idx, col_idx))
 }
@@ -174,7 +170,7 @@ fn evaluate_math_expression(expr: &str) -> Option<String> {
     }
 }
 
-/// Evaluates tokens with proper operator precedence
+/// Evaluates tokens with proper operator precedence and parentheses support
 fn eval_tokens(tokens: &[&str]) -> Option<f64> {
     if tokens.is_empty() {
         return None;
@@ -185,18 +181,34 @@ fn eval_tokens(tokens: &[&str]) -> Option<f64> {
         return tokens[0].parse::<f64>().ok();
     }
 
-    // Find lowest precedence operator (+ or -)
-    for (i, &token) in tokens.iter().enumerate().skip(1) {
-        if token == "+" || token == "-" {
+    // First, handle parentheses by finding and evaluating them
+    // Look for the innermost parentheses and evaluate them recursively
+    if let Some(processed) = process_parentheses(tokens) {
+        return eval_tokens(&processed.iter().map(|s| s.as_str()).collect::<Vec<_>>());
+    }
+
+    // Find lowest precedence operator (+ or -) at the top level
+    let mut depth = 0;
+    for (i, &token) in tokens.iter().enumerate().rev() {
+        if token == ")" {
+            depth += 1;
+        } else if token == "(" {
+            depth -= 1;
+        } else if depth == 0 && (token == "+" || token == "-") && i > 0 {
             let left = eval_tokens(&tokens[..i])?;
             let right = eval_tokens(&tokens[i + 1..])?;
             return Some(if token == "+" { left + right } else { left - right });
         }
     }
 
-    // Find next precedence operator (* or /)
-    for (i, &token) in tokens.iter().enumerate().skip(1) {
-        if token == "*" || token == "/" {
+    // Find next precedence operator (* or /) at the top level
+    depth = 0;
+    for (i, &token) in tokens.iter().enumerate().rev() {
+        if token == ")" {
+            depth += 1;
+        } else if token == "(" {
+            depth -= 1;
+        } else if depth == 0 && (token == "*" || token == "/") && i > 0 {
             let left = eval_tokens(&tokens[..i])?;
             let right = eval_tokens(&tokens[i + 1..])?;
             return Some(if token == "*" { left * right } else { left / right });
@@ -206,18 +218,54 @@ fn eval_tokens(tokens: &[&str]) -> Option<f64> {
     None
 }
 
+/// Processes parentheses by finding the first pair and evaluating the content
+/// Returns None if no parentheses found, otherwise returns tokens with parentheses replaced by result
+fn process_parentheses(tokens: &[&str]) -> Option<Vec<String>> {
+    // Find the first opening parenthesis
+    let open_idx = tokens.iter().position(|&t| t == "(")?;
+
+    // Find the matching closing parenthesis
+    let mut depth = 1;
+    let mut close_idx = None;
+    for (i, &token) in tokens.iter().enumerate().skip(open_idx + 1) {
+        if token == "(" {
+            depth += 1;
+        } else if token == ")" {
+            depth -= 1;
+            if depth == 0 {
+                close_idx = Some(i);
+                break;
+            }
+        }
+    }
+
+    let close_idx = close_idx?;
+
+    // Evaluate the content inside the parentheses
+    let inner_tokens = &tokens[open_idx + 1..close_idx];
+    let result = eval_tokens(inner_tokens)?;
+
+    // Build new token list with the parentheses replaced by the result
+    let mut new_tokens = Vec::new();
+    new_tokens.extend(tokens[..open_idx].iter().map(|s| s.to_string()));
+    new_tokens.push(result.to_string());
+    new_tokens.extend(tokens[close_idx + 1..].iter().map(|s| s.to_string()));
+
+    Some(new_tokens)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_cell_ref_to_index() {
-        assert_eq!(cell_ref_to_index("A1"), Some((0, 0))); // Header row
-        assert_eq!(cell_ref_to_index("B1"), Some((0, 1))); // Header row
-        assert_eq!(cell_ref_to_index("A2"), Some((2, 0))); // First data row (skips separator at index 1)
-        assert_eq!(cell_ref_to_index("D4"), Some((4, 3))); // Third data row
-        assert_eq!(cell_ref_to_index("Z10"), Some((10, 25)));
-        assert_eq!(cell_ref_to_index("a1"), Some((0, 0))); // lowercase
+        assert_eq!(cell_ref_to_index("A1"), Some((2, 0))); // First data row (skips header at 0 and separator at 1)
+        assert_eq!(cell_ref_to_index("B1"), Some((2, 1))); // First data row, column B
+        assert_eq!(cell_ref_to_index("A2"), Some((3, 0))); // Second data row
+        assert_eq!(cell_ref_to_index("D3"), Some((4, 3))); // Third data row, column D
+        assert_eq!(cell_ref_to_index("Z10"), Some((11, 25))); // 10th data row, column Z
+        assert_eq!(cell_ref_to_index("a1"), Some((2, 0))); // lowercase
         assert_eq!(cell_ref_to_index("A0"), None); // row 0 invalid
         assert_eq!(cell_ref_to_index("1A"), None); // wrong format
     }
@@ -245,5 +293,41 @@ mod tests {
             Some(("D2".to_string(), "B2 * C2".to_string()))
         );
         assert_eq!(parse_formula("invalid"), None);
+    }
+
+    #[test]
+    fn test_parentheses_basic() {
+        // Test basic parentheses: (2 + 3) * 4 = 20
+        let tokens = vec!["(", "2", "+", "3", ")", "*", "4"];
+        assert_eq!(eval_tokens(&tokens), Some(20.0));
+    }
+
+    #[test]
+    fn test_parentheses_nested() {
+        // Test nested parentheses: ((2 + 3) * 4) + 1 = 21
+        let tokens = vec!["(", "(", "2", "+", "3", ")", "*", "4", ")", "+", "1"];
+        assert_eq!(eval_tokens(&tokens), Some(21.0));
+    }
+
+    #[test]
+    fn test_parentheses_precedence() {
+        // Test that parentheses override precedence: 10 - (2 * 3) = 4
+        let tokens = vec!["10", "-", "(", "2", "*", "3", ")"];
+        assert_eq!(eval_tokens(&tokens), Some(4.0));
+
+        // Without parentheses: 10 - 2 * 3 = 4 (same due to precedence)
+        let tokens2 = vec!["10", "-", "2", "*", "3"];
+        assert_eq!(eval_tokens(&tokens2), Some(4.0));
+
+        // But (10 - 2) * 3 = 24
+        let tokens3 = vec!["(", "10", "-", "2", ")", "*", "3"];
+        assert_eq!(eval_tokens(&tokens3), Some(24.0));
+    }
+
+    #[test]
+    fn test_parentheses_complex() {
+        // Test complex expression: (5 + 3) * (10 - 2) / 4 = 16
+        let tokens = vec!["(", "5", "+", "3", ")", "*", "(", "10", "-", "2", ")", "/", "4"];
+        assert_eq!(eval_tokens(&tokens), Some(16.0));
     }
 }
