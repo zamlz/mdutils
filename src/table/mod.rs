@@ -102,7 +102,14 @@ pub fn format_tables(text: &str) -> String {
         }
     }
 
-    output.join("\n")
+    let mut result = output.join("\n");
+
+    // Preserve trailing newline if the original input had one
+    if text.ends_with('\n') {
+        result.push('\n');
+    }
+
+    result
 }
 
 /// Formats a table with formula evaluation

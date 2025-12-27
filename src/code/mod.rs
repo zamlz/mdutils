@@ -155,7 +155,14 @@ fn reconstruct_document(
         }
     }
 
-    Ok(output_lines.join("\n"))
+    let mut result = output_lines.join("\n");
+
+    // Preserve trailing newline if the original input had one
+    if text.ends_with('\n') {
+        result.push('\n');
+    }
+
+    Ok(result)
 }
 
 /// Finds a code block that starts at the given line
