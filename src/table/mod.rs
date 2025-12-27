@@ -9,6 +9,45 @@ use parser::{
     parse_table_row,
 };
 
+/// Creates a new empty markdown table with the specified dimensions
+pub fn create_table(rows: usize, cols: usize) -> String {
+    if rows == 0 || cols == 0 {
+        return String::new();
+    }
+
+    let mut table_rows = Vec::new();
+
+    // Create header row (empty)
+    let header: Vec<String> = vec![String::new(); cols];
+    table_rows.push(header);
+
+    // Create separator row (not counted in the row count)
+    let separator: Vec<String> = vec!["---".to_string(); cols];
+    table_rows.push(separator);
+
+    // Create data rows
+    for _ in 0..rows {
+        let row: Vec<String> = vec![String::new(); cols];
+        table_rows.push(row);
+    }
+
+    // Calculate column widths
+    let mut col_widths = vec![0; cols];
+    for row in &table_rows {
+        for (col_idx, cell) in row.iter().enumerate() {
+            col_widths[col_idx] = col_widths[col_idx].max(cell.len());
+        }
+    }
+
+    // Format each row
+    let formatted_rows: Vec<String> = table_rows
+        .iter()
+        .map(|row| format_table_row(row, &col_widths))
+        .collect();
+
+    formatted_rows.join("\n")
+}
+
 /// Formats markdown tables in the input text and returns the full text with aligned tables
 pub fn format_tables(text: &str) -> String {
     let lines: Vec<&str> = text.lines().collect();

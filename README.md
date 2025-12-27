@@ -5,6 +5,33 @@ A Rust CLI tool for markdown processing with multiple subcommands.
 
 ## Usage
 
+### Creating New Tables
+
+The `new` subcommand creates a new empty markdown table with the specified dimensions and outputs it to STDOUT.
+
+**Create a table with specified rows and columns:**
+```bash
+./result/bin/md new table:3:2
+```
+
+This creates a table with 3 rows and 2 columns. The format is `table:R:C` where R is the number of rows and C is the number of columns.
+
+**Example:**
+
+```bash
+./result/bin/md new table:2:3
+```
+
+Output:
+```markdown
+|     |     |     |
+| --- | --- | --- |
+|     |     |     |
+|     |     |     |
+```
+
+All cells are empty and ready to be filled in.
+
 ### Table Formatting
 
 The `table` subcommand reads markdown from STDIN, formats and aligns any markdown tables it finds, and outputs the entire document to STDOUT with nicely formatted tables.
