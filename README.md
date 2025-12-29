@@ -151,12 +151,12 @@ The `code` subcommand allows you to execute code blocks in markdown files and au
 
 Code blocks are marked with HTML comments using the `<!-- md-code: -->` marker immediately after the code fence.
 
-```markdown
+~~~markdown
 ```python
 print("Hello, world!")
-\```
-<!-- md-code: id="hello"; execute; bin="python3" -->
 ```
+<!-- md-code: id="hello"; execute; bin="python3" -->
+~~~
 
 **Directive parameters:**
 - `id="unique-id"` (required) - Unique identifier for the code block
@@ -167,60 +167,60 @@ print("Hello, world!")
 **Example - Python code execution:**
 
 Input:
-```markdown
+~~~markdown
 ```python
 x = 10
 y = 20
 print(f"The sum is {x + y}")
-\```
-<!-- md-code: id="sum"; execute; bin="python3" -->
 ```
+<!-- md-code: id="sum"; execute; bin="python3" -->
+~~~
 
 Output:
-```markdown
+~~~markdown
 ```python
 x = 10
 y = 20
 print(f"The sum is {x + y}")
-\```
+```
 <!-- md-code: id="sum"; execute; bin="python3" -->
 
 Output:
-\```
+```
 The sum is 30
-\```
-<!-- md-code-output: id="sum" -->
 ```
+<!-- md-code-output: id="sum" -->
+~~~
 
 **Example - With custom timeout:**
 
-```markdown
+~~~markdown
 ```python
 import time
 time.sleep(2)
 print("Done!")
-\```
-<!-- md-code: id="slow"; execute; bin="python3"; timeout=5 -->
 ```
+<!-- md-code: id="slow"; execute; bin="python3"; timeout=5 -->
+~~~
 
 **Example - Bash script:**
 
-```markdown
+~~~markdown
 ```bash
 echo "Current directory: $(pwd)"
 ls -la | head -5
-\```
-<!-- md-code: id="pwd"; execute; bin="bash" -->
 ```
+<!-- md-code: id="pwd"; execute; bin="bash" -->
+~~~
 
 **Example - Command with arguments:**
 
-```markdown
+~~~markdown
 ```python
 print("unbuffered output")
-\```
-<!-- md-code: id="unbuf"; execute; bin="python3 -u" -->
 ```
+<!-- md-code: id="unbuf"; execute; bin="python3 -u" -->
+~~~
 
 **Output block management:**
 - Output blocks are automatically created after code blocks when they produce output
@@ -232,17 +232,17 @@ print("unbuffered output")
 
 You can have multiple code blocks in the same document, each with unique IDs:
 
-```markdown
+~~~markdown
 ```python
 print("First block")
-\```
+```
 <!-- md-code: id="first"; execute; bin="python3" -->
 
 ```python
 print("Second block")
-\```
-<!-- md-code: id="second"; execute; bin="python3" -->
 ```
+<!-- md-code: id="second"; execute; bin="python3" -->
+~~~
 
 **Important notes:**
 - Each code block must have a unique `id`
