@@ -154,7 +154,7 @@ Code blocks are marked with HTML comments using the `<!-- md-code: -->` marker i
 ```markdown
 ```python
 print("Hello, world!")
-```
+\```
 <!-- md-code: id="hello"; execute; bin="python3" -->
 ```
 
@@ -172,7 +172,7 @@ Input:
 x = 10
 y = 20
 print(f"The sum is {x + y}")
-```
+\```
 <!-- md-code: id="sum"; execute; bin="python3" -->
 ```
 
@@ -182,13 +182,13 @@ Output:
 x = 10
 y = 20
 print(f"The sum is {x + y}")
-```
+\```
 <!-- md-code: id="sum"; execute; bin="python3" -->
 
 Output:
-```
+\```
 The sum is 30
-```
+\```
 <!-- md-code-output: id="sum" -->
 ```
 
@@ -199,7 +199,7 @@ The sum is 30
 import time
 time.sleep(2)
 print("Done!")
-```
+\```
 <!-- md-code: id="slow"; execute; bin="python3"; timeout=5 -->
 ```
 
@@ -209,7 +209,7 @@ print("Done!")
 ```bash
 echo "Current directory: $(pwd)"
 ls -la | head -5
-```
+\```
 <!-- md-code: id="pwd"; execute; bin="bash" -->
 ```
 
@@ -218,7 +218,7 @@ ls -la | head -5
 ```markdown
 ```python
 print("unbuffered output")
-```
+\```
 <!-- md-code: id="unbuf"; execute; bin="python3 -u" -->
 ```
 
@@ -235,12 +235,12 @@ You can have multiple code blocks in the same document, each with unique IDs:
 ```markdown
 ```python
 print("First block")
-```
+\```
 <!-- md-code: id="first"; execute; bin="python3" -->
 
 ```python
 print("Second block")
-```
+\```
 <!-- md-code: id="second"; execute; bin="python3" -->
 ```
 
