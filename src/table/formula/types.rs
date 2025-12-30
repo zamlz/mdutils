@@ -107,6 +107,20 @@ pub(crate) enum CellReference {
     Scalar { row: usize, col: usize },  // A1, B2, etc.
     ColumnVector { col: usize },         // A_, B_, etc.
     RowVector { row: usize },            // _1, _2, etc.
+    Range {
+        start_row: usize,
+        start_col: usize,
+        end_row: usize,
+        end_col: usize
+    },  // A1:C5, B2:B10, etc.
+    ColumnRange {
+        start_col: usize,
+        end_col: usize
+    },  // A_:C_ (all rows, columns A through C)
+    RowRange {
+        start_row: usize,
+        end_row: usize
+    },  // _1:_5 (all columns, rows 1 through 5)
 }
 
 /// Represents the left side of a formula assignment

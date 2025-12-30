@@ -1231,4 +1231,511 @@ mod tests {
         assert_eq!(rows[2][5], "3");      // count
         assert_eq!(rows[3][2], "15000");  // prod
     }
+
+    // ========== Cell Range Tests ==========
+
+    #[test]
+    fn test_range_single_column() {
+        // A1:A3 should create a 3x1 column vector
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string()],
+            vec!["---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "0".to_string()],
+            vec!["2".to_string(), "0".to_string()],
+            vec!["3".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["B1 = sum(A1:A3)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][1], "6");  // 1 + 2 + 3 = 6
+    }
+
+    #[test]
+    fn test_range_single_row() {
+        // A1:C1 should create a 1x3 row vector
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string(), "Result".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["5".to_string(), "10".to_string(), "15".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["D1 = sum(A1:C1)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][3], "30");  // 5 + 10 + 15 = 30
+    }
+
+    #[test]
+    fn test_range_matrix() {
+        // A1:C2 should create a 2x3 matrix
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string(), "Result".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "3".to_string(), "0".to_string()],
+            vec!["4".to_string(), "5".to_string(), "6".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["D1 = sum(A1:C2)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][3], "21");  // 1+2+3+4+5+6 = 21
+    }
+
+    #[test]
+    fn test_range_single_cell() {
+        // A1:A1 should return a scalar (1x1 matrix converted to scalar)
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string()],
+            vec!["---".to_string(), "---".to_string()],
+            vec!["42".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["B1 = A1:A1".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][1], "42");
+    }
+
+    #[test]
+    fn test_range_with_operations() {
+        // Test ranges in arithmetic operations
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "10".to_string(), "0".to_string()],
+            vec!["2".to_string(), "20".to_string(), "0".to_string()],
+            vec!["3".to_string(), "30".to_string(), "0".to_string()],
+        ];
+
+        // C1 = sum(A1:A3 + B1:B3) should be sum([11, 22, 33]) = 66
+        let formulas = vec!["C1 = sum(A1:A3 + B1:B3)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][2], "66");
+    }
+
+    #[test]
+    fn test_range_with_scalar_multiplication() {
+        // Test range with scalar multiplication
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string()],
+            vec!["---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "0".to_string()],
+            vec!["2".to_string(), "0".to_string()],
+            vec!["3".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["B1 = sum(A1:A3 * 2)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][1], "12");  // (1+2+3) * 2 = 12
+    }
+
+    #[test]
+    fn test_range_all_functions() {
+        // Test all functions with ranges
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string(), "D".to_string(), "E".to_string(), "F".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string(), "---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["10".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
+            vec!["20".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
+            vec!["30".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec![
+            "B1 = sum(A1:A3)".to_string(),    // 10+20+30 = 60
+            "C1 = avg(A1:A3)".to_string(),    // 60/3 = 20
+            "D1 = min(A1:A3)".to_string(),    // 10
+            "E1 = max(A1:A3)".to_string(),    // 30
+            "F1 = count(A1:A3)".to_string(),  // 3
+        ];
+
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][1], "60");  // sum
+        assert_eq!(rows[2][2], "20");  // avg
+        assert_eq!(rows[2][3], "10");  // min
+        assert_eq!(rows[2][4], "30");  // max
+        assert_eq!(rows[2][5], "3");   // count
+    }
+
+    #[test]
+    fn test_range_matrix_multiplication() {
+        // Test matrix multiplication with ranges
+        // [1, 2, 3] @ [4; 5; 6] = 1*4 + 2*5 + 3*6 = 32
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string()],
+            vec!["---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "4".to_string()],
+            vec!["2".to_string(), "5".to_string()],
+            vec!["3".to_string(), "6".to_string()],
+        ];
+
+        // A1:A3 is a 3x1 column vector, need to transpose it to 1x3
+        // B1:B3 is a 3x1 column vector
+        let formulas = vec!["A1 = A1:A3.T @ B1:B3".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][0], "32");
+    }
+
+    #[test]
+    fn test_range_prod_function() {
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string()],
+            vec!["---".to_string(), "---".to_string()],
+            vec!["2".to_string(), "0".to_string()],
+            vec!["3".to_string(), "0".to_string()],
+            vec!["4".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["B1 = prod(A1:A3)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][1], "24");  // 2 * 3 * 4 = 24
+    }
+
+    #[test]
+    fn test_range_rectangular_matrix() {
+        // Test a rectangular 3x2 matrix
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "0".to_string()],
+            vec!["3".to_string(), "4".to_string(), "0".to_string()],
+            vec!["5".to_string(), "6".to_string(), "0".to_string()],
+        ];
+
+        // A1:B3 is a 3x2 matrix, sum should be 1+2+3+4+5+6 = 21
+        let formulas = vec!["C1 = sum(A1:B3)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][2], "21");
+    }
+
+    #[test]
+    fn test_range_with_empty_cells() {
+        // Test ranges with empty cells (should be treated as 0)
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string()],
+            vec!["---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "0".to_string()],
+            vec!["".to_string(), "0".to_string()],  // empty
+            vec!["3".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["B1 = sum(A1:A3)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][1], "4");  // 1 + 0 + 3 = 4
+    }
+
+    // ========== Vector Range Tests (A_:C_, _1:_5) ==========
+
+    #[test]
+    fn test_column_range_basic() {
+        // A_:C_ should extract all rows for columns A through C
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string(), "Sum".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "3".to_string(), "0".to_string()],
+            vec!["4".to_string(), "5".to_string(), "6".to_string(), "0".to_string()],
+            vec!["7".to_string(), "8".to_string(), "9".to_string(), "0".to_string()],
+        ];
+
+        // Sum of A_:C_ should be 1+2+3+4+5+6+7+8+9 = 45
+        let formulas = vec!["D1 = sum(A_:C_)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][3], "45");
+    }
+
+    #[test]
+    fn test_column_range_single() {
+        // A_:A_ should be equivalent to A_
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string()],
+            vec!["---".to_string(), "---".to_string()],
+            vec!["10".to_string(), "0".to_string()],
+            vec!["20".to_string(), "0".to_string()],
+            vec!["30".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["B1 = sum(A_:A_)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][1], "60");  // 10+20+30
+    }
+
+    #[test]
+    fn test_column_range_with_operations() {
+        // Test arithmetic operations on column ranges
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "Result".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "10".to_string(), "0".to_string()],
+            vec!["2".to_string(), "20".to_string(), "0".to_string()],
+            vec!["3".to_string(), "30".to_string(), "0".to_string()],
+        ];
+
+        // Sum of (A_:B_ * 2) should be (1+10+2+20+3+30)*2 = 132
+        let formulas = vec!["C1 = sum(A_:B_ * 2)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][2], "132");
+    }
+
+    #[test]
+    fn test_column_range_all_functions() {
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "S".to_string(), "Av".to_string(), "Mn".to_string(), "Mx".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string(), "---".to_string(), "---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["10".to_string(), "20".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
+            vec!["30".to_string(), "40".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec![
+            "C1 = sum(A_:B_)".to_string(),    // 10+20+30+40 = 100
+            "D1 = avg(A_:B_)".to_string(),    // 100/4 = 25
+            "E1 = min(A_:B_)".to_string(),    // 10
+            "F1 = max(A_:B_)".to_string(),    // 40
+            "G1 = count(A_:B_)".to_string(),  // 4
+        ];
+
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][2], "100");  // sum
+        assert_eq!(rows[2][3], "25");   // avg
+        assert_eq!(rows[2][4], "10");   // min
+        assert_eq!(rows[2][5], "40");   // max
+        assert_eq!(rows[2][6], "4");    // count
+    }
+
+    #[test]
+    fn test_row_range_basic() {
+        // _1:_3 should extract rows 1 through 3, all columns
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "3".to_string()],
+            vec!["4".to_string(), "5".to_string(), "6".to_string()],
+            vec!["7".to_string(), "8".to_string(), "9".to_string()],
+            vec!["0".to_string(), "0".to_string(), "0".to_string()],
+        ];
+
+        // Sum of _1:_3 should be 1+2+3+4+5+6+7+8+9 = 45
+        let formulas = vec!["A4 = sum(_1:_3)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[5][0], "45");
+    }
+
+    #[test]
+    fn test_row_range_single() {
+        // _1:_1 should be equivalent to _1
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["5".to_string(), "10".to_string(), "15".to_string()],
+            vec!["0".to_string(), "0".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["A2 = sum(_1:_1)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[3][0], "30");  // 5+10+15
+    }
+
+    #[test]
+    fn test_row_range_with_operations() {
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "3".to_string()],
+            vec!["4".to_string(), "5".to_string(), "6".to_string()],
+            vec!["0".to_string(), "0".to_string(), "0".to_string()],
+        ];
+
+        // Sum of (_1:_2 * 3) should be (1+2+3+4+5+6)*3 = 63
+        let formulas = vec!["A3 = sum(_1:_2 * 3)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[4][0], "63");
+    }
+
+    #[test]
+    fn test_row_range_all_functions() {
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string()],
+            vec!["---".to_string(), "---".to_string()],
+            vec!["10".to_string(), "20".to_string()],
+            vec!["30".to_string(), "40".to_string()],
+            vec!["0".to_string(), "0".to_string()],
+            vec!["0".to_string(), "0".to_string()],
+            vec!["0".to_string(), "0".to_string()],
+            vec!["0".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec![
+            "A3 = sum(_1:_2)".to_string(),    // 10+20+30+40 = 100
+            "B3 = avg(_1:_2)".to_string(),    // 100/4 = 25
+            "A4 = min(_1:_2)".to_string(),    // 10
+            "B4 = max(_1:_2)".to_string(),    // 40
+            "A5 = count(_1:_2)".to_string(),  // 4
+        ];
+
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[4][0], "100");  // sum
+        assert_eq!(rows[4][1], "25");   // avg
+        assert_eq!(rows[5][0], "10");   // min
+        assert_eq!(rows[5][1], "40");   // max
+        assert_eq!(rows[6][0], "4");    // count
+    }
+
+    #[test]
+    fn test_mixed_range_types_error() {
+        // A_:_5 should produce an error
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string()],
+            vec!["---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["B1 = sum(A_:_5)".to_string()];
+        let errors = apply_formulas(&mut rows, &formulas);
+
+        // Should have an error
+        assert!(errors.iter().any(|e| e.is_some()));
+    }
+
+    #[test]
+    fn test_column_range_equivalence_to_individual_columns() {
+        // A_:B_ should give same result as combining A_ and B_
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "R1".to_string(), "R2".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "0".to_string(), "0".to_string()],
+            vec!["3".to_string(), "4".to_string(), "0".to_string(), "0".to_string()],
+            vec!["5".to_string(), "6".to_string(), "0".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec![
+            "C1 = sum(A_:B_)".to_string(),
+            "D1 = sum(A_) + sum(B_)".to_string(),
+        ];
+
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        // Both should give the same result
+        assert_eq!(rows[2][2], rows[2][3]);
+        assert_eq!(rows[2][2], "21");  // 1+2+3+4+5+6
+    }
+
+    #[test]
+    fn test_row_range_equivalence_to_individual_rows() {
+        // _1:_2 should give same result as combining _1 and _2
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "3".to_string()],
+            vec!["4".to_string(), "5".to_string(), "6".to_string()],
+            vec!["0".to_string(), "0".to_string(), "0".to_string()],
+            vec!["0".to_string(), "0".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec![
+            "A3 = sum(_1:_2)".to_string(),
+            "B3 = sum(_1) + sum(_2)".to_string(),
+        ];
+
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        // Both should give the same result
+        assert_eq!(rows[4][0], rows[4][1]);
+        assert_eq!(rows[4][0], "21");  // 1+2+3+4+5+6
+    }
+
+    #[test]
+    fn test_column_range_matrix_shape() {
+        // Verify that A_:C_ creates the correct matrix dimensions
+        use evaluator::eval_ast;
+        use ast::Parser;
+        use tokenizer::tokenize_expression;
+
+        let rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "3".to_string()],
+            vec!["4".to_string(), "5".to_string(), "6".to_string()],
+        ];
+
+        let tokens = tokenize_expression("A_:C_");
+        let mut parser = Parser::new(tokens);
+        let expr = parser.parse().unwrap();
+        let result = eval_ast(&expr, &rows).unwrap();
+
+        // Should be a 2x3 matrix (2 data rows, 3 columns)
+        match result {
+            Value::Matrix { rows: r, cols: c, data } => {
+                assert_eq!(r, 2);
+                assert_eq!(c, 3);
+                assert_eq!(data.len(), 6);
+            }
+            _ => panic!("Expected Matrix, got {:?}", result),
+        }
+    }
+
+    #[test]
+    fn test_row_range_matrix_shape() {
+        // Verify that _1:_2 creates the correct matrix dimensions
+        use evaluator::eval_ast;
+        use ast::Parser;
+        use tokenizer::tokenize_expression;
+
+        let rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "3".to_string()],
+            vec!["4".to_string(), "5".to_string(), "6".to_string()],
+        ];
+
+        let tokens = tokenize_expression("_1:_2");
+        let mut parser = Parser::new(tokens);
+        let expr = parser.parse().unwrap();
+        let result = eval_ast(&expr, &rows).unwrap();
+
+        // Should be a 2x3 matrix (2 rows, 3 columns)
+        match result {
+            Value::Matrix { rows: r, cols: c, data } => {
+                assert_eq!(r, 2);
+                assert_eq!(c, 3);
+                assert_eq!(data.len(), 6);
+            }
+            _ => panic!("Expected Matrix, got {:?}", result),
+        }
+    }
 }
+

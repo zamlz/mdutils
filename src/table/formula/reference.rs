@@ -209,5 +209,160 @@ pub(crate) fn resolve_reference(cell_ref: &CellReference, rows: &[Vec<String>]) 
             }
             Ok(Value::row_vector(data))
         }
+        CellReference::Range { start_row, start_col, end_row, end_col } => {
+            // Extract a submatrix from the table
+            // Validate bounds
+            if *end_row >= rows.len() {
+                let start_col_letter = col_index_to_letter(*start_col);
+                let end_col_letter = col_index_to_letter(*end_col);
+                return Err(FormulaError::cell_out_of_bounds(
+                    format!("{}{}:{}{}", start_col_letter, start_row + 1, end_col_letter, end_row + 1),
+                    format!("end row {} does not exist (table has {} rows)", end_row + 1, rows.len()),
+                ));
+            }
+
+            // Check if columns exist in all rows of the range
+            for row_idx in *start_row..=*end_row {
+                if *end_col >= rows[row_idx].len() {
+                    let start_col_letter = col_index_to_letter(*start_col);
+                    let end_col_letter = col_index_to_letter(*end_col);
+                    return Err(FormulaError::cell_out_of_bounds(
+                        format!("{}{}:{}{}", start_col_letter, start_row + 1, end_col_letter, end_row + 1),
+                        format!("column {} does not exist in row {} (row has {} columns)",
+                            end_col_letter, row_idx + 1, rows[row_idx].len()),
+                    ));
+                }
+            }
+
+            // Extract the submatrix
+            let num_rows = end_row - start_row + 1;
+            let num_cols = end_col - start_col + 1;
+            let mut data = Vec::with_capacity(num_rows * num_cols);
+
+            for row_idx in *start_row..=*end_row {
+                for col_idx in *start_col..=*end_col {
+                    let cell_value = &rows[row_idx][col_idx];
+                    if let Ok(decimal) = Decimal::from_str(cell_value) {
+                        data.push(decimal);
+                    } else {
+                        // Empty or non-numeric cells are treated as 0
+                        data.push(Decimal::ZERO);
+                    }
+                }
+            }
+
+            // Special case: if it's a 1x1 range, return a scalar
+            if num_rows == 1 && num_cols == 1 {
+                Ok(Value::Scalar(data[0]))
+            } else {
+                Ok(Value::Matrix {
+                    rows: num_rows,
+                    cols: num_cols,
+                    data,
+                })
+            }
+        }
+        CellReference::ColumnRange { start_col, end_col } => {
+            // Extract multiple columns (A_:C_) as a matrix
+            // All data rows, columns start_col through end_col
+
+            // Check if table has data rows
+            if rows.len() <= FIRST_DATA_ROW_INDEX {
+                let start_col_letter = col_index_to_letter(*start_col);
+                let end_col_letter = col_index_to_letter(*end_col);
+                return Err(FormulaError::column_out_of_bounds(
+                    format!("{}_:{}_", start_col_letter, end_col_letter),
+                    format!("table has no data rows (only {} rows total)", rows.len()),
+                ));
+            }
+
+            // Validate columns exist
+            if *end_col >= rows[FIRST_DATA_ROW_INDEX].len() {
+                let start_col_letter = col_index_to_letter(*start_col);
+                let end_col_letter = col_index_to_letter(*end_col);
+                return Err(FormulaError::column_out_of_bounds(
+                    format!("{}_:{}_", start_col_letter, end_col_letter),
+                    format!("column {} does not exist (table has {} columns)",
+                        end_col_letter, rows[FIRST_DATA_ROW_INDEX].len()),
+                ));
+            }
+
+            // Extract the data
+            let num_rows = rows.len() - FIRST_DATA_ROW_INDEX;
+            let num_cols = end_col - start_col + 1;
+            let mut data = Vec::with_capacity(num_rows * num_cols);
+
+            for row in rows.iter().skip(FIRST_DATA_ROW_INDEX) {
+                for col_idx in *start_col..=*end_col {
+                    if col_idx < row.len() {
+                        let cell_value = &row[col_idx];
+                        if let Ok(decimal) = Decimal::from_str(cell_value) {
+                            data.push(decimal);
+                        } else {
+                            data.push(Decimal::ZERO);
+                        }
+                    } else {
+                        data.push(Decimal::ZERO);
+                    }
+                }
+            }
+
+            // Special case: single column range is equivalent to a column vector
+            if num_cols == 1 {
+                Ok(Value::column_vector(data))
+            } else {
+                Ok(Value::Matrix {
+                    rows: num_rows,
+                    cols: num_cols,
+                    data,
+                })
+            }
+        }
+        CellReference::RowRange { start_row, end_row } => {
+            // Extract multiple rows (_1:_5) as a matrix
+            // Rows start_row through end_row, all columns
+
+            let start_row_idx = formula_row_to_table_index(*start_row);
+            let end_row_idx = formula_row_to_table_index(*end_row);
+
+            // Validate rows exist
+            if end_row_idx >= rows.len() {
+                return Err(FormulaError::row_out_of_bounds(
+                    *end_row,
+                    format!("row {} does not exist (table has {} rows)", end_row, rows.len()),
+                ));
+            }
+
+            // Determine number of columns (use the first row in range)
+            let num_cols = rows[start_row_idx].len();
+            let num_rows = end_row_idx - start_row_idx + 1;
+            let mut data = Vec::with_capacity(num_rows * num_cols);
+
+            for row_idx in start_row_idx..=end_row_idx {
+                for col_idx in 0..num_cols {
+                    if col_idx < rows[row_idx].len() {
+                        let cell_value = &rows[row_idx][col_idx];
+                        if let Ok(decimal) = Decimal::from_str(cell_value) {
+                            data.push(decimal);
+                        } else {
+                            data.push(Decimal::ZERO);
+                        }
+                    } else {
+                        data.push(Decimal::ZERO);
+                    }
+                }
+            }
+
+            // Special case: single row range is equivalent to a row vector
+            if num_rows == 1 {
+                Ok(Value::row_vector(data))
+            } else {
+                Ok(Value::Matrix {
+                    rows: num_rows,
+                    cols: num_cols,
+                    data,
+                })
+            }
+        }
     }
 }

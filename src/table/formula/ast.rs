@@ -223,10 +223,94 @@ impl Parser {
             });
         }
 
-        // Check for cell reference
+        // Check for cell reference (potentially a range)
         if let Some(cell_ref) = parse_cell_reference(&token.value) {
-            let span = token.span;
+            let mut span = token.span;
             self.pos += 1;
+
+            // Check if this is a range (A1:C5, A_:C_, _1:_5)
+            if self.pos < self.tokens.len() && self.tokens[self.pos].value == ":" {
+                self.pos += 1; // Skip ':'
+
+                // Parse the end of the range
+                if self.pos >= self.tokens.len() {
+                    return Err(FormulaError::RuntimeError(
+                        "expected cell reference after ':' in range".to_string()
+                    ));
+                }
+
+                let end_token = self.tokens[self.pos].clone();
+                if let Some(end_ref) = parse_cell_reference(&end_token.value) {
+                    span = span.merge(&end_token.span);
+                    self.pos += 1;
+
+                    // Handle different range types based on start and end reference types
+                    match (&cell_ref, &end_ref) {
+                        // Scalar range: A1:C5
+                        (CellReference::Scalar { row: start_row, col: start_col },
+                         CellReference::Scalar { row: end_row, col: end_col }) => {
+                            // Validate that start is before or equal to end
+                            if start_row > end_row || start_col > end_col {
+                                return Err(FormulaError::RuntimeError(
+                                    "invalid range: start cell must be before or equal to end cell".to_string()
+                                ));
+                            }
+
+                            let range_ref = CellReference::Range {
+                                start_row: *start_row,
+                                start_col: *start_col,
+                                end_row: *end_row,
+                                end_col: *end_col
+                            };
+                            return Ok(Expr::CellRef(range_ref, span));
+                        }
+
+                        // Column range: A_:C_
+                        (CellReference::ColumnVector { col: start_col },
+                         CellReference::ColumnVector { col: end_col }) => {
+                            if start_col > end_col {
+                                return Err(FormulaError::RuntimeError(
+                                    "invalid column range: start column must be before or equal to end column".to_string()
+                                ));
+                            }
+
+                            let range_ref = CellReference::ColumnRange {
+                                start_col: *start_col,
+                                end_col: *end_col
+                            };
+                            return Ok(Expr::CellRef(range_ref, span));
+                        }
+
+                        // Row range: _1:_5
+                        (CellReference::RowVector { row: start_row },
+                         CellReference::RowVector { row: end_row }) => {
+                            if start_row > end_row {
+                                return Err(FormulaError::RuntimeError(
+                                    "invalid row range: start row must be before or equal to end row".to_string()
+                                ));
+                            }
+
+                            let range_ref = CellReference::RowRange {
+                                start_row: *start_row,
+                                end_row: *end_row
+                            };
+                            return Ok(Expr::CellRef(range_ref, span));
+                        }
+
+                        // Mixed types are invalid
+                        _ => {
+                            return Err(FormulaError::RuntimeError(
+                                "invalid range: cannot mix different reference types (e.g., A_:_5 or A1:B_ are not allowed)".to_string()
+                            ));
+                        }
+                    }
+                } else {
+                    return Err(FormulaError::RuntimeError(
+                        format!("invalid range end: '{}' is not a valid cell reference", end_token.value)
+                    ));
+                }
+            }
+
             return Ok(Expr::CellRef(cell_ref, span));
         }
 

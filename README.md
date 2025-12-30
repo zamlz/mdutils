@@ -317,6 +317,157 @@ Result: A1 = 40 (only 10 and 30 are counted)
 - `C_ = A_ / B_` - Element-wise division
 - `C_ = A_ ^ B_` - Element-wise exponentiation
 
+### Cell Range References
+
+The formula system supports powerful range syntax for selecting rectangular regions
+of cells, making it easy to work with matrices and perform operations on multiple
+rows and columns at once.
+
+**Range Syntax Types:**
+
+1. **Scalar Ranges** (`A1:C5`) - Rectangular cell ranges
+   - Creates a matrix from the specified rectangular region
+   - Format: `START_CELL:END_CELL` (e.g., `A1:C5`, `B2:D10`)
+   - Dimensions: `(end_row - start_row + 1) × (end_col - start_col + 1)`
+
+2. **Column Ranges** (`A_:C_`) - Multiple column vectors
+   - Selects all data rows across multiple columns
+   - Format: `START_COL_:END_COL_` (e.g., `A_:C_`, `B_:E_`)
+   - Uses all rows without needing to specify the table size
+   - Creates an `n×m` matrix (n = number of data rows, m = number of columns)
+
+3. **Row Ranges** (`_1:_5`) - Multiple row vectors
+   - Selects all columns across multiple rows
+   - Format: `_START_ROW:_END_ROW` (e.g., `_1:_3`, `_2:_5`)
+   - Uses all columns without needing to specify the table width
+   - Creates an `m×n` matrix (m = number of rows, n = number of columns)
+
+**Range Restrictions:**
+- Cannot mix different reference types: `A_:_5` is invalid
+- Start must be ≤ end for all ranges
+- Both start and end must use the same reference type
+
+**Example 1 - Scalar Range (A1:C3):**
+
+Creates a 3×3 matrix:
+
+```markdown
+| A | B | C | Sum |
+|---|---|---|-----|
+| 1 | 2 | 3 | 0   |
+| 4 | 5 | 6 | 0   |
+| 7 | 8 | 9 | 0   |
+<!-- md-table: D1 = sum(A1:C3) -->
+```
+
+Output:
+```markdown
+| A | B | C | Sum |
+|---|---|---|-----|
+| 1 | 2 | 3 | 45  |
+| 4 | 5 | 6 | 0   |
+| 7 | 8 | 9 | 0   |
+<!-- md-table: D1 = sum(A1:C3) -->
+```
+
+Result: 1+2+3+4+5+6+7+8+9 = 45
+
+**Example 2 - Column Range (A_:C_):**
+
+Selects all data rows for columns A through C:
+
+```markdown
+| A  | B  | C  | Total |
+|----|----|----|-------|
+| 10 | 20 | 30 | 0     |
+| 40 | 50 | 60 | 0     |
+| 70 | 80 | 90 | 0     |
+<!-- md-table: D1 = sum(A_:C_); D2 = avg(A_:C_); D3 = max(A_:C_) -->
+```
+
+Output:
+```markdown
+| A  | B  | C  | Total |
+|----|----|----|-------|
+| 10 | 20 | 30 | 450   |
+| 40 | 50 | 60 | 50    |
+| 70 | 80 | 90 | 90    |
+<!-- md-table: D1 = sum(A_:C_); D2 = avg(A_:C_); D3 = max(A_:C_) -->
+```
+
+**Example 3 - Row Range (_1:_3):**
+
+Selects all columns for rows 1 through 3:
+
+```markdown
+| A | B | C |
+|---|---|---|
+| 1 | 2 | 3 |
+| 4 | 5 | 6 |
+| 7 | 8 | 9 |
+| 0 | 0 | 0 |
+<!-- md-table: A4 = sum(_1:_3) -->
+```
+
+Output:
+```markdown
+| A  | B | C |
+|----|---|---|
+| 1  | 2 | 3 |
+| 4  | 5 | 6 |
+| 7  | 8 | 9 |
+| 45 | 0 | 0 |
+<!-- md-table: A4 = sum(_1:_3) -->
+```
+
+Result: 1+2+3+4+5+6+7+8+9 = 45
+
+**Example 4 - Range in Complex Expression:**
+
+Ranges work seamlessly with all operators and functions:
+
+```markdown
+| Q1 | Q2 | Q3 | Q4 | Year Total | Avg |
+|----|----|----|----|-----------| --- |
+| 100| 150| 200| 250| 0         | 0   |
+| 80 | 120| 160| 200| 0         | 0   |
+<!-- md-table: E_ = sum(A_:D_); F_ = avg(A_:D_) -->
+```
+
+Output:
+```markdown
+| Q1  | Q2  | Q3  | Q4  | Year Total | Avg |
+|-----|-----|-----|-----|----------- | --- |
+| 100 | 150 | 200 | 250 | 700        | 175 |
+| 80  | 120 | 160 | 200 | 560        | 140 |
+<!-- md-table: E_ = sum(A_:D_); F_ = avg(A_:D_) -->
+```
+
+**Range Equivalences:**
+
+- `A_:A_` is equivalent to `A_` (single column)
+- `_1:_1` is equivalent to `_1` (single row)
+- `A1:A3` is a 3×1 column vector
+- `A1:C1` is a 1×3 row vector
+- `A1:A1` is a scalar (1×1 matrix automatically converted)
+
+**Using Ranges with All Functions:**
+
+All aggregate functions work with ranges:
+- `sum(A1:C3)` - Sum of all cells in range
+- `avg(A_:D_)` - Average across multiple columns
+- `max(_1:_5)` - Maximum across multiple rows
+- `min(A1:C3 * 2)` - Minimum of doubled values in range
+- `count(A_:C_)` - Total number of cells in column range
+- `prod(A1:A3)` - Product of cells in range
+
+**Performance Note:**
+
+Column ranges (`A_:C_`) and row ranges (`_1:_5`) are especially useful
+when working with dynamic tables where the number of rows or columns may
+change. They automatically adapt to the table size without requiring
+formula updates.
+
 ### Matrix Multiplication and Transpose Operator
 
 The formula system supports matrix multiplication using the `@` operator,

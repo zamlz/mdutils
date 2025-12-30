@@ -34,6 +34,7 @@ impl Token {
 /// **Operators** are split into individual tokens:
 /// - Arithmetic: `+`, `-`, `*`, `/`, `^` (exponentiation)
 /// - Matrix operations: `@` (matrix multiplication)
+/// - Range: `:` (cell range operator, e.g., A1:C5)
 /// - Each operator becomes a single-character token
 ///
 /// **Parentheses** are split into individual tokens:
@@ -70,7 +71,7 @@ pub(crate) fn tokenize_expression(expr: &str) -> Vec<Token> {
         let ch = chars[i];
 
         match ch {
-            '+' | '-' | '*' | '/' | '^' | '@' | '(' | ')' => {
+            '+' | '-' | '*' | '/' | '^' | '@' | '(' | ')' | ':' => {
                 if !current_token.is_empty() {
                     let trimmed = current_token.trim();
                     if !trimmed.is_empty() {
