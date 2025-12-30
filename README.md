@@ -1,5 +1,5 @@
-Markdown Utils (Name Pending)
-=============================
+Markdown Utils
+==============
 
 A Rust CLI tool for markdown processing with multiple subcommands. This
 is heavily based on some of the useful features I used when I used to
