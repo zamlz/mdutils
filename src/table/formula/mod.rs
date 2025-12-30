@@ -64,9 +64,10 @@ mod tokenizer;
 pub use types::Span;
 
 // Internal imports
-use types::{Value, Assignment};
+use types::{Value, Assignment, Statement};
 use crate::table::error::FormulaError;
 use types::{FIRST_DATA_ROW_INDEX, formula_row_to_table_index};
+use std::collections::HashMap;
 use ast::Parser;
 use tokenizer::tokenize_expression;
 
@@ -203,21 +204,54 @@ pub fn apply_formulas_with_tables(
     table_map: &std::collections::HashMap<String, Vec<Vec<String>>>
 ) -> Vec<Option<String>> {
     let mut errors = Vec::new();
+    let mut variable_map: HashMap<String, Value> = HashMap::new();
 
     for formula in formulas {
         let formula_trimmed = formula.trim();
 
-        // Try to parse the formula
-        let (assignment, expr) = match parse_formula(formula_trimmed) {
+        // Try to parse the statement (let or assignment)
+        let (statement, expr) = match parse_statement(formula_trimmed) {
             Some(parsed) => parsed,
             None => {
-                errors.push(Some(format!("Failed to parse formula '{}': invalid syntax (expected format: TARGET = EXPRESSION)", formula_trimmed)));
+                errors.push(Some(format!("Failed to parse statement '{}': invalid syntax (expected format: 'let VAR = EXPRESSION' or 'TARGET = EXPRESSION')", formula_trimmed)));
                 continue;
             }
         };
 
-        // Try to evaluate the expression (with table_map for from() support)
-        let value = match evaluate_expression_value_with_tables(&expr, rows, table_map) {
+        // Handle let statements - evaluate and store in variable map
+        if let Statement::Let { name, span: _ } = &statement {
+            // Try to evaluate the expression
+            let value = match evaluate_expression_value_with_tables(&expr, rows, table_map, &variable_map) {
+                Ok(v) => v,
+                Err(error) => {
+                    // Try to extract span information for better error messages
+                    let error_msg = match extract_error_span(&expr, &error) {
+                        Some(span) => {
+                            format!("Failed to evaluate expression for variable '{}': \n{}", name, error.with_context(&expr, span))
+                        }
+                        None => {
+                            format!("Failed to evaluate expression for variable '{}': {}", name, error)
+                        }
+                    };
+                    errors.push(Some(error_msg));
+                    continue;
+                }
+            };
+
+            // Store the variable
+            variable_map.insert(name.clone(), value);
+            errors.push(None); // Success
+            continue;
+        }
+
+        // Handle assignment statements - evaluate and apply to cells
+        let assignment = match statement {
+            Statement::Assignment(a) => a,
+            _ => unreachable!("Already handled Let statements above"),
+        };
+
+        // Try to evaluate the expression (with table_map and variable_map)
+        let value = match evaluate_expression_value_with_tables(&expr, rows, table_map, &variable_map) {
             Ok(v) => v,
             Err(error) => {
                 // Try to extract span information by re-parsing for better error messages
@@ -437,6 +471,56 @@ fn parse_formula(formula: &str) -> Option<(Assignment, String)> {
     }
 }
 
+/// Check if a variable name looks like a cell reference
+/// Disallows: A1, B2, A_, B_, _1, _2, etc.
+fn is_cell_reference_like(name: &str) -> bool {
+    use crate::table::formula::reference::parse_cell_reference;
+    // Try to parse as a cell reference - if it succeeds, it's not a valid variable name
+    parse_cell_reference(name).is_some()
+}
+
+/// Parse a statement (either `let variable = expression` or `target = expression`)
+fn parse_statement(formula: &str) -> Option<(Statement, String)> {
+    let formula = formula.trim();
+
+    // Check if this is a let statement
+    if formula.starts_with("let ") {
+        // Parse: let variable = expression
+        let rest = formula[4..].trim(); // Skip "let "
+        let parts: Vec<&str> = rest.splitn(2, '=').collect();
+
+        if parts.len() != 2 {
+            return None; // Invalid let syntax
+        }
+
+        let var_name = parts[0].trim().to_string();
+        let expr = parts[1].trim().to_string();
+
+        // Validate variable name
+        if var_name.is_empty() {
+            return None;
+        }
+
+        // Check if the variable name looks like a cell reference
+        if is_cell_reference_like(&var_name) {
+            return None; // Disallow names that look like cell references
+        }
+
+        // Create a Let statement
+        let span = Span::new(0, formula.len()); // Full formula span
+        Some((Statement::let_statement(var_name, span), expr))
+    } else {
+        // Parse as a regular assignment: target = expression
+        let parts: Vec<&str> = formula.split('=').collect();
+        if parts.len() == 2 {
+            let assignment = parse_assignment(parts[0])?;
+            Some((Statement::assignment(assignment), parts[1].trim().to_string()))
+        } else {
+            None
+        }
+    }
+}
+
 /// Attempts to extract span information from an error by analyzing the error type.
 /// This allows us to provide visual position indicators even when the error doesn't
 /// carry span information through the entire call chain.
@@ -544,7 +628,8 @@ fn extract_error_span(expr: &str, error: &FormulaError) -> Option<Span> {
 fn evaluate_expression_value_with_tables(
     expr: &str,
     rows: &Vec<Vec<String>>,
-    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>
+    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>,
+    variable_map: &HashMap<String, Value>
 ) -> Result<Value, FormulaError> {
     // Step 1: Tokenize the expression
     let tokens = tokenize_expression(expr);
@@ -553,14 +638,14 @@ fn evaluate_expression_value_with_tables(
     let mut parser = Parser::new(tokens);
     let ast = parser.parse()?;
 
-    // Step 3: Evaluate the AST with table_map support
-    evaluator::eval_ast_with_tables(&ast, rows, table_map)
+    // Step 3: Evaluate the AST with table_map and variable_map support
+    evaluator::eval_ast_with_tables(&ast, rows, table_map, variable_map)
 }
 
 /// Evaluate an expression (backwards compatibility, no cross-table refs)
 fn evaluate_expression_value(expr: &str, rows: &Vec<Vec<String>>) -> Result<Value, FormulaError> {
     use std::collections::HashMap;
-    evaluate_expression_value_with_tables(expr, rows, &HashMap::new())
+    evaluate_expression_value_with_tables(expr, rows, &HashMap::new(), &HashMap::new())
 }
 
 /// Backwards-compatible apply_formulas (no cross-table refs)
@@ -1938,6 +2023,173 @@ mod tests {
             }
             _ => panic!("Expected Matrix, got {:?}", result),
         }
+    }
+
+    // Tests for let statements and variables
+
+    #[test]
+    fn test_parse_let_statement() {
+        // Valid let statement with scalar
+        assert_eq!(
+            parse_statement("let x = 5"),
+            Some((Statement::Let { name: "x".to_string(), span: Span::new(0, 9) }, "5".to_string()))
+        );
+
+        // Valid let statement with expression
+        assert_eq!(
+            parse_statement("let result = A1 + B1"),
+            Some((Statement::Let { name: "result".to_string(), span: Span::new(0, 20) }, "A1 + B1".to_string()))
+        );
+
+        // Valid let statement with vector
+        assert_eq!(
+            parse_statement("let col = A_"),
+            Some((Statement::Let { name: "col".to_string(), span: Span::new(0, 12) }, "A_".to_string()))
+        );
+    }
+
+    #[test]
+    fn test_parse_let_statement_invalid() {
+        // Cell reference-like names should be rejected
+        assert_eq!(parse_statement("let A1 = 5"), None);
+        assert_eq!(parse_statement("let B_ = A_"), None);
+        assert_eq!(parse_statement("let _2 = 10"), None);
+
+        // No equals sign
+        assert_eq!(parse_statement("let x"), None);
+
+        // Empty variable name
+        assert_eq!(parse_statement("let = 5"), None);
+    }
+
+    #[test]
+    fn test_let_statement_basic() {
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["5".to_string(), "10".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec![
+            "let x = 15".to_string(),
+            "C1 = x".to_string(),
+        ];
+
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert_eq!(errors, vec![None, None]);
+        assert_eq!(rows[2][2], "15");
+    }
+
+    #[test]
+    fn test_let_statement_with_expression() {
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["5".to_string(), "10".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec![
+            "let sum = A1 + B1".to_string(),
+            "C1 = sum".to_string(),
+        ];
+
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert_eq!(errors, vec![None, None]);
+        assert_eq!(rows[2][2], "15");
+    }
+
+    #[test]
+    fn test_let_statement_with_vector() {
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "0".to_string()],
+            vec!["3".to_string(), "4".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec![
+            "let col_a = A_".to_string(),
+            "C_ = col_a".to_string(),
+        ];
+
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert_eq!(errors, vec![None, None]);
+        assert_eq!(rows[2][2], "1");
+        assert_eq!(rows[3][2], "3");
+    }
+
+    #[test]
+    fn test_multiple_let_statements() {
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["5".to_string(), "10".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec![
+            "let x = A1".to_string(),
+            "let y = B1".to_string(),
+            "let result = x + y".to_string(),
+            "C1 = result".to_string(),
+        ];
+
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert_eq!(errors, vec![None, None, None, None]);
+        assert_eq!(rows[2][2], "15");
+    }
+
+    #[test]
+    fn test_let_statement_error_undefined_variable() {
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["5".to_string(), "10".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec![
+            "C1 = undefined_var".to_string(),
+        ];
+
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].is_some());
+        assert!(errors[0].as_ref().unwrap().contains("undefined variable"));
+    }
+
+    #[test]
+    fn test_let_statement_error_cell_reference_like_name() {
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string()],
+            vec!["---".to_string(), "---".to_string()],
+            vec!["5".to_string(), "10".to_string()],
+        ];
+
+        let formulas = vec![
+            "let A1 = 5".to_string(),
+        ];
+
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].is_some());
+        assert!(errors[0].as_ref().unwrap().contains("Failed to parse statement"));
+    }
+
+    #[test]
+    fn test_variable_in_arithmetic() {
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["5".to_string(), "10".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec![
+            "let factor = 2".to_string(),
+            "C1 = A1 * factor + B1".to_string(),
+        ];
+
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert_eq!(errors, vec![None, None]);
+        assert_eq!(rows[2][2], "20"); // (5 * 2) + 10 = 20
     }
 }
 

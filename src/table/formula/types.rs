@@ -144,3 +144,27 @@ pub(crate) enum Assignment {
         end_row: usize
     },  // _1:_5 = ...
 }
+
+/// Represents a statement in a formula - either a variable definition or an assignment
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Statement {
+    /// Variable definition: let x = expression
+    Let {
+        name: String,
+        span: Span,
+    },
+    /// Cell assignment: A1 = expression
+    Assignment(Assignment),
+}
+
+impl Statement {
+    /// Creates a Let statement
+    pub(crate) fn let_statement(name: String, span: Span) -> Self {
+        Statement::Let { name, span }
+    }
+
+    /// Creates an Assignment statement
+    pub(crate) fn assignment(assignment: Assignment) -> Self {
+        Statement::Assignment(assignment)
+    }
+}

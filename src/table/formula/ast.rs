@@ -16,6 +16,9 @@ pub(crate) enum Expr {
     /// A cell reference (scalar, column vector, or row vector)
     CellRef(CellReference, Span),
 
+    /// A variable reference (e.g., x, myvar)
+    Variable(String, Span),
+
     /// Binary operation (e.g., A + B, A * B, A @ B)
     BinaryOp {
         left: Box<Expr>,
@@ -42,6 +45,7 @@ impl Expr {
             Expr::Literal(_, s) => *s,
             Expr::String(_, s) => *s,
             Expr::CellRef(_, s) => *s,
+            Expr::Variable(_, s) => *s,
             Expr::BinaryOp { span, .. } => *span,
             Expr::Transpose(_, s) => *s,
             Expr::FunctionCall { span, .. } => *span,
@@ -348,8 +352,11 @@ impl Parser {
             return Ok(Expr::Literal(decimal, span));
         }
 
-        Err(FormulaError::RuntimeError(
-            format!("invalid token: '{}' is not a valid number, string, or cell reference", token.value)
-        ))
+        // Otherwise, treat as a variable identifier
+        // Variables are identifiers that aren't cell references, strings, or numbers
+        let span = token.span;
+        let var_name = token.value.clone();
+        self.pos += 1;
+        Ok(Expr::Variable(var_name, span))
     }
 }

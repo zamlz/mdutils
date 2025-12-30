@@ -5,11 +5,12 @@ use crate::table::formula::reference::{self, resolve_reference};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::{ToPrimitive, FromPrimitive};
 
-/// Evaluates an AST expression node to a Value with access to other tables
+/// Evaluates an AST expression node to a Value with access to other tables and variables
 pub(crate) fn eval_ast_with_tables(
     expr: &Expr,
     rows: &Vec<Vec<String>>,
-    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>
+    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>,
+    variable_map: &std::collections::HashMap<String, Value>
 ) -> Result<Value, FormulaError> {
     match expr {
         Expr::Literal(d, _span) => Ok(Value::Scalar(*d)),
@@ -20,16 +21,24 @@ pub(crate) fn eval_ast_with_tables(
             ))
         }
 
+        Expr::Variable(name, _span) => {
+            variable_map.get(name).cloned().ok_or_else(|| {
+                FormulaError::RuntimeError(
+                    format!("undefined variable: '{}'", name)
+                )
+            })
+        }
+
         Expr::CellRef(cell_ref, _span) => resolve_reference(cell_ref, rows),
 
         Expr::BinaryOp { left, op, right, span: _span } => {
-            let left_val = eval_ast_with_tables(left, rows, table_map)?;
-            let right_val = eval_ast_with_tables(right, rows, table_map)?;
+            let left_val = eval_ast_with_tables(left, rows, table_map, variable_map)?;
+            let right_val = eval_ast_with_tables(right, rows, table_map, variable_map)?;
             eval_binary_op(*op, left_val, right_val)
         }
 
         Expr::Transpose(inner, _span) => {
-            let val = eval_ast_with_tables(inner, rows, table_map)?;
+            let val = eval_ast_with_tables(inner, rows, table_map, variable_map)?;
             match val {
                 Value::Scalar(_) => {
                     Err(FormulaError::RuntimeError(
@@ -45,7 +54,7 @@ pub(crate) fn eval_ast_with_tables(
         }
 
         Expr::FunctionCall { name, args, span: _span } => {
-            eval_function_call_with_tables(name, args, rows, table_map)
+            eval_function_call_with_tables(name, args, rows, table_map, variable_map)
         }
     }
 }
@@ -53,7 +62,7 @@ pub(crate) fn eval_ast_with_tables(
 /// Evaluates an AST expression node to a Value (backwards compatibility)
 pub(crate) fn eval_ast(expr: &Expr, rows: &Vec<Vec<String>>) -> Result<Value, FormulaError> {
     use std::collections::HashMap;
-    eval_ast_with_tables(expr, rows, &HashMap::new())
+    eval_ast_with_tables(expr, rows, &HashMap::new(), &HashMap::new())
 }
 
 /// Evaluate a binary operation
@@ -73,54 +82,82 @@ fn eval_function_call_with_tables(
     name: &str,
     args: &[Expr],
     rows: &Vec<Vec<String>>,
-    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>
+    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>,
+    variable_map: &std::collections::HashMap<String, Value>
 ) -> Result<Value, FormulaError> {
     match name.to_lowercase().as_str() {
         "from" => {
             // from() requires 1 or 2 arguments
             // from("table_id") - returns entire table
             // from("table_id", range) - returns specific range from table
+            // from(variable) - returns variable value (must be matrix)
+            // from(variable, range) - returns specific range from variable matrix
             if args.is_empty() || args.len() > 2 {
                 return Err(FormulaError::RuntimeError(
                     format!("function 'from' expects 1 or 2 arguments, got {}", args.len())
                 ));
             }
 
-            // First argument must be a string literal (table ID)
-            let table_id = match &args[0] {
-                Expr::String(id, _) => id.clone(),
-                _ => {
+            // First argument can be a string literal (table ID) or variable reference
+            match &args[0] {
+                Expr::String(table_id, _) => {
+                    // Look up the table
+                    let target_rows = table_map.get(table_id)
+                        .ok_or_else(|| FormulaError::RuntimeError(
+                            format!("table '{}' not found (tables must have an id attribute)", table_id)
+                        ))?;
+
+                    // If only one argument, return entire table as matrix
+                    if args.len() == 1 {
+                        return reference::table_to_matrix(target_rows);
+                    }
+
+                    // If two arguments, second must be a cell reference or range
+                    let range_value = match &args[1] {
+                        Expr::CellRef(cell_ref, _) => {
+                            // Resolve the reference from the target table
+                            resolve_reference(cell_ref, target_rows)?
+                        }
+                        _ => {
+                            return Err(FormulaError::RuntimeError(
+                                "from() second argument must be a cell reference or range".to_string()
+                            ));
+                        }
+                    };
+
+                    Ok(range_value)
+                }
+                Expr::Variable(var_name, _) => {
+                    // Look up the variable
+                    let var_value = variable_map.get(var_name)
+                        .ok_or_else(|| FormulaError::RuntimeError(
+                            format!("undefined variable: '{}'", var_name)
+                        ))?;
+
+                    // Variables used in from() must be matrices
+                    if let Value::Scalar(_) = var_value {
+                        return Err(FormulaError::RuntimeError(
+                            format!("cannot use from() with scalar variable '{}' - expected matrix", var_name)
+                        ));
+                    }
+
+                    // If only one argument, return the variable value
+                    if args.len() == 1 {
+                        return Ok(var_value.clone());
+                    }
+
+                    // If two arguments with a variable, we need to handle range selection from the matrix
+                    // For now, return an error as this is complex to implement
                     return Err(FormulaError::RuntimeError(
-                        "from() first argument must be a string literal (table ID)".to_string()
+                        "from(variable, range) is not yet supported - use from(variable) to get the entire matrix".to_string()
                     ));
                 }
-            };
-
-            // Look up the table
-            let target_rows = table_map.get(&table_id)
-                .ok_or_else(|| FormulaError::RuntimeError(
-                    format!("table '{}' not found (tables must have an id attribute)", table_id)
-                ))?;
-
-            // If only one argument, return entire table as matrix
-            if args.len() == 1 {
-                return reference::table_to_matrix(target_rows);
+                _ => {
+                    return Err(FormulaError::RuntimeError(
+                        "from() first argument must be a string literal (table ID) or variable reference".to_string()
+                    ));
+                }
             }
-
-            // If two arguments, second must be a cell reference or range
-            let range_value = match &args[1] {
-                Expr::CellRef(cell_ref, _) => {
-                    // Resolve the reference from the target table
-                    resolve_reference(cell_ref, target_rows)?
-                }
-                _ => {
-                    return Err(FormulaError::RuntimeError(
-                        "from() second argument must be a cell reference or range".to_string()
-                    ));
-                }
-            };
-
-            Ok(range_value)
         }
         // All other functions expect exactly one argument
         "sum" | "avg" | "min" | "max" | "count" | "prod" => {
@@ -130,7 +167,7 @@ fn eval_function_call_with_tables(
                 ));
             }
 
-            let arg = eval_ast_with_tables(&args[0], rows, table_map)?;
+            let arg = eval_ast_with_tables(&args[0], rows, table_map, variable_map)?;
             eval_function(name, arg)
         }
         _ => Err(FormulaError::RuntimeError(
@@ -142,7 +179,7 @@ fn eval_function_call_with_tables(
 /// Evaluate a function call from AST (backwards compatibility)
 fn eval_function_call(name: &str, args: &[Expr], rows: &Vec<Vec<String>>) -> Result<Value, FormulaError> {
     use std::collections::HashMap;
-    eval_function_call_with_tables(name, args, rows, &HashMap::new())
+    eval_function_call_with_tables(name, args, rows, &HashMap::new(), &HashMap::new())
 }
 
 /// Evaluate a function with a Value argument (for single-arg functions)

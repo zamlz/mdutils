@@ -102,7 +102,7 @@ fn test_formula_parse_error() {
     assert_eq!(output.trim(), expected.trim());
     // Verify error comment is present
     assert!(output.contains("md-error:"));
-    assert!(output.contains("Failed to parse formula"));
+    assert!(output.contains("Failed to parse statement"));
 }
 
 #[test]
@@ -223,7 +223,7 @@ fn test_error_invalid_token() {
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
     assert!(output.contains("md-error:"));
-    assert!(output.contains("invalid token"));
+    assert!(output.contains("undefined variable"));
 }
 
 #[test]
@@ -408,4 +408,121 @@ fn test_assignment_row_range() {
     assert!(output.contains("| 10  | 20  | 30  |"));
     assert!(output.contains("| 40  | 50  | 60  |"));
     assert!(!output.contains("md-error:"));
+}
+
+// Tests for variables (let statements)
+
+#[test]
+fn test_variables_basic() {
+    let input = fs::read_to_string("tests/table/fixtures/variables_basic_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/variables_basic_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify variable assignment worked
+    assert!(output.contains("| 5   | 10  | 15  |"));
+    assert!(!output.contains("md-error:"));
+}
+
+#[test]
+fn test_variables_vector() {
+    let input = fs::read_to_string("tests/table/fixtures/variables_vector_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/variables_vector_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify vector variable worked
+    assert!(output.contains("| 1   | 2   | 3   |"));
+    assert!(output.contains("| 3   | 4   | 7   |"));
+    assert!(output.contains("| 5   | 6   | 11  |"));
+    assert!(!output.contains("md-error:"));
+}
+
+#[test]
+fn test_variables_multiple() {
+    let input = fs::read_to_string("tests/table/fixtures/variables_multiple_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/variables_multiple_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify multiple variables and expressions worked
+    assert!(output.contains("| 5   | 10  | 50  | 15  |"));
+    assert!(!output.contains("md-error:"));
+}
+
+#[test]
+fn test_variables_complex_expressions() {
+    let input = fs::read_to_string("tests/table/fixtures/variables_complex_expr_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/variables_complex_expr_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify complex expression with parentheses worked
+    assert!(output.contains("| 2   | 3   | 10  |"));
+    assert!(output.contains("| 4   | 5   | 18  |"));
+    assert!(!output.contains("md-error:"));
+}
+
+#[test]
+fn test_variables_with_functions() {
+    let input = fs::read_to_string("tests/table/fixtures/variables_with_functions_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/variables_with_functions_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify variables with sum() function worked
+    assert!(output.contains("| 1   | 10  | 6   | 60  |"));
+    assert!(!output.contains("md-error:"));
+}
+
+#[test]
+fn test_variables_transpose() {
+    let input = fs::read_to_string("tests/table/fixtures/variables_transpose_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/variables_transpose_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify transpose operation on variable worked
+    assert!(output.contains("| 1   | 2   |"));
+    assert!(!output.contains("md-error:"));
+}
+
+#[test]
+fn test_variables_error_undefined() {
+    let input = fs::read_to_string("tests/table/fixtures/variables_error_undefined_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/variables_error_undefined_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify error for undefined variable
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("undefined variable: 'undefined_var'"));
+}
+
+#[test]
+fn test_variables_error_invalid_name() {
+    let input = fs::read_to_string("tests/table/fixtures/variables_error_invalid_name_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/variables_error_invalid_name_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify error for cell-reference-like variable name
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("Failed to parse statement"));
 }

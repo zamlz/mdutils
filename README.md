@@ -11,6 +11,7 @@ Markdown Utils
     - [Table Formatting](#table-formatting)
     - [Table Formulas (Spreadsheet Functionality)](#table-formulas-spreadsheet-functionality)
     - [Vector and Matrix Operations](#vector-and-matrix-operations)
+    - [Variables (Let Statements)](#variables-let-statements)
     - [Cell Range References](#cell-range-references)
     - [Matrix Assignments](#matrix-assignments)
     - [Matrix Multiplication and Transpose Operator](#matrix-multiplication-and-transpose-operator)
@@ -390,12 +391,13 @@ All functions reduce matrices to scalar values.
    - Vector: `prod(A_)` → `24` (where A_ contains values 2, 3, 4; result is 2 × 3 × 4)
    - Complex: `prod(A_ + 1)` → Product of incremented values
 
-7. **`from("table_id")` or `from("table_id", range)`** - Cross-table reference
+7. **`from("table_id")` or `from("table_id", range)` or `from(variable)`** - Cross-table reference and variable access
    - Whole table: `from("sales")` → Entire table as matrix
    - Column: `from("sales", A_)` → Column A from sales table
    - Cell: `from("sales", B2)` → Cell B2 from sales table
    - Range: `from("sales", A1:C3)` → Range from sales table
-   - See [Cross-Table References](#cross-table-references) for details
+   - Variable: `from(x)` → Access matrix variable (variables must be matrices)
+   - See [Cross-Table References](#cross-table-references) and [Variables](#variables-let-statements) for details
 
 **Example - Multiple Functions:**
 
@@ -449,6 +451,169 @@ Result: A1 = 40 (only 10 and 30 are counted)
 - `C_ = A_ * B_` - Element-wise multiplication
 - `C_ = A_ / B_` - Element-wise division
 - `C_ = A_ ^ B_` - Element-wise exponentiation
+
+#### Variables (Let Statements)
+
+The formula system supports variables that can store scalar values or matrices for reuse in multiple formulas.
+Variables are defined using `let` statements and are scoped to the table's formula comment.
+
+**Variable Syntax:**
+
+```
+let variable_name = expression
+```
+
+Variables can then be referenced in subsequent formulas within the same `md-table` directive.
+
+**Example 1: Basic Scalar Variable**
+
+Input:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 5   | 10  | 0   |
+<!-- md-table: let x = 15; C1 = x -->
+```
+
+Output:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 5   | 10  | 15  |
+<!-- md-table: let x = 15; C1 = x -->
+```
+
+**Example 2: Vector Variable**
+
+Store column vectors in variables:
+
+Input:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 1   | 2   | 0   |
+| 3   | 4   | 0   |
+| 5   | 6   | 0   |
+<!-- md-table: let sum_col = A_ + B_; C_ = sum_col -->
+```
+
+Output:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 1   | 2   | 3   |
+| 3   | 4   | 7   |
+| 5   | 6   | 11  |
+<!-- md-table: let sum_col = A_ + B_; C_ = sum_col -->
+```
+
+**Example 3: Multiple Variables with Expressions**
+
+Variables can reference other variables defined earlier:
+
+Input:
+```markdown
+| A   | B   | C   | D   |
+| --- | --- | --- | --- |
+| 5   | 10  | 0   | 0   |
+<!-- md-table: let x = A1; let y = B1; let product = x * y; C1 = product; D1 = x + y -->
+```
+
+Output:
+```markdown
+| A   | B   | C   | D   |
+| --- | --- | --- | --- |
+| 5   | 10  | 50  | 15  |
+<!-- md-table: let x = A1; let y = B1; let product = x * y; C1 = product; D1 = x + y -->
+```
+
+**Example 4: Variables with Functions**
+
+Combine variables with aggregate functions:
+
+Input:
+```markdown
+| A   | B   | C   | D   |
+| --- | --- | --- | --- |
+| 1   | 10  | 0   | 0   |
+| 2   | 20  | 0   | 0   |
+| 3   | 30  | 0   | 0   |
+<!-- md-table: let col_a = A_; let col_b = B_; let total_a = sum(col_a); let total_b = sum(col_b); C1 = total_a; D1 = total_b -->
+```
+
+Output:
+```markdown
+| A   | B   | C   | D   |
+| --- | --- | --- | --- |
+| 1   | 10  | 6   | 60  |
+| 2   | 20  | 0   | 0   |
+| 3   | 30  | 0   | 0   |
+<!-- md-table: let col_a = A_; let col_b = B_; let total_a = sum(col_a); let total_b = sum(col_b); C1 = total_a; D1 = total_b -->
+```
+
+**Example 5: Variables with Complex Expressions**
+
+Variables work with all operators including transpose and matrix multiplication:
+
+Input:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 2   | 3   | 0   |
+| 4   | 5   | 0   |
+<!-- md-table: let factor = 2; C_ = (A_ + B_) * factor -->
+```
+
+Output:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 2   | 3   | 10  |
+| 4   | 5   | 18  |
+<!-- md-table: let factor = 2; C_ = (A_ + B_) * factor -->
+```
+
+**Variable Naming Rules:**
+
+- Variable names must not look like cell references (e.g., `A1`, `B_`, `_2` are invalid)
+- Valid examples: `x`, `total`, `sum_col`, `result`, `factor`
+- Invalid examples: `A1` (looks like cell), `B_` (looks like column), `_2` (looks like row)
+
+**Variable Scope:**
+
+- Variables are scoped to a single table's formula comment
+- Each table has its own independent variable namespace
+- Variables must be defined before they are used (sequential processing)
+- Variables from one table cannot be accessed by another table
+
+**Error Handling:**
+
+Undefined variable usage produces clear error messages:
+
+```markdown
+| A   | B   |
+| --- | --- |
+| 5   | 0   |
+<!-- md-table: B1 = undefined_var + 10 -->
+<!-- md-error: Failed to evaluate expression 'undefined_var + 10': undefined variable: 'undefined_var' -->
+```
+
+Invalid variable names are caught during parsing:
+
+```markdown
+| A   | B   |
+| --- | --- |
+| 5   | 0   |
+<!-- md-table: let A1 = 10 -->
+<!-- md-error: Failed to parse statement 'let A1 = 10': invalid syntax (expected format: 'let VAR = EXPRESSION' or 'TARGET = EXPRESSION') -->
+```
+
+**Use Cases:**
+
+- **Simplify complex formulas**: Define intermediate results once and reuse them
+- **Improve readability**: Give meaningful names to values and calculations
+- **Avoid repetition**: Store commonly used values or expressions
+- **Build pipelines**: Chain multiple transformations step by step
 
 #### Cell Range References
 
@@ -912,7 +1077,7 @@ Output:
 | 1   | 2   | 0   |
 | 3   | 4   | 0   |
 <!-- md-table: this is invalid -->
-<!-- md-error: Failed to parse formula 'this is invalid': invalid syntax (expected format: TARGET = EXPRESSION) -->
+<!-- md-error: Failed to parse statement 'this is invalid': invalid syntax (expected format: 'let VAR = EXPRESSION' or 'TARGET = EXPRESSION') -->
 ```
 
 **Error Behavior:**
