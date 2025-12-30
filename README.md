@@ -1,6 +1,32 @@
 Markdown Utils
 ==============
 
+<!-- md-toc: -->
+- [Why?](#why)
+- [Disclaimer](#disclaimer)
+- [Usage](#usage)
+  - [Command: `new` (New Markdown Element Creation)](#command-new-new-markdown-element-creation)
+  - [Command: `toc` (Table-of-Contents Generation)](#command-toc-table-of-contents-generation)
+  - [Command: `table` (Auto-formatting and Spreadsheet Formulas)](#command-table-auto-formatting-and-spreadsheet-formulas)
+    - [Table Formatting](#table-formatting)
+    - [Table Formulas (Spreadsheet Functionality)](#table-formulas-spreadsheet-functionality)
+    - [Vector and Matrix Operations](#vector-and-matrix-operations)
+    - [Cell Range References](#cell-range-references)
+    - [Matrix Assignments](#matrix-assignments)
+    - [Matrix Multiplication and Transpose Operator](#matrix-multiplication-and-transpose-operator)
+    - [Formula Error Handling](#formula-error-handling)
+    - [Table IDs](#table-ids)
+    - [Cross-Table References](#cross-table-references)
+  - [Command: `code` (Code Execution)](#command-code-code-execution)
+- [Development](#development)
+  - [Build](#build)
+  - [Run](#run)
+  - [Test](#test)
+  - [Debug](#debug)
+<!-- md-toc: end -->
+
+## Why?
+
 A Rust CLI tool for markdown processing with multiple subcommands. This
 is heavily based on some of the useful features I used when I used to
 use GNU/Emacs and Org-mode. Spreadsheet and literate programming were
@@ -27,7 +53,13 @@ In any case, you have been warned!
 
 ## Usage
 
-### Creating New Tables
+`md` supports the following commands:
+- `new`: Create simple elements like new tables
+- `table`: Format and apply formulas to existing tables
+- `code`: Evaluation of code blocks
+- `toc`: Generation of table of contents
+
+### Command: `new` (New Markdown Element Creation)
 
 The `new` subcommand creates a new empty markdown table with the specified
 dimensions and outputs it to STDOUT.
@@ -56,112 +88,7 @@ Output:
 
 All cells are empty and ready to be filled in.
 
-### Table Formatting
-
-The `table` subcommand reads markdown from STDIN, formats and aligns any
-markdown tables it finds, and outputs the entire document to STDOUT with
-nicely formatted tables.
-
-**Format tables in a markdown file:**
-```bash
-./result/bin/md table < document.md
-```
-
-**Format tables from piped input:**
-```bash
-cat document.md | ./result/bin/md table
-```
-
-**View available commands:**
-```bash
-./result/bin/md --help
-```
-
-**Example:**
-
-Input:
-```markdown
-# My Document
-
-Some introductory text.
-
-| Name | Age | City |
-|---|---|---|
-| Alice | 30 | New York |
-| Bob | 25 | LA |
-
-More text here.
-```
-
-Output:
-```markdown
-# My Document
-
-Some introductory text.
-
-| Name  | Age | City     |
-| ----- | --- | -------- |
-| Alice | 30  | New York |
-| Bob   | 25  | LA       |
-
-More text here.
-```
-
-All content is preserved, but tables are properly aligned based on
-column widths.
-
-### Table Formulas (Spreadsheet Functionality)
-
-Tables can include spreadsheet-like formulas using HTML comments with the
-`<!-- md-table: -->` marker.
-
-**Basic formula syntax:**
-- Formulas are defined in HTML comments after the table
-- Format: `CELL = EXPRESSION` (e.g., `C1 = A1 + B1`)
-- Cell references use spreadsheet notation: A1, B2, C3, etc. (Column letter + Row number)
-- Row 1 is the first data row (header rows are not addressable in formulas)
-- Multiple formulas can be separated by semicolons in one comment or placed on separate comment lines
-
-**Supported operators:**
-- Addition: `+`
-- Subtraction: `-`
-- Multiplication: `*`
-- Division: `/`
-- Parentheses: `()` for grouping expressions (e.g., `(A1 + B1) * C1`)
-
-**Example:**
-
-Input:
-```markdown
-| Item | Price | Quantity | Total |
-|---|---|---|---|
-| Apple | 1.50 | 10 | 0 |
-| Banana | 0.75 | 20 | 0 |
-<!-- md-table: D1 = B1 * C1; D2 = B2 * C2 -->
-```
-
-Output:
-```markdown
-| Item   | Price | Quantity | Total |
-| ------ | ----- | -------- | ----- |
-| Apple  | 1.50  | 10       | 15    |
-| Banana | 0.75  | 20       | 15    |
-<!-- md-table: D1 = B1 * C1; D2 = B2 * C2 -->
-```
-
-**Multiple comment lines example:**
-```markdown
-| Product | Price | Tax | Total |
-|---|---|---|---|
-| Laptop | 1000 | 0 | 0 |
-<!-- md-table: C1 = B1 * 0.08 -->
-<!-- D1 = B1 + C1 -->
-```
-
-Formulas are evaluated in order, so later formulas can reference cells
-updated by earlier formulas.
-
-### Table of Contents Generation
+### Command: `toc` (Table-of-Contents Generation)
 
 The `toc` subcommand automatically generates or updates a table of contents from markdown headers.
 
@@ -252,7 +179,115 @@ After running `md toc`:
 
 **Note:** If no `<!-- md-toc: -->` marker is found, the document is returned unchanged.
 
-### Vector and Matrix Operations
+### Command: `table` (Auto-formatting and Spreadsheet Formulas)
+
+#### Table Formatting
+
+The `table` subcommand reads markdown from STDIN, formats and aligns any
+markdown tables it finds, and outputs the entire document to STDOUT with
+nicely formatted tables.
+
+**Format tables in a markdown file:**
+```bash
+./result/bin/md table < document.md
+```
+
+**Format tables from piped input:**
+```bash
+cat document.md | ./result/bin/md table
+```
+
+**View available commands:**
+```bash
+./result/bin/md --help
+```
+
+**Example:**
+
+Input:
+```markdown
+# My Document
+
+Some introductory text.
+
+| Name | Age | City |
+|---|---|---|
+| Alice | 30 | New York |
+| Bob | 25 | LA |
+
+More text here.
+```
+
+Output:
+```markdown
+# My Document
+
+Some introductory text.
+
+| Name  | Age | City     |
+| ----- | --- | -------- |
+| Alice | 30  | New York |
+| Bob   | 25  | LA       |
+
+More text here.
+```
+
+All content is preserved, but tables are properly aligned based on
+column widths.
+
+#### Table Formulas (Spreadsheet Functionality)
+
+Tables can include spreadsheet-like formulas using HTML comments with the
+`<!-- md-table: -->` marker.
+
+**Basic formula syntax:**
+- Formulas are defined in HTML comments after the table
+- Format: `CELL = EXPRESSION` (e.g., `C1 = A1 + B1`)
+- Cell references use spreadsheet notation: A1, B2, C3, etc. (Column letter + Row number)
+- Row 1 is the first data row (header rows are not addressable in formulas)
+- Multiple formulas can be separated by semicolons in one comment or placed on separate comment lines
+
+**Supported operators:**
+- Addition: `+`
+- Subtraction: `-`
+- Multiplication: `*`
+- Division: `/`
+- Parentheses: `()` for grouping expressions (e.g., `(A1 + B1) * C1`)
+
+**Example:**
+
+Input:
+```markdown
+| Item | Price | Quantity | Total |
+|---|---|---|---|
+| Apple | 1.50 | 10 | 0 |
+| Banana | 0.75 | 20 | 0 |
+<!-- md-table: D1 = B1 * C1; D2 = B2 * C2 -->
+```
+
+Output:
+```markdown
+| Item   | Price | Quantity | Total |
+| ------ | ----- | -------- | ----- |
+| Apple  | 1.50  | 10       | 15    |
+| Banana | 0.75  | 20       | 15    |
+<!-- md-table: D1 = B1 * C1; D2 = B2 * C2 -->
+```
+
+**Multiple comment lines example:**
+```markdown
+| Product | Price | Tax | Total |
+|---|---|---|---|
+| Laptop | 1000 | 0 | 0 |
+<!-- md-table: C1 = B1 * 0.08 -->
+<!-- D1 = B1 + C1 -->
+```
+
+Formulas are evaluated in order, so later formulas can reference cells
+updated by earlier formulas.
+
+
+#### Vector and Matrix Operations
 
 The table formula system supports vector operations, allowing you to
 apply formulas to entire columns or rows at once.
@@ -415,7 +450,7 @@ Result: A1 = 40 (only 10 and 30 are counted)
 - `C_ = A_ / B_` - Element-wise division
 - `C_ = A_ ^ B_` - Element-wise exponentiation
 
-### Cell Range References
+#### Cell Range References
 
 The formula system supports powerful range syntax for selecting rectangular regions
 of cells, making it easy to work with matrices and perform operations on multiple
@@ -568,7 +603,7 @@ when working with dynamic tables where the number of rows or columns may
 change. They automatically adapt to the table size without requiring
 formula updates.
 
-### Matrix Assignments
+#### Matrix Assignments
 
 The formula system supports assigning entire matrices, ranges, and vectors in a single formula.
 This enables powerful bulk operations where you can update multiple cells at once with properly
@@ -704,7 +739,7 @@ Matrix assignments require exact dimension matches. If the dimensions don't matc
 - Scalars cannot be assigned to matrix targets (use broadcasting instead: `C_ = A_ * 2`)
 - Assignment targets can use any valid range syntax from [Cell Range References](#cell-range-references)
 
-### Matrix Multiplication and Transpose Operator
+#### Matrix Multiplication and Transpose Operator
 
 The formula system supports matrix multiplication using the `@` operator,
 following standard linear algebra rules. Vectors are treated as matrices
@@ -788,7 +823,7 @@ Result: C1 = (1×2 + 3×4 + 5×6) + 10 = 44 + 10 = 54
 - Parentheses: `()`
 - Functions: `sum()`, `avg()`, `min()`, `max()`, `count()`, `prod()`
 
-### Formula Error Handling
+#### Formula Error Handling
 
 When formulas contain errors, the system reports them using HTML comments
 with the `<!-- md-error: -->` marker. Error comments are inserted directly
@@ -886,7 +921,7 @@ Output:
 - Successful formulas update their cells even if others fail
 - Error messages are descriptive and include the failing formula
 
-### Table IDs
+#### Table IDs
 
 Tables can be assigned optional identifiers using the `id` attribute in the `md-table` directive.
 This allows tables to reference each other's data using the `from()` function in formulas.
@@ -964,7 +999,7 @@ Output:
 - IDs should be unique within the document (not currently enforced - planned future enhancement)
 - The ID validation logic is shared with code block IDs for consistency
 
-### Cross-Table References
+#### Cross-Table References
 
 Tables with IDs can reference data from other tables in the same document using the `from()` function.
 This enables powerful data flows between tables, allowing you to build dashboards, summaries, and aggregations.
@@ -1094,7 +1129,7 @@ All aggregate functions work with cross-table references:
 - String literals in formulas (like `"table_id"`) must be enclosed in double quotes
 - Cross-table references can be combined with other operations and functions
 
-### Code Block Execution
+### Command: `code` (Code Execution)
 
 The `code` subcommand allows you to execute code blocks in markdown
 files and automatically capture their output. This is useful for creating
