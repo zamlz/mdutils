@@ -1,6 +1,9 @@
+mod error;
 mod formatter;
 mod formula;
 mod parser;
+
+pub use error::FormulaError;
 
 use formatter::format_table_row;
 use formula::apply_formulas;

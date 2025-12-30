@@ -1,3 +1,4 @@
+use crate::code::error::CodeError;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 use std::io::Write;
@@ -15,13 +16,13 @@ pub fn execute_code(
     code: &str,
     bin: &str,
     timeout_seconds: Option<u64>,
-) -> Result<ExecutionResult, String> {
+) -> Result<ExecutionResult, CodeError> {
     let timeout = timeout_seconds.unwrap_or(DEFAULT_TIMEOUT_SECONDS);
 
     // Parse the bin string into command and args
     let parts: Vec<&str> = bin.split_whitespace().collect();
     if parts.is_empty() {
-        return Err("Empty bin specification".to_string());
+        return Err(CodeError::DirectiveParseError("Empty bin specification".to_string()));
     }
 
     let command = parts[0];
@@ -34,13 +35,13 @@ pub fn execute_code(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to execute '{}': {}", bin, e))?;
+        .map_err(|e| CodeError::ProcessError(format!("Failed to execute '{}': {}", bin, e)))?;
 
     // Write code to stdin
     if let Some(mut stdin) = child.stdin.take() {
         stdin
             .write_all(code.as_bytes())
-            .map_err(|e| format!("Failed to write to stdin: {}", e))?;
+            .map_err(|e| CodeError::IoError(format!("Failed to write to stdin: {}", e)))?;
     }
 
     // Wait for the process with timeout
@@ -53,7 +54,7 @@ pub fn execute_code(
 fn wait_with_timeout(
     child: std::process::Child,
     timeout: Duration,
-) -> Result<ExecutionResult, String> {
+) -> Result<ExecutionResult, CodeError> {
     use std::thread;
     use std::sync::mpsc;
 
@@ -82,8 +83,8 @@ fn wait_with_timeout(
                 output: output_str,
             })
         }
-        Ok(Err(e)) => Err(format!("Process execution failed: {}", e)),
-        Err(_) => Err(format!("Process timed out after {} seconds", timeout.as_secs())),
+        Ok(Err(e)) => Err(CodeError::ProcessError(format!("Process execution failed: {}", e))),
+        Err(_) => Err(CodeError::Timeout { seconds: timeout.as_secs() }),
     }
 }
 

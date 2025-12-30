@@ -1,3 +1,4 @@
+use crate::code::error::CodeError;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -60,21 +61,21 @@ pub fn is_md_code_output_comment(line: &str) -> bool {
 
 /// Parses an md-code directive comment into a CodeBlockDirective
 /// Format: <!-- md-code: id="foo"; execute; bin="python3"; timeout=60 -->
-pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, String> {
+pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeError> {
     let trimmed = line.trim();
 
     // Remove <!-- and -->
     let content = trimmed
         .strip_prefix("<!--")
-        .ok_or("Missing opening <!--")?
+        .ok_or_else(|| CodeError::DirectiveParseError("Missing opening <!--".to_string()))?
         .strip_suffix("-->")
-        .ok_or("Missing closing -->")?
+        .ok_or_else(|| CodeError::DirectiveParseError("Missing closing -->".to_string()))?
         .trim();
 
     // Remove md-code: prefix
     let content = content
         .strip_prefix("md-code:")
-        .ok_or("Missing md-code: prefix")?
+        .ok_or_else(|| CodeError::DirectiveParseError("Missing md-code: prefix".to_string()))?
         .trim();
 
     let mut id = None;
@@ -100,11 +101,11 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, String>
             // Extract timeout value (no quotes)
             let value = part.strip_prefix("timeout=").unwrap().trim();
             timeout = Some(value.parse::<u64>()
-                .map_err(|_| format!("Invalid timeout value: {}", value))?);
+                .map_err(|_| CodeError::DirectiveParseError(format!("Invalid timeout value: {}", value)))?);
         }
     }
 
-    let id = id.ok_or("Missing required id attribute")?;
+    let id = id.ok_or_else(|| CodeError::DirectiveParseError("Missing required id attribute".to_string()))?;
 
     Ok(CodeBlockDirective {
         id,
@@ -116,21 +117,21 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, String>
 
 /// Parses an md-code-output directive comment to extract the id
 /// Format: <!-- md-code-output: id="foo" -->
-pub fn parse_md_code_output_directive(line: &str) -> Result<String, String> {
+pub fn parse_md_code_output_directive(line: &str) -> Result<String, CodeError> {
     let trimmed = line.trim();
 
     // Remove <!-- and -->
     let content = trimmed
         .strip_prefix("<!--")
-        .ok_or("Missing opening <!--")?
+        .ok_or_else(|| CodeError::DirectiveParseError("Missing opening <!--".to_string()))?
         .strip_suffix("-->")
-        .ok_or("Missing closing -->")?
+        .ok_or_else(|| CodeError::DirectiveParseError("Missing closing -->".to_string()))?
         .trim();
 
     // Remove md-code-output: prefix
     let content = content
         .strip_prefix("md-code-output:")
-        .ok_or("Missing md-code-output: prefix")?
+        .ok_or_else(|| CodeError::DirectiveParseError("Missing md-code-output: prefix".to_string()))?
         .trim();
 
     // Extract id value
@@ -138,24 +139,25 @@ pub fn parse_md_code_output_directive(line: &str) -> Result<String, String> {
         let value = content.strip_prefix("id=").unwrap().trim();
         extract_quoted_value(value)
     } else {
-        Err("Missing id attribute in md-code-output".to_string())
+        Err(CodeError::DirectiveParseError("Missing id attribute in md-code-output".to_string()))
     }
 }
 
 /// Extracts a quoted value from a string (removes surrounding quotes)
-fn extract_quoted_value(s: &str) -> Result<String, String> {
+fn extract_quoted_value(s: &str) -> Result<String, CodeError> {
     if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
         Ok(s[1..s.len()-1].to_string())
     } else {
-        Err(format!("Value must be quoted: {}", s))
+        Err(CodeError::DirectiveParseError(format!("Value must be quoted: {}", s)))
     }
 }
 
 /// Parses the entire markdown document to find code blocks and output blocks
-pub fn parse_document(text: &str) -> Result<(Vec<CodeBlock>, HashMap<String, OutputBlock>), String> {
+pub fn parse_document(text: &str) -> Result<(Vec<CodeBlock>, HashMap<String, OutputBlock>), CodeError> {
     let lines: Vec<&str> = text.lines().collect();
     let mut code_blocks = Vec::new();
     let mut output_blocks = HashMap::new();
+    let mut output_block_lines = HashMap::new(); // Track line numbers for duplicate detection
     let mut i = 0;
 
     while i < lines.len() {
@@ -172,7 +174,7 @@ pub fn parse_document(text: &str) -> Result<(Vec<CodeBlock>, HashMap<String, Out
             }
 
             if i >= lines.len() {
-                return Err(format!("Unclosed code block starting at line {}", start_line + 1));
+                return Err(CodeError::DirectiveParseError(format!("Unclosed code block starting at line {}", start_line + 1)));
             }
 
             let end_line = i;
@@ -186,10 +188,11 @@ pub fn parse_document(text: &str) -> Result<(Vec<CodeBlock>, HashMap<String, Out
                 // This is an output block
                 let id = parse_md_code_output_directive(lines[i])?;
 
-                if output_blocks.contains_key(&id) {
-                    return Err(format!("Duplicate output block id: {}", id));
+                if let Some(&prev_line) = output_block_lines.get(&id) {
+                    return Err(CodeError::duplicate_output_id(&id, start_line + 1, prev_line + 1));
                 }
 
+                output_block_lines.insert(id.clone(), start_line);
                 output_blocks.insert(id.clone(), OutputBlock {
                     start_line,
                     end_line,
@@ -220,17 +223,16 @@ pub fn parse_document(text: &str) -> Result<(Vec<CodeBlock>, HashMap<String, Out
 }
 
 /// Validates that all code block IDs are unique
-pub fn validate_unique_ids(code_blocks: &[CodeBlock]) -> Result<(), String> {
+pub fn validate_unique_ids(code_blocks: &[CodeBlock]) -> Result<(), CodeError> {
     let mut seen_ids = HashMap::new();
 
     for block in code_blocks {
         if let Some(ref directive) = block.directive {
             if let Some(&prev_line) = seen_ids.get(&directive.id) {
-                return Err(format!(
-                    "Duplicate code block id '{}' found at lines {} and {}",
-                    directive.id,
-                    prev_line + 1,
-                    block.start_line + 1
+                return Err(CodeError::duplicate_id(
+                    &directive.id,
+                    block.start_line + 1,
+                    prev_line + 1
                 ));
             }
             seen_ids.insert(directive.id.clone(), block.start_line);

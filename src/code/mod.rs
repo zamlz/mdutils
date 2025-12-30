@@ -1,5 +1,8 @@
+mod error;
 mod executor;
 mod parser;
+
+pub use error::CodeError;
 
 use executor::execute_code;
 use parser::{
@@ -9,7 +12,7 @@ use parser::{
 use std::collections::HashMap;
 
 /// Processes markdown code blocks with md-code directives
-pub fn process_code_blocks(text: &str) -> Result<String, String> {
+pub fn process_code_blocks(text: &str) -> Result<String, CodeError> {
     // Parse the document to find all code blocks and output blocks
     let (code_blocks, mut output_blocks) = parse_document(text)?;
 
@@ -27,11 +30,7 @@ pub fn process_code_blocks(text: &str) -> Result<String, String> {
                     .bin
                     .as_ref()
                     .ok_or_else(|| {
-                        format!(
-                            "Code block '{}' at line {} has execute directive but no bin specified",
-                            directive.id,
-                            block.start_line + 1
-                        )
+                        CodeError::missing_field(block.start_line + 1, "bin")
                     })?;
 
                 // Execute the code
@@ -55,7 +54,7 @@ fn reconstruct_document(
     code_blocks: &[CodeBlock],
     output_blocks: &mut HashMap<String, OutputBlock>,
     execution_results: &HashMap<String, String>,
-) -> Result<String, String> {
+) -> Result<String, CodeError> {
     let lines: Vec<&str> = text.lines().collect();
     let mut output_lines = Vec::new();
     let mut i = 0;
@@ -223,7 +222,7 @@ print("world")
 
         let result = process_code_blocks(input);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Duplicate code block id"));
+        assert!(result.unwrap_err().to_string().contains("Duplicate code block ID"));
     }
 
     #[test]
@@ -235,7 +234,7 @@ print("hello")
 
         let result = process_code_blocks(input);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("no bin specified"));
+        assert!(result.unwrap_err().to_string().contains("missing required field: bin"));
     }
 
     #[test]
@@ -331,7 +330,7 @@ second
 
         let result = process_code_blocks(input);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Duplicate output block id"));
+        assert!(result.unwrap_err().to_string().contains("Duplicate output block ID"));
     }
 
     #[test]
