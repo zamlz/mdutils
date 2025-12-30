@@ -4,7 +4,7 @@ Markdown Utils
 A Rust CLI tool for markdown processing with multiple subcommands. This
 is heavily based on some of the useful features I used when I used to
 use GNU/Emacs and Org-mode. Spreadsheet and literate programming were
-really cool features but were limited to GNU/Emacs. Emacs is realy
+really cool features but were limited to GNU/Emacs. Emacs is really
 awesome, but if I needed to edit markdown files, I wanted to be able to
 do some of the same things.  And even more so, I wanted to do so in any
 text editor! Editors like VIM, NeoVIM, Kakoune, Helix, etc. allow you
@@ -236,32 +236,32 @@ All functions reduce matrices to scalar values.
 
 1. **`sum(expr)`** - Sum of all elements
    - Scalar: `sum(5)` → `5`
-   - Vector: `sum([10, 20, 30])` → `60`
+   - Vector: `sum(A_)` → `60` (where A_ contains values 10, 20, 30)
    - Complex: `sum(A_ + B_)` → Sum of element-wise addition
 
 2. **`avg(expr)`** - Average of all elements
    - Scalar: `avg(5)` → `5`
-   - Vector: `avg([10, 20, 30])` → `20`
+   - Vector: `avg(A_)` → `20` (where A_ contains values 10, 20, 30)
    - Complex: `avg(A_ * 2)` → Average of doubled values
 
 3. **`min(expr)`** - Minimum value across all elements
    - Scalar: `min(5)` → `5`
-   - Vector: `min([30, 10, 20])` → `10`
+   - Vector: `min(A_)` → `10` (where A_ contains values 30, 10, 20)
    - Complex: `min(A_ + B_)` → Minimum of element-wise addition
 
 4. **`max(expr)`** - Maximum value across all elements
    - Scalar: `max(5)` → `5`
-   - Vector: `max([30, 10, 20])` → `30`
+   - Vector: `max(A_)` → `30` (where A_ contains values 30, 10, 20)
    - Complex: `max(A_ - B_)` → Maximum of element-wise subtraction
 
 5. **`count(expr)`** - Number of elements
    - Scalar: `count(5)` → `1`
-   - Vector: `count([10, 20, 30])` → `3`
+   - Vector: `count(A_)` → `3` (where A_ contains 3 values: 10, 20, 30)
    - Usage: `count(A_)` → Number of rows in column A
 
 6. **`prod(expr)`** - Product of all elements
    - Scalar: `prod(5)` → `5`
-   - Vector: `prod([2, 3, 4])` → `24` (2 × 3 × 4)
+   - Vector: `prod(A_)` → `24` (where A_ contains values 2, 3, 4; result is 2 × 3 × 4)
    - Complex: `prod(A_ + 1)` → Product of incremented values
 
 7. **`from("table_id")` or `from("table_id", range)`** - Cross-table reference
@@ -434,20 +434,22 @@ Result: 1+2+3+4+5+6+7+8+9 = 45
 Ranges work seamlessly with all operators and functions:
 
 ```markdown
-| Q1 | Q2 | Q3 | Q4 | Year Total | Avg |
-|----|----|----|----|-----------| --- |
-| 100| 150| 200| 250| 0         | 0   |
-| 80 | 120| 160| 200| 0         | 0   |
-<!-- md-table: E_ = sum(A_:D_); F_ = avg(A_:D_) -->
+| Q1 | Q2 | Q3 | Q4 | Total |
+|----|----|----|----|-------|
+| 100| 150| 200| 250| 0     |
+| 80 | 120| 160| 200| 0     |
+| 0  | 0  | 0  | 0  | 0     |
+<!-- md-table: E1 = sum(A1:D1); E2 = sum(A2:D2); E3 = sum(A_:D_) -->
 ```
 
 Output:
 ```markdown
-| Q1  | Q2  | Q3  | Q4  | Year Total | Avg |
-|-----|-----|-----|-----|----------- | --- |
-| 100 | 150 | 200 | 250 | 700        | 175 |
-| 80  | 120 | 160 | 200 | 560        | 140 |
-<!-- md-table: E_ = sum(A_:D_); F_ = avg(A_:D_) -->
+| Q1  | Q2  | Q3  | Q4  | Total |
+|-----|-----|-----|-----|-------|
+| 100 | 150 | 200 | 250 | 700   |
+| 80  | 120 | 160 | 200 | 560   |
+| 0   | 0   | 0   | 0   | 1260  |
+<!-- md-table: E1 = sum(A1:D1); E2 = sum(A2:D2); E3 = sum(A_:D_) -->
 ```
 
 **Range Equivalences:**
@@ -868,7 +870,7 @@ Output:
 **Notes:**
 - Table IDs are optional (unlike code blocks where IDs are required for execution)
 - IDs can be any non-empty string
-- IDs must be unique within the document (future enhancement)
+- IDs should be unique within the document (not currently enforced - planned future enhancement)
 - The ID validation logic is shared with code block IDs for consistency
 
 ### Cross-Table References
@@ -995,7 +997,7 @@ All aggregate functions work with cross-table references:
 - `prod(from("id", range))` - Product of values
 
 **Notes:**
-- Table IDs must be unique within the document
+- Table IDs should be unique within the document (duplicate IDs will cause the later table to override the earlier one)
 - The referenced table must appear before the formula is evaluated (tables are processed top-to-bottom)
 - Empty or non-numeric cells in the source table are treated as 0
 - String literals in formulas (like `"table_id"`) must be enclosed in double quotes
