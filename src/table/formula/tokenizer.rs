@@ -1,3 +1,18 @@
+use crate::table::formula::types::Span;
+
+/// Represents a token with its value and position in the source expression
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Token {
+    pub(crate) value: String,
+    pub(crate) span: Span,
+}
+
+impl Token {
+    pub(crate) fn new(value: String, span: Span) -> Self {
+        Token { value, span }
+    }
+}
+
 /// Tokenizes a mathematical expression string into individual components.
 ///
 /// Splits the expression into tokens while preserving operators, parentheses,
@@ -10,11 +25,9 @@
 ///
 /// # Returns
 ///
-/// A vector of token strings. Each token is one of:
-/// - An operator: `+`, `-`, `*`, `/`, `^`, `@`
-/// - A parenthesis: `(`, `)`
-/// - A number: `42`, `3.14`
-/// - An identifier: `A1`, `B_`, `sum`
+/// A vector of Token structs, each containing:
+/// - `value`: The token string (`+`, `-`, `*`, `/`, `^`, `@`, `(`, `)`, numbers, identifiers)
+/// - `span`: The position in the source expression (start and end indices)
 ///
 /// # Tokenization Rules
 ///
@@ -44,11 +57,12 @@
 /// **Whitespace** is ignored except as a token separator. Multiple spaces are
 /// treated the same as a single space.
 ///
-/// For example, "A1 + B2 * 3" becomes ["A1", "+", "B2", "*", "3"], and
-/// "sum(A_)" becomes ["sum", "(", "A_", ")"].
-pub(crate) fn tokenize_expression(expr: &str) -> Vec<String> {
+/// For example, "A1 + B2 * 3" becomes tokens with values ["A1", "+", "B2", "*", "3"], and
+/// "sum(A_)" becomes tokens with values ["sum", "(", "A_", ")"], each with their position spans.
+pub(crate) fn tokenize_expression(expr: &str) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut current_token = String::new();
+    let mut token_start = 0;
     let chars: Vec<char> = expr.chars().collect();
 
     let mut i = 0;
@@ -58,10 +72,17 @@ pub(crate) fn tokenize_expression(expr: &str) -> Vec<String> {
         match ch {
             '+' | '-' | '*' | '/' | '^' | '@' | '(' | ')' => {
                 if !current_token.is_empty() {
-                    tokens.push(current_token.trim().to_string());
+                    let trimmed = current_token.trim();
+                    if !trimmed.is_empty() {
+                        tokens.push(Token::new(
+                            trimmed.to_string(),
+                            Span::new(token_start, i),
+                        ));
+                    }
                     current_token.clear();
                 }
-                tokens.push(ch.to_string());
+                tokens.push(Token::new(ch.to_string(), Span::new(i, i + 1)));
+                token_start = i + 1;
                 i += 1;
             }
             '.' => {
@@ -81,21 +102,38 @@ pub(crate) fn tokenize_expression(expr: &str) -> Vec<String> {
                 } else {
                     // It's the transpose operator - treat as separate token
                     if !current_token.is_empty() {
-                        tokens.push(current_token.trim().to_string());
+                        let trimmed = current_token.trim();
+                        if !trimmed.is_empty() {
+                            tokens.push(Token::new(
+                                trimmed.to_string(),
+                                Span::new(token_start, i),
+                            ));
+                        }
                         current_token.clear();
                     }
-                    tokens.push(ch.to_string());
+                    tokens.push(Token::new(ch.to_string(), Span::new(i, i + 1)));
+                    token_start = i + 1;
                     i += 1;
                 }
             }
             ' ' => {
                 if !current_token.is_empty() {
-                    tokens.push(current_token.trim().to_string());
+                    let trimmed = current_token.trim();
+                    if !trimmed.is_empty() {
+                        tokens.push(Token::new(
+                            trimmed.to_string(),
+                            Span::new(token_start, i),
+                        ));
+                    }
                     current_token.clear();
                 }
+                token_start = i + 1;
                 i += 1;
             }
             _ => {
+                if current_token.is_empty() {
+                    token_start = i;
+                }
                 current_token.push(ch);
                 i += 1;
             }
@@ -103,8 +141,73 @@ pub(crate) fn tokenize_expression(expr: &str) -> Vec<String> {
     }
 
     if !current_token.is_empty() {
-        tokens.push(current_token.trim().to_string());
+        let trimmed = current_token.trim();
+        if !trimmed.is_empty() {
+            tokens.push(Token::new(
+                trimmed.to_string(),
+                Span::new(token_start, chars.len()),
+            ));
+        }
     }
 
     tokens
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tokenize_with_spans() {
+        let tokens = tokenize_expression("A1 + B2");
+
+        // Check we got the right tokens
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens[0].value, "A1");
+        assert_eq!(tokens[1].value, "+");
+        assert_eq!(tokens[2].value, "B2");
+
+        // Check spans are tracked correctly
+        assert_eq!(tokens[0].span.start, 0);
+        assert_eq!(tokens[0].span.end, 2);  // "A1"
+
+        assert_eq!(tokens[1].span.start, 3);
+        assert_eq!(tokens[1].span.end, 4);  // "+"
+
+        assert_eq!(tokens[2].span.start, 5);
+        assert_eq!(tokens[2].span.end, 7);  // "B2"
+    }
+
+    #[test]
+    fn test_tokenize_with_multiple_operators() {
+        let tokens = tokenize_expression("A1 + B2 * C3");
+
+        assert_eq!(tokens.len(), 5);
+        assert_eq!(tokens[0].value, "A1");
+        assert_eq!(tokens[1].value, "+");
+        assert_eq!(tokens[2].value, "B2");
+        assert_eq!(tokens[3].value, "*");
+        assert_eq!(tokens[4].value, "C3");
+
+        // Check the multiply operator span
+        assert_eq!(tokens[3].span.start, 8);
+        assert_eq!(tokens[3].span.end, 9);
+    }
+
+    #[test]
+    fn test_tokenize_decimal_number() {
+        let tokens = tokenize_expression("3.14 + 2.5");
+
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens[0].value, "3.14");
+        assert_eq!(tokens[1].value, "+");
+        assert_eq!(tokens[2].value, "2.5");
+
+        // Check decimal spans
+        assert_eq!(tokens[0].span.start, 0);
+        assert_eq!(tokens[0].span.end, 4);  // "3.14"
+
+        assert_eq!(tokens[2].span.start, 7);
+        assert_eq!(tokens[2].span.end, 10); // "2.5"
+    }
 }

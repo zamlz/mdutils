@@ -150,4 +150,67 @@ impl FormulaError {
             operand_type: operand_type.into(),
         }
     }
+
+    /// Format error with visual context showing position in expression
+    pub fn with_context(&self, expression: &str, span: crate::table::formula::Span) -> String {
+        let mut result = format!("{}\n", self);
+
+        // Add visual indicator
+        result.push_str(&format!("{}\n", expression));
+
+        // Add pointer to error location
+        let pointer = " ".repeat(span.start) + &"^".repeat((span.end - span.start).max(1));
+        result.push_str(&pointer);
+
+        result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_with_context_single_char() {
+        let error = FormulaError::RuntimeError(
+            "invalid operator".to_string()
+        );
+        let expression = "A1 + B2 @ C3";
+        let span = crate::table::formula::Span::new(8, 9); // Points to '@'
+
+        let result = error.with_context(expression, span);
+
+        // Should show the expression, then a pointer under the error location
+        assert!(result.contains("A1 + B2 @ C3"));
+        assert!(result.contains("        ^")); // 8 spaces then caret
+    }
+
+    #[test]
+    fn test_error_with_context_multi_char() {
+        let error = FormulaError::RuntimeError(
+            "invalid cell reference".to_string()
+        );
+        let expression = "A1 + ZZ99 * C3";
+        let span = crate::table::formula::Span::new(5, 9); // Points to "ZZ99"
+
+        let result = error.with_context(expression, span);
+
+        // Should show multiple carets for multi-character span
+        assert!(result.contains("A1 + ZZ99 * C3"));
+        assert!(result.contains("     ^^^^")); // 5 spaces then 4 carets
+    }
+
+    #[test]
+    fn test_error_with_context_at_start() {
+        let error = FormulaError::RuntimeError(
+            "invalid token".to_string()
+        );
+        let expression = "@ + B2";
+        let span = crate::table::formula::Span::new(0, 1); // Points to first char
+
+        let result = error.with_context(expression, span);
+
+        assert!(result.contains("@ + B2"));
+        assert!(result.contains("^")); // No leading spaces, caret at position 0
+    }
 }

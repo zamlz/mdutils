@@ -8,17 +8,17 @@ use rust_decimal::prelude::{ToPrimitive, FromPrimitive};
 /// Evaluates an AST expression node to a Value
 pub(crate) fn eval_ast(expr: &Expr, rows: &Vec<Vec<String>>) -> Result<Value, FormulaError> {
     match expr {
-        Expr::Literal(d) => Ok(Value::Scalar(*d)),
+        Expr::Literal(d, _span) => Ok(Value::Scalar(*d)),
 
-        Expr::CellRef(cell_ref) => resolve_reference(cell_ref, rows),
+        Expr::CellRef(cell_ref, _span) => resolve_reference(cell_ref, rows),
 
-        Expr::BinaryOp { left, op, right } => {
+        Expr::BinaryOp { left, op, right, span: _span } => {
             let left_val = eval_ast(left, rows)?;
             let right_val = eval_ast(right, rows)?;
             eval_binary_op(*op, left_val, right_val)
         }
 
-        Expr::Transpose(inner) => {
+        Expr::Transpose(inner, _span) => {
             let val = eval_ast(inner, rows)?;
             match val {
                 Value::Scalar(_) => {
@@ -34,7 +34,7 @@ pub(crate) fn eval_ast(expr: &Expr, rows: &Vec<Vec<String>>) -> Result<Value, Fo
             }
         }
 
-        Expr::FunctionCall { name, arg } => {
+        Expr::FunctionCall { name, arg, span: _span } => {
             let arg_val = eval_ast(arg, rows)?;
             eval_function(name, arg_val)
         }

@@ -60,6 +60,9 @@ mod evaluator;
 mod reference;
 mod tokenizer;
 
+// Re-export Span for use in error messages and public API
+pub use types::Span;
+
 // Internal imports
 use types::{Value, Assignment};
 use crate::table::error::FormulaError;
@@ -124,8 +127,18 @@ pub fn apply_formulas(rows: &mut Vec<Vec<String>>, formulas: &[String]) -> Vec<O
         let value = match evaluate_expression_value(&expr, rows) {
             Ok(v) => v,
             Err(error) => {
-                // Convert FormulaError to String
-                errors.push(Some(format!("Failed to evaluate expression '{}': {}", expr, error)));
+                // Try to extract span information by re-parsing for better error messages
+                let error_msg = match extract_error_span(&expr, &error) {
+                    Some(span) => {
+                        // Use with_context to show visual position indicator
+                        format!("Failed to evaluate expression:\n{}", error.with_context(&expr, span))
+                    }
+                    None => {
+                        // Fallback to simple error message
+                        format!("Failed to evaluate expression '{}': {}", expr, error)
+                    }
+                };
+                errors.push(Some(error_msg));
                 continue;
             }
         };
@@ -236,6 +249,79 @@ fn parse_formula(formula: &str) -> Option<(Assignment, String)> {
         Some((assignment, parts[1].trim().to_string()))
     } else {
         None
+    }
+}
+
+/// Attempts to extract span information from an error by analyzing the error type.
+/// This allows us to provide visual position indicators even when the error doesn't
+/// carry span information through the entire call chain.
+///
+/// # Strategy
+///
+/// For errors that reference specific tokens or positions, we can infer the span.
+/// For other errors, we return None and fall back to simple error messages.
+fn extract_error_span(expr: &str, error: &FormulaError) -> Option<Span> {
+    match error {
+        FormulaError::UnexpectedToken { position, .. } => {
+            // Use the position from the error
+            Some(Span::single(*position))
+        }
+        FormulaError::InvalidToken { token, .. } => {
+            // Try to find the token in the expression
+            if let Some(pos) = expr.find(token.as_str()) {
+                Some(Span::new(pos, pos + token.len()))
+            } else {
+                None
+            }
+        }
+        FormulaError::CellOutOfBounds { cell, .. } |
+        FormulaError::ColumnOutOfBounds { column: cell, .. } => {
+            // Try to find the cell reference in the expression
+            if let Some(pos) = expr.find(cell.as_str()) {
+                Some(Span::new(pos, pos + cell.len()))
+            } else {
+                None
+            }
+        }
+        FormulaError::RowOutOfBounds { row, .. } => {
+            // Try to find the row reference pattern (e.g., "_1", "_2")
+            let row_ref = format!("_{}", row);
+            if let Some(pos) = expr.find(&row_ref) {
+                Some(Span::new(pos, pos + row_ref.len()))
+            } else {
+                None
+            }
+        }
+        FormulaError::UnknownFunction { name, .. } => {
+            // Try to find the function name in the expression
+            if let Some(pos) = expr.find(name.as_str()) {
+                Some(Span::new(pos, pos + name.len()))
+            } else {
+                None
+            }
+        }
+        FormulaError::RuntimeError(msg) => {
+            // For runtime errors, try to extract span from common patterns
+
+            // Pattern 1: "unknown function: 'name'"
+            if let Some(start_idx) = msg.find("unknown function: '") {
+                let name_start = start_idx + "unknown function: '".len();
+                if let Some(end_idx) = msg[name_start..].find('\'') {
+                    let func_name = &msg[name_start..name_start + end_idx];
+                    if let Some(pos) = expr.find(func_name) {
+                        return Some(Span::new(pos, pos + func_name.len()));
+                    }
+                }
+            }
+
+            // Pattern 2: "cannot transpose a scalar" or other common messages
+            // For now, we don't extract spans for these
+
+            None
+        }
+        // For other error types, we could add more sophisticated span extraction
+        // but for now we'll return None and use simple error messages
+        _ => None,
     }
 }
 

@@ -1,5 +1,29 @@
 use rust_decimal::Decimal;
 
+/// Represents a span of characters in the source expression
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Span {
+    pub start: usize,
+    pub end: usize,
+}
+
+impl Span {
+    pub fn new(start: usize, end: usize) -> Self {
+        Span { start, end }
+    }
+
+    pub fn single(pos: usize) -> Self {
+        Span { start: pos, end: pos + 1 }
+    }
+
+    pub(crate) fn merge(&self, other: &Span) -> Span {
+        Span {
+            start: self.start.min(other.start),
+            end: self.end.max(other.end),
+        }
+    }
+}
+
 // Table row index constant
 // Markdown tables have a header row, separator row, then data rows starting at index 2
 pub(crate) const FIRST_DATA_ROW_INDEX: usize = 2;
