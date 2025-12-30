@@ -1,7 +1,29 @@
 Markdown Utils (Name Pending)
 =============================
 
-A Rust CLI tool for markdown processing with multiple subcommands.
+A Rust CLI tool for markdown processing with multiple subcommands. This
+is heavily based on some of the useful features I used when I used to
+use GNU/Emacs and Org-mode. Spreadsheet and literate programming were
+really cool features but were limited to GNU/Emacs. Emacs is realy
+awesome, but if I needed to edit markdown files, I wanted to be able to
+do some of the same things.  And even more so, I wanted to do so in any
+text editor! Editors like VIM, NeoVIM, Kakoune, Helix, etc. allow you
+to take a selection of text and pipe it to some program in your path
+and then replaces the highlighted text with it's output. This tool
+does just that. It is not editor specific and utilizes HTML comments in
+markdown (which is valid syntax) to tag and extend markdown with some
+of these capabilities.
+
+## Disclaimer
+
+This tool is entirely vibe-coded. It started off as an experiment in
+vibe-coding and I figured it was simple enough to define and structurely
+build up in an interative manner. I had the features and design in my
+head but I just didn't have the time to work on a project like this. It's
+simple enough where I can define everything exactly to what I need,
+but also complex enough where it would take me a while.
+
+In any case, you have been warned!
 
 ## Usage
 
