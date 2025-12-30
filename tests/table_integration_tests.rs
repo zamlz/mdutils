@@ -90,3 +90,191 @@ fn test_real_world_tax_calculation() {
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
 }
+
+#[test]
+fn test_formula_parse_error() {
+    let input = fs::read_to_string("tests/table/fixtures/formula_parse_error_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/formula_parse_error_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify error comment is present
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("Failed to parse formula"));
+}
+
+#[test]
+fn test_formula_eval_error() {
+    let input = fs::read_to_string("tests/table/fixtures/formula_eval_error_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/formula_eval_error_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify error comment is present
+    assert!(output.contains("md-error:"));
+    // First formula should succeed
+    assert!(output.contains("| 1   | 2   | 3   |"));
+}
+
+#[test]
+fn test_error_cell_out_of_bounds() {
+    let input = fs::read_to_string("tests/table/fixtures/error_cell_out_of_bounds_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/error_cell_out_of_bounds_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("out of bounds"));
+}
+
+#[test]
+fn test_error_column_out_of_bounds() {
+    let input = fs::read_to_string("tests/table/fixtures/error_column_out_of_bounds_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/error_column_out_of_bounds_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("column index out of bounds"));
+}
+
+#[test]
+fn test_error_row_out_of_bounds() {
+    let input = fs::read_to_string("tests/table/fixtures/error_row_out_of_bounds_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/error_row_out_of_bounds_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("row vector _5 is out of bounds"));
+}
+
+#[test]
+fn test_error_matrix_mult_dimension() {
+    let input = fs::read_to_string("tests/table/fixtures/error_matrix_mult_dimension_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/error_matrix_mult_dimension_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("matrix multiplication dimension mismatch"));
+    assert!(output.contains("inner dimensions"));
+}
+
+#[test]
+fn test_error_transpose_scalar() {
+    let input = fs::read_to_string("tests/table/fixtures/error_transpose_scalar_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/error_transpose_scalar_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("cannot transpose a scalar"));
+}
+
+#[test]
+fn test_error_elementwise_dimension() {
+    let input = fs::read_to_string("tests/table/fixtures/error_elementwise_dimension_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/error_elementwise_dimension_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("element-wise operation"));
+    assert!(output.contains("matching dimensions"));
+}
+
+#[test]
+fn test_error_unmatched_paren() {
+    let input = fs::read_to_string("tests/table/fixtures/error_unmatched_paren_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/error_unmatched_paren_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("unmatched"));
+}
+
+#[test]
+fn test_error_invalid_token() {
+    let input = fs::read_to_string("tests/table/fixtures/error_invalid_token_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/error_invalid_token_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("invalid token"));
+}
+
+#[test]
+fn test_error_unknown_function() {
+    let input = fs::read_to_string("tests/table/fixtures/error_unknown_function_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/error_unknown_function_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("unknown function"));
+}
+
+#[test]
+fn test_error_division_by_zero() {
+    let input = fs::read_to_string("tests/table/fixtures/error_division_by_zero_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/error_division_by_zero_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("division by zero"));
+}
+
+#[test]
+fn test_error_matmul_scalar() {
+    let input = fs::read_to_string("tests/table/fixtures/error_matmul_scalar_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/error_matmul_scalar_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("cannot use matrix multiplication (@)"));
+    assert!(output.contains("scalar"));
+}
+
+#[test]
+fn test_error_matrix_in_expression() {
+    let input = fs::read_to_string("tests/table/fixtures/error_matrix_in_expression_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/error_matrix_in_expression_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("cannot use (3×1) matrix result from parenthesized expression"));
+}

@@ -117,30 +117,45 @@ pub fn format_tables(text: &str) -> String {
                 i += 1;
             }
 
-            // Check for HTML comments with formulas after the table
-            let mut formulas = Vec::new();
-            let start_comment_idx = i;
+            // Collect all formula comments and their formulas
+            let mut formula_comments = Vec::new();
 
             // Look for <!-- md-table: --> comment
             if i < lines.len() && is_md_table_comment(lines[i]) {
-                formulas.extend(extract_formulas_from_comment(lines[i]));
+                let comment_line = lines[i];
+                let formulas = extract_formulas_from_comment(comment_line);
+                formula_comments.push((comment_line, formulas));
                 i += 1;
 
                 // Collect additional formula comments on following lines
                 while i < lines.len() && is_formula_comment(lines[i]) {
-                    formulas.extend(extract_formulas_from_comment(lines[i]));
+                    let comment_line = lines[i];
+                    let formulas = extract_formulas_from_comment(comment_line);
+                    formula_comments.push((comment_line, formulas));
                     i += 1;
                 }
             }
 
-            // Format the table with formulas
-            let formatted = format_table_with_formulas(&current_table_lines, &formulas);
+            // Format the table with all formulas applied
+            let all_formulas: Vec<String> = formula_comments.iter()
+                .flat_map(|(_, formulas)| formulas.clone())
+                .collect();
+            let (formatted, all_errors) = format_table_with_formulas(&current_table_lines, &all_formulas);
             output.push(formatted);
 
-            // Add the comments back to output
-            for comment_idx in start_comment_idx..i {
-                if comment_idx < lines.len() {
-                    output.push(lines[comment_idx].to_string());
+            // Add the comments back with their respective errors
+            let mut error_idx = 0;
+            for (comment_line, formulas) in &formula_comments {
+                output.push(comment_line.to_string());
+
+                // Add error comments for formulas from this comment line
+                for _ in 0..formulas.len() {
+                    if error_idx < all_errors.len() {
+                        if let Some(ref error) = all_errors[error_idx] {
+                            output.push(format!("<!-- md-error: {} -->", error));
+                        }
+                        error_idx += 1;
+                    }
                 }
             }
 
@@ -163,9 +178,11 @@ pub fn format_tables(text: &str) -> String {
 }
 
 /// Formats a table with formula evaluation
-fn format_table_with_formulas(lines: &[&str], formulas: &[String]) -> String {
+/// Returns a tuple of (formatted_table, per_formula_errors)
+/// where per_formula_errors[i] is None if formula i succeeded, or Some(error) if it failed
+fn format_table_with_formulas(lines: &[&str], formulas: &[String]) -> (String, Vec<Option<String>>) {
     if lines.is_empty() {
-        return String::new();
+        return (String::new(), Vec::new());
     }
 
     // Parse all rows into cells
@@ -175,13 +192,15 @@ fn format_table_with_formulas(lines: &[&str], formulas: &[String]) -> String {
         .collect();
 
     if rows.is_empty() {
-        return lines.join("\n");
+        return (lines.join("\n"), Vec::new());
     }
 
-    // Apply formulas if any
-    if !formulas.is_empty() {
-        apply_formulas(&mut rows, formulas);
-    }
+    // Apply formulas if any and collect errors per formula
+    let errors = if !formulas.is_empty() {
+        apply_formulas(&mut rows, formulas)
+    } else {
+        Vec::new()
+    };
 
     // Find the maximum width for each column
     let num_cols = rows.iter().map(|r| r.len()).max().unwrap_or(0);
@@ -199,7 +218,7 @@ fn format_table_with_formulas(lines: &[&str], formulas: &[String]) -> String {
         .map(|row| format_table_row(row, &col_widths))
         .collect();
 
-    formatted_rows.join("\n")
+    (formatted_rows.join("\n"), errors)
 }
 
 #[cfg(test)]

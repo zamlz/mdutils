@@ -363,6 +363,89 @@ Result: C1 = (1×2 + 3×4 + 5×6) + 10 = 44 + 10 = 54
 - Parentheses: `()`
 - Functions: `sum()`
 
+### Formula Error Handling
+
+When formulas contain errors, the system reports them using HTML comments
+with the `<!-- md-error: -->` marker. Error comments are inserted directly
+after the formula that failed.
+
+**Error Types:**
+
+1. **Parse Errors** - Invalid formula syntax
+2. **Evaluation Errors** - Invalid expressions or references
+3. **Assignment Errors** - Type mismatches or out-of-bounds assignments
+
+**Example - Parse Error:**
+
+Input:
+```markdown
+| A | B | C |
+|---|---|---|
+| 1 | 2 | 0 |
+| 3 | 4 | 0 |
+<!-- md-table: this is invalid -->
+```
+
+Output:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 1   | 2   | 0   |
+| 3   | 4   | 0   |
+<!-- md-table: this is invalid -->
+<!-- md-error: Failed to parse formula 'this is invalid': invalid syntax (expected format: TARGET = EXPRESSION) -->
+```
+
+**Example - Evaluation Error:**
+
+Input:
+```markdown
+| A | B | C |
+|---|---|---|
+| 1 | 2 | 0 |
+| 3 | 4 | 0 |
+<!-- md-table: C_ = A_ + B_; D_ = X_ + Y_ -->
+```
+
+Output:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 1   | 2   | 3   |
+| 3   | 4   | 7   |
+<!-- md-table: C_ = A_ + B_; D_ = X_ + Y_ -->
+<!-- md-error: Failed to evaluate expression 'X_ + Y_': invalid expression or dimension mismatch -->
+```
+
+Note: The first formula (`C_ = A_ + B_`) succeeded and updated column C,
+while the second formula (`D_ = X_ + Y_`) failed because columns X and Y
+don't exist. Each formula is evaluated independently.
+
+**Example - Assignment Error:**
+
+Input:
+```markdown
+| A | B |
+|---|---|
+| 1 | 2 |
+<!-- md-table: Z1 = A1 + B1 -->
+```
+
+Output:
+```markdown
+| A   | B   |
+| --- | --- |
+| 1   | 2   |
+<!-- md-table: Z1 = A1 + B1 -->
+<!-- md-error: Assignment failed for 'Z1 = A1 + B1': cell index out of bounds -->
+```
+
+**Error Behavior:**
+- Errors don't stop processing of subsequent formulas
+- Each formula is evaluated independently
+- Successful formulas update their cells even if others fail
+- Error messages are descriptive and include the failing formula
+
 ### Code Block Execution
 
 The `code` subcommand allows you to execute code blocks in markdown
