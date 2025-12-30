@@ -128,4 +128,19 @@ pub(crate) enum CellReference {
 pub(crate) enum Assignment {
     Scalar { row: usize, col: usize },   // D2 = ...
     ColumnVector { col: usize },         // D_ = ...
+    RowVector { row: usize },            // _1 = ...
+    Range {
+        start_row: usize,
+        start_col: usize,
+        end_row: usize,
+        end_col: usize
+    },  // A1:C3 = ...
+    ColumnRange {
+        start_col: usize,
+        end_col: usize
+    },  // A_:C_ = ...
+    RowRange {
+        start_row: usize,
+        end_row: usize
+    },  // _1:_5 = ...
 }

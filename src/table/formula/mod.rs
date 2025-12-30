@@ -83,6 +83,106 @@ fn apply_column_vector_assignment(rows: &mut [Vec<String>], col: usize, value: &
     }
 }
 
+/// Applies a row vector of values to a table row
+fn apply_row_vector_assignment(rows: &mut [Vec<String>], row: usize, value: &Value) {
+    if let Value::Matrix { rows: 1, cols: _n_cols, data } = value {
+        for (i, &val) in data.iter().enumerate() {
+            if row < rows.len() && i < rows[row].len() {
+                rows[row][i] = val.to_string();
+            }
+        }
+    }
+}
+
+/// Applies a matrix to a rectangular range in the table
+fn apply_range_assignment(
+    rows: &mut [Vec<String>],
+    start_row: usize,
+    start_col: usize,
+    end_row: usize,
+    end_col: usize,
+    value: &Value
+) {
+    if let Value::Matrix { rows: num_rows, cols: num_cols, data } = value {
+        let expected_rows = end_row - start_row + 1;
+        let expected_cols = end_col - start_col + 1;
+
+        // Check dimension match
+        if *num_rows != expected_rows || *num_cols != expected_cols {
+            return; // Dimension mismatch, skip assignment
+        }
+
+        // Apply values to range
+        for r in 0..expected_rows {
+            for c in 0..expected_cols {
+                let table_row = start_row + r;
+                let table_col = start_col + c;
+                if table_row < rows.len() && table_col < rows[table_row].len() {
+                    let data_idx = r * expected_cols + c;
+                    rows[table_row][table_col] = data[data_idx].to_string();
+                }
+            }
+        }
+    }
+}
+
+/// Applies a matrix to a column range (A_:C_)
+fn apply_column_range_assignment(
+    rows: &mut [Vec<String>],
+    start_col: usize,
+    end_col: usize,
+    value: &Value
+) {
+    if let Value::Matrix { rows: num_rows, cols: num_cols, data } = value {
+        let expected_cols = end_col - start_col + 1;
+
+        // Check column dimension match
+        if *num_cols != expected_cols {
+            return; // Dimension mismatch
+        }
+
+        // Apply values starting from first data row
+        for r in 0..*num_rows {
+            for c in 0..expected_cols {
+                let table_row = FIRST_DATA_ROW_INDEX + r;
+                let table_col = start_col + c;
+                if table_row < rows.len() && table_col < rows[table_row].len() {
+                    let data_idx = r * expected_cols + c;
+                    rows[table_row][table_col] = data[data_idx].to_string();
+                }
+            }
+        }
+    }
+}
+
+/// Applies a matrix to a row range (_1:_5)
+fn apply_row_range_assignment(
+    rows: &mut [Vec<String>],
+    start_row: usize,
+    end_row: usize,
+    value: &Value
+) {
+    if let Value::Matrix { rows: num_rows, cols: num_cols, data } = value {
+        let expected_rows = end_row - start_row + 1;
+
+        // Check row dimension match
+        if *num_rows != expected_rows {
+            return; // Dimension mismatch
+        }
+
+        // Apply values
+        for r in 0..expected_rows {
+            let table_row = formula_row_to_table_index(start_row + r);
+            for c in 0..*num_cols {
+                if table_row < rows.len() && c < rows[table_row].len() {
+                    let data_idx = r * num_cols + c;
+                    rows[table_row][c] = data[data_idx].to_string();
+                }
+            }
+        }
+    }
+}
+
 /// Applies spreadsheet-style formulas to table cells with access to other tables.
 ///
 /// This version supports cross-table references via the from() function.
@@ -177,6 +277,93 @@ pub fn apply_formulas_with_tables(
                     None  // Success
                 }
             }
+            Assignment::RowVector { row } => {
+                // Row vector assignment: update entire row
+                let table_row = formula_row_to_table_index(row);
+                match value {
+                    Value::Matrix { rows: 1, cols: _, .. } => {
+                        if table_row >= rows.len() {
+                            Some(format!("Assignment failed for '{}': row index out of bounds", formula_trimmed))
+                        } else {
+                            apply_row_vector_assignment(rows, table_row, &value);
+                            None  // Success
+                        }
+                    }
+                    Value::Scalar(_) => {
+                        Some(format!("Assignment failed for '{}': cannot assign scalar to row vector (expected row vector)", formula_trimmed))
+                    }
+                    Value::Matrix { rows: num_rows, .. } => {
+                        Some(format!("Assignment failed for '{}': expected row vector but got matrix with {} rows", formula_trimmed, num_rows))
+                    }
+                }
+            }
+            Assignment::Range { start_row, start_col, end_row, end_col } => {
+                // Range assignment: update rectangular region
+                match value {
+                    Value::Matrix { rows: num_rows, cols: num_cols, .. } => {
+                        let expected_rows = end_row - start_row + 1;
+                        let expected_cols = end_col - start_col + 1;
+
+                        if num_rows != expected_rows || num_cols != expected_cols {
+                            Some(format!("Assignment failed for '{}': dimension mismatch (expected {}×{} but got {}×{})",
+                                formula_trimmed, expected_rows, expected_cols, num_rows, num_cols))
+                        } else if end_row >= rows.len() {
+                            Some(format!("Assignment failed for '{}': range extends beyond table bounds", formula_trimmed))
+                        } else {
+                            apply_range_assignment(rows, start_row, start_col, end_row, end_col, &value);
+                            None  // Success
+                        }
+                    }
+                    Value::Scalar(_) => {
+                        Some(format!("Assignment failed for '{}': cannot assign scalar to range (expected matrix)", formula_trimmed))
+                    }
+                }
+            }
+            Assignment::ColumnRange { start_col, end_col } => {
+                // Column range assignment: update multiple columns
+                match value {
+                    Value::Matrix { rows: _, cols: num_cols, .. } => {
+                        let expected_cols = end_col - start_col + 1;
+
+                        if num_cols != expected_cols {
+                            Some(format!("Assignment failed for '{}': column dimension mismatch (expected {} columns but got {})",
+                                formula_trimmed, expected_cols, num_cols))
+                        } else if end_col >= rows.first().map(|r| r.len()).unwrap_or(0) {
+                            Some(format!("Assignment failed for '{}': column range extends beyond table bounds", formula_trimmed))
+                        } else {
+                            apply_column_range_assignment(rows, start_col, end_col, &value);
+                            None  // Success
+                        }
+                    }
+                    Value::Scalar(_) => {
+                        Some(format!("Assignment failed for '{}': cannot assign scalar to column range (expected matrix)", formula_trimmed))
+                    }
+                }
+            }
+            Assignment::RowRange { start_row, end_row } => {
+                // Row range assignment: update multiple rows
+                match value {
+                    Value::Matrix { rows: num_rows, cols: _, .. } => {
+                        let expected_rows = end_row - start_row + 1;
+
+                        if num_rows != expected_rows {
+                            Some(format!("Assignment failed for '{}': row dimension mismatch (expected {} rows but got {})",
+                                formula_trimmed, expected_rows, num_rows))
+                        } else {
+                            let table_end_row = formula_row_to_table_index(end_row);
+                            if table_end_row >= rows.len() {
+                                Some(format!("Assignment failed for '{}': row range extends beyond table bounds", formula_trimmed))
+                            } else {
+                                apply_row_range_assignment(rows, start_row, end_row, &value);
+                                None  // Success
+                            }
+                        }
+                    }
+                    Value::Scalar(_) => {
+                        Some(format!("Assignment failed for '{}': cannot assign scalar to row range (expected matrix)", formula_trimmed))
+                    }
+                }
+            }
         };
 
         errors.push(error);
@@ -186,52 +373,57 @@ pub fn apply_formulas_with_tables(
 }
 
 /// Parses an assignment target (left side of formula)
-/// Supports: A1 (scalar), A_ (column vector)
+/// Supports: A1 (scalar), A_ (column vector), _1 (row vector), A1:C3 (range), A_:C_ (column range), _1:_5 (row range)
 fn parse_assignment(target: &str) -> Option<Assignment> {
-    let target = target.trim().to_uppercase();
-    if target.is_empty() {
-        return None;
-    }
+    use reference::parse_cell_reference;
+    use types::CellReference;
 
-    // Check for column vector pattern: A_
-    if target.ends_with('_') {
-        let col_str = &target[..target.len() - 1];
-        if col_str.len() == 1 {
-            let col_char = col_str.chars().next()?;
-            if col_char.is_ascii_alphabetic() {
-                let col_idx = (col_char as u32 - 'A' as u32) as usize;
-                return Some(Assignment::ColumnVector { col: col_idx });
-            }
+    let target = target.trim();
+
+    // Check if this is a range (contains ':')
+    if target.contains(':') {
+        let parts: Vec<&str> = target.split(':').collect();
+        if parts.len() != 2 {
+            return None;
         }
-        return None;
+
+        let start_ref = parse_cell_reference(parts[0])?;
+        let end_ref = parse_cell_reference(parts[1])?;
+
+        // Match the type of range based on start and end references
+        match (start_ref, end_ref) {
+            (CellReference::Scalar { row: start_row, col: start_col },
+             CellReference::Scalar { row: end_row, col: end_col }) => {
+                Some(Assignment::Range { start_row, start_col, end_row, end_col })
+            }
+            (CellReference::ColumnVector { col: start_col },
+             CellReference::ColumnVector { col: end_col }) => {
+                Some(Assignment::ColumnRange { start_col, end_col })
+            }
+            (CellReference::RowVector { row: start_row },
+             CellReference::RowVector { row: end_row }) => {
+                Some(Assignment::RowRange { start_row, end_row })
+            }
+            _ => None, // Mixed types not allowed
+        }
+    } else {
+        // Not a range, parse as single cell reference
+        let cell_ref = parse_cell_reference(target)?;
+
+        // Convert CellReference to Assignment
+        match cell_ref {
+            CellReference::Scalar { row, col } => {
+                Some(Assignment::Scalar { row, col })
+            }
+            CellReference::ColumnVector { col } => {
+                Some(Assignment::ColumnVector { col })
+            }
+            CellReference::RowVector { row } => {
+                Some(Assignment::RowVector { row })
+            }
+            _ => None, // Ranges should have been caught above
+        }
     }
-
-    // Check for scalar pattern: A1
-    let mut chars = target.chars();
-    let first = chars.next()?;
-    if !first.is_ascii_alphabetic() {
-        return None;
-    }
-
-    let rest: String = chars.collect();
-    if rest.is_empty() {
-        return None;
-    }
-
-    // Verify rest is all digits
-    if !rest.chars().all(|c| c.is_ascii_digit()) {
-        return None;
-    }
-
-    let col_idx = (first as u32 - 'A' as u32) as usize;
-    let row_num: usize = rest.parse().ok()?;
-
-    if row_num == 0 {
-        return None;
-    }
-
-    let row_idx = formula_row_to_table_index(row_num);
-    Some(Assignment::Scalar { row: row_idx, col: col_idx })
 }
 
 /// Parses a formula like "A1 = B1 + C1" into (assignment, expression)

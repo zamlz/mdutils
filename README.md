@@ -475,6 +475,142 @@ when working with dynamic tables where the number of rows or columns may
 change. They automatically adapt to the table size without requiring
 formula updates.
 
+### Matrix Assignments
+
+The formula system supports assigning entire matrices, ranges, and vectors in a single formula.
+This enables powerful bulk operations where you can update multiple cells at once with properly
+dimensioned results.
+
+**Supported Assignment Types:**
+
+1. **Scalar Assignment** - `A1 = expr` (single cell)
+2. **Column Vector Assignment** - `A_ = expr` (entire column)
+3. **Row Vector Assignment** - `_1 = expr` (entire row)
+4. **Range Assignment** - `A1:C3 = expr` (rectangular region)
+5. **Column Range Assignment** - `A_:C_ = expr` (multiple columns)
+6. **Row Range Assignment** - `_1:_3 = expr` (multiple rows)
+
+**Important:** The dimensions of the result must exactly match the dimensions of the assignment target.
+
+**Example 1: Row Vector Assignment**
+
+Assign the result of a row vector operation to an entire row:
+
+Input:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 1   | 2   | 3   |
+| 0   | 0   | 0   |
+<!-- md-table: _2 = _1 * 2 -->
+```
+
+Output:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 1   | 2   | 3   |
+| 2   | 4   | 6   |
+<!-- md-table: _2 = _1 * 2 -->
+```
+
+**Example 2: Range Assignment**
+
+Assign a matrix result to a rectangular range:
+
+Input:
+```markdown
+| A   | B   | C   | D   |
+| --- | --- | --- | --- |
+| 1   | 2   | 0   | 0   |
+| 3   | 4   | 0   | 0   |
+<!-- md-table: C1:D2 = A1:B2 + 10 -->
+```
+
+Output:
+```markdown
+| A   | B   | C   | D   |
+| --- | --- | --- | --- |
+| 1   | 2   | 11  | 12  |
+| 3   | 4   | 13  | 14  |
+<!-- md-table: C1:D2 = A1:B2 + 10 -->
+```
+
+**Example 3: Column Range Assignment**
+
+Update multiple columns at once:
+
+Input:
+```markdown
+| A   | B   | C   | D   |
+| --- | --- | --- | --- |
+| 1   | 2   | 0   | 0   |
+| 3   | 4   | 0   | 0   |
+| 5   | 6   | 0   | 0   |
+<!-- md-table: C_:D_ = A_:B_ * 10 -->
+```
+
+Output:
+```markdown
+| A   | B   | C   | D   |
+| --- | --- | --- | --- |
+| 1   | 2   | 10  | 20  |
+| 3   | 4   | 30  | 40  |
+| 5   | 6   | 50  | 60  |
+<!-- md-table: C_:D_ = A_:B_ * 10 -->
+```
+
+**Example 4: Row Range Assignment**
+
+Update multiple rows in one formula:
+
+Input:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 1   | 2   | 3   |
+| 4   | 5   | 6   |
+| 0   | 0   | 0   |
+| 0   | 0   | 0   |
+<!-- md-table: _3:_4 = _1:_2 * 10 -->
+```
+
+Output:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 1   | 2   | 3   |
+| 4   | 5   | 6   |
+| 10  | 20  | 30  |
+| 40  | 50  | 60  |
+<!-- md-table: _3:_4 = _1:_2 * 10 -->
+```
+
+**Dimension Validation:**
+
+Matrix assignments require exact dimension matches. If the dimensions don't match, you'll get a descriptive error:
+
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 1   | 2   | 0   |
+| 3   | 4   | 0   |
+<!-- md-table: C_ = A1:B2 -->
+<!-- md-error: Assignment failed: expected column vector but got matrix result -->
+```
+
+**Practical Use Cases:**
+
+- **Data transformation**: `C_:D_ = A_:B_ * conversion_factor`
+- **Row copying**: `_5:_10 = _1:_6`
+- **Region updates**: `D1:F3 = A1:C3 + B1:C3`
+- **Bulk calculations**: Compute multiple related values in one formula
+
+**Notes:**
+- Matrix assignments follow the same dimension rules as matrix operations
+- Scalars cannot be assigned to matrix targets (use broadcasting instead: `C_ = A_ * 2`)
+- Assignment targets can use any valid range syntax from [Cell Range References](#cell-range-references)
+
 ### Matrix Multiplication and Transpose Operator
 
 The formula system supports matrix multiplication using the `@` operator,

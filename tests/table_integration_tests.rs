@@ -349,3 +349,63 @@ fn test_cross_table_missing_id() {
     assert!(output.contains("md-error:"));
     assert!(output.contains("table 'nonexistent' not found"));
 }
+
+#[test]
+fn test_assignment_row_vector() {
+    let input = fs::read_to_string("tests/table/fixtures/assignment_row_vector_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/assignment_row_vector_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify row vector assignment works
+    assert!(output.contains("| 2   | 4   | 6   |"));
+    assert!(!output.contains("md-error:"));
+}
+
+#[test]
+fn test_assignment_range() {
+    let input = fs::read_to_string("tests/table/fixtures/assignment_range_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/assignment_range_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify range assignment works
+    assert!(output.contains("| 1   | 2   | 11  | 12  |"));
+    assert!(output.contains("| 3   | 4   | 13  | 14  |"));
+    assert!(!output.contains("md-error:"));
+}
+
+#[test]
+fn test_assignment_column_range() {
+    let input = fs::read_to_string("tests/table/fixtures/assignment_column_range_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/assignment_column_range_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify column range assignment works
+    assert!(output.contains("| 1   | 2   | 10  | 20  |"));
+    assert!(output.contains("| 3   | 4   | 30  | 40  |"));
+    assert!(output.contains("| 5   | 6   | 50  | 60  |"));
+    assert!(!output.contains("md-error:"));
+}
+
+#[test]
+fn test_assignment_row_range() {
+    let input = fs::read_to_string("tests/table/fixtures/assignment_row_range_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/assignment_row_range_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify row range assignment works
+    assert!(output.contains("| 10  | 20  | 30  |"));
+    assert!(output.contains("| 40  | 50  | 60  |"));
+    assert!(!output.contains("md-error:"));
+}
