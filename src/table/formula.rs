@@ -366,14 +366,25 @@ fn cell_ref_to_index(cell_ref: &str) -> Option<(usize, usize)> {
 /// * `Some(CellReference)` if the token matches a valid pattern
 /// * `None` if the token is invalid or doesn't match any pattern
 ///
-/// # Examples
+/// # Behavior Details
 ///
-/// ```ignore
-/// parse_cell_reference("A1")  // Some(Scalar { row: 2, col: 0 })
-/// parse_cell_reference("B_")  // Some(ColumnVector { col: 1 })
-/// parse_cell_reference("_1")  // Some(RowVector { row: 1 })
-/// parse_cell_reference("123") // None
-/// ```
+/// **Scalar references** (e.g., "A1", "B2", "Z99"):
+/// - Column letter is converted to a zero-based index (A=0, B=1, etc.)
+/// - Row number must be a positive integer
+/// - Returns the table row index (accounting for header and separator rows)
+///
+/// **Column vector references** (e.g., "A_", "B_", "Z_"):
+/// - Represents all data rows in the specified column
+/// - Column letter is converted to zero-based index
+/// - Used for operations on entire columns
+///
+/// **Row vector references** (e.g., "_1", "_2", "_99"):
+/// - Represents all columns in the specified row
+/// - Row number is 1-based where 1 refers to the first data row
+/// - Used for operations on entire rows
+///
+/// Invalid tokens return None, including: empty strings, numbers without letters,
+/// invalid formats, or row number 0.
 fn parse_cell_reference(token: &str) -> Option<CellReference> {
     let token = token.trim().to_uppercase();
     if token.is_empty() {
@@ -995,13 +1006,36 @@ fn process_parentheses_value(tokens: &[String], rows: &Vec<Vec<String>>) -> Resu
 /// - A number: `42`, `3.14`
 /// - An identifier: `A1`, `B_`, `sum`
 ///
-/// # Examples
+/// # Tokenization Rules
 ///
-/// ```ignore
-/// tokenize_expression("A1 + B2 * 3")  // ["A1", "+", "B2", "*", "3"]
-/// tokenize_expression("sum(A_)")      // ["sum", "(", "A_", ")"]
-/// tokenize_expression("(2 + 3) ^ 2")  // ["(", "2", "+", "3", ")", "^", "2"]
-/// ```
+/// **Operators** are split into individual tokens:
+/// - Arithmetic: `+`, `-`, `*`, `/`, `^` (exponentiation)
+/// - Matrix operations: `@` (matrix multiplication)
+/// - Each operator becomes a single-character token
+///
+/// **Parentheses** are split into individual tokens:
+/// - Opening `(` and closing `)` parentheses
+/// - Used for grouping expressions and function arguments
+///
+/// **The dot operator** for transpose (`.T`) is handled specially:
+/// - The dot `.` and `T` are kept as separate tokens
+/// - Allows the parser to recognize the `.T` transpose operator
+///
+/// **Numbers** are kept together as single tokens:
+/// - Integer literals: "42", "100"
+/// - Decimal literals: "3.14", "0.5"
+/// - Scientific notation is not currently supported
+///
+/// **Identifiers** (cell references and function names) are kept together:
+/// - Cell references: "A1", "B2", "A_", "_1"
+/// - Function names: "sum", "avg"
+/// - Alphanumeric characters and underscores
+///
+/// **Whitespace** is ignored except as a token separator. Multiple spaces are
+/// treated the same as a single space.
+///
+/// For example, "A1 + B2 * 3" becomes ["A1", "+", "B2", "*", "3"], and
+/// "sum(A_)" becomes ["sum", "(", "A_", ")"].
 fn tokenize_expression(expr: &str) -> Vec<String> {
     let mut tokens = Vec::new();
     let mut current_token = String::new();
