@@ -267,7 +267,7 @@ fn test_error_matmul_scalar() {
 }
 
 #[test]
-fn test_error_matrix_in_expression() {
+fn test_complex_nested_expression() {
     let input = fs::read_to_string("tests/table/fixtures/error_matrix_in_expression_input.md")
         .expect("Failed to read input fixture");
     let expected = fs::read_to_string("tests/table/fixtures/error_matrix_in_expression_expected.md")
@@ -275,6 +275,21 @@ fn test_error_matrix_in_expression() {
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
-    assert!(output.contains("md-error:"));
-    assert!(output.contains("cannot use (3×1) matrix result from parenthesized expression"));
+    // This complex expression now works with AST parser!
+    assert!(output.contains("| 1   | 2   | 2   | 283      |"));
+    assert!(!output.contains("md-error:")); // No error - it works!
+}
+
+#[test]
+fn test_complex_expression_outer_transpose() {
+    let input = fs::read_to_string("tests/table/fixtures/complex_expression_outer_transpose_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/complex_expression_outer_transpose_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify the complex expression with transpose evaluates correctly
+    assert!(output.contains("| 1   | 2   | 2   | 283      |"));
+    assert!(!output.contains("md-error:"));
 }

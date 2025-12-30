@@ -149,6 +149,276 @@ enum Assignment {
     ColumnVector { col: usize },         // D_ = ...
 }
 
+/// Abstract Syntax Tree node representing an expression
+#[derive(Debug, Clone, PartialEq)]
+enum Expr {
+    /// A literal decimal number
+    Literal(Decimal),
+
+    /// A cell reference (scalar, column vector, or row vector)
+    CellRef(CellReference),
+
+    /// Binary operation (e.g., A + B, A * B, A @ B)
+    BinaryOp {
+        left: Box<Expr>,
+        op: BinaryOperator,
+        right: Box<Expr>,
+    },
+
+    /// Unary transpose operation (e.g., A_.T)
+    Transpose(Box<Expr>),
+
+    /// Function call (e.g., sum(A_))
+    FunctionCall {
+        name: String,
+        arg: Box<Expr>,
+    },
+}
+
+/// Binary operators supported in expressions
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BinaryOperator {
+    Add,     // +
+    Sub,     // -
+    Mul,     // *
+    Div,     // /
+    Pow,     // ^
+    MatMul,  // @
+}
+
+impl BinaryOperator {
+    /// Get operator precedence (higher = evaluated first)
+    fn precedence(&self) -> u8 {
+        match self {
+            BinaryOperator::Add | BinaryOperator::Sub => 1,
+            BinaryOperator::Mul | BinaryOperator::Div | BinaryOperator::MatMul => 2,
+            BinaryOperator::Pow => 3,
+        }
+    }
+
+    /// Parse operator from token string
+    fn from_token(token: &str) -> Option<Self> {
+        match token {
+            "+" => Some(BinaryOperator::Add),
+            "-" => Some(BinaryOperator::Sub),
+            "*" => Some(BinaryOperator::Mul),
+            "/" => Some(BinaryOperator::Div),
+            "^" => Some(BinaryOperator::Pow),
+            "@" => Some(BinaryOperator::MatMul),
+            _ => None,
+        }
+    }
+}
+
+/// Recursive descent parser for converting tokens to AST
+struct Parser {
+    tokens: Vec<String>,
+    pos: usize,
+}
+
+impl Parser {
+    fn new(tokens: Vec<String>) -> Self {
+        Parser { tokens, pos: 0 }
+    }
+
+    /// Parse the entire expression
+    fn parse(&mut self) -> Result<Expr, String> {
+        let expr = self.parse_expression()?;
+        if self.pos < self.tokens.len() {
+            return Err(format!("unexpected token: '{}' at position {}", self.tokens[self.pos], self.pos));
+        }
+        Ok(expr)
+    }
+
+    /// Parse expression: term (('+' | '-') term)*
+    fn parse_expression(&mut self) -> Result<Expr, String> {
+        let mut left = self.parse_term()?;
+
+        while self.pos < self.tokens.len() {
+            let token = &self.tokens[self.pos];
+            if token == "+" || token == "-" {
+                let op = BinaryOperator::from_token(token).unwrap();
+                self.pos += 1;
+                let right = self.parse_term()?;
+                left = Expr::BinaryOp {
+                    left: Box::new(left),
+                    op,
+                    right: Box::new(right),
+                };
+            } else {
+                break;
+            }
+        }
+
+        Ok(left)
+    }
+
+    /// Parse term: factor (('*' | '/' | '@') factor)*
+    fn parse_term(&mut self) -> Result<Expr, String> {
+        let mut left = self.parse_factor()?;
+
+        while self.pos < self.tokens.len() {
+            let token = &self.tokens[self.pos];
+            if token == "*" || token == "/" || token == "@" {
+                let op = BinaryOperator::from_token(token).unwrap();
+                self.pos += 1;
+                let right = self.parse_factor()?;
+                left = Expr::BinaryOp {
+                    left: Box::new(left),
+                    op,
+                    right: Box::new(right),
+                };
+            } else {
+                break;
+            }
+        }
+
+        Ok(left)
+    }
+
+    /// Parse factor: unary ('^' unary)*
+    /// Right-associative for exponentiation
+    fn parse_factor(&mut self) -> Result<Expr, String> {
+        let mut left = self.parse_unary()?;
+
+        if self.pos < self.tokens.len() && self.tokens[self.pos] == "^" {
+            self.pos += 1;
+            let right = self.parse_factor()?; // Right-associative recursion
+            left = Expr::BinaryOp {
+                left: Box::new(left),
+                op: BinaryOperator::Pow,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(left)
+    }
+
+    /// Parse unary: primary ('.T')?
+    fn parse_unary(&mut self) -> Result<Expr, String> {
+        let mut expr = self.parse_primary()?;
+
+        // Check for transpose operator .T
+        if self.pos + 1 < self.tokens.len()
+            && self.tokens[self.pos] == "."
+            && self.tokens[self.pos + 1] == "T" {
+            self.pos += 2;
+            expr = Expr::Transpose(Box::new(expr));
+        }
+
+        Ok(expr)
+    }
+
+    /// Parse primary: NUMBER | CELLREF | FUNCTION '(' expression ')' | '(' expression ')'
+    fn parse_primary(&mut self) -> Result<Expr, String> {
+        if self.pos >= self.tokens.len() {
+            return Err("unexpected end of expression".to_string());
+        }
+
+        let token = self.tokens[self.pos].clone();
+
+        // Check for parentheses
+        if token == "(" {
+            self.pos += 1;
+            let expr = self.parse_expression()?;
+            if self.pos >= self.tokens.len() || self.tokens[self.pos] != ")" {
+                return Err("unmatched opening parenthesis '(' - missing closing ')'".to_string());
+            }
+            self.pos += 1;
+            return Ok(expr);
+        }
+
+        // Check for function call
+        if self.pos + 1 < self.tokens.len() && self.tokens[self.pos + 1] == "(" {
+            let func_name = token.clone();
+            self.pos += 2; // Skip function name and '('
+            let arg = self.parse_expression()?;
+            if self.pos >= self.tokens.len() || self.tokens[self.pos] != ")" {
+                return Err(format!("unmatched '(' in function call '{}'", func_name));
+            }
+            self.pos += 1; // Skip ')'
+            return Ok(Expr::FunctionCall {
+                name: func_name,
+                arg: Box::new(arg),
+            });
+        }
+
+        // Check for cell reference
+        if let Some(cell_ref) = parse_cell_reference(&token) {
+            self.pos += 1;
+            return Ok(Expr::CellRef(cell_ref));
+        }
+
+        // Check for number literal
+        if let Ok(decimal) = Decimal::from_str(&token) {
+            self.pos += 1;
+            return Ok(Expr::Literal(decimal));
+        }
+
+        Err(format!("invalid token: '{}' is not a valid number or cell reference", token))
+    }
+}
+
+/// Evaluates an AST expression node to a Value
+fn eval_ast(expr: &Expr, rows: &Vec<Vec<String>>) -> Result<Value, String> {
+    match expr {
+        Expr::Literal(d) => Ok(Value::Scalar(*d)),
+
+        Expr::CellRef(cell_ref) => resolve_reference(cell_ref, rows),
+
+        Expr::BinaryOp { left, op, right } => {
+            let left_val = eval_ast(left, rows)?;
+            let right_val = eval_ast(right, rows)?;
+            eval_binary_op(*op, left_val, right_val)
+        }
+
+        Expr::Transpose(inner) => {
+            let val = eval_ast(inner, rows)?;
+            match val {
+                Value::Scalar(_) => {
+                    Err("cannot transpose a scalar value - only matrices can be transposed".to_string())
+                }
+                Value::Matrix { .. } => {
+                    val.transpose().ok_or_else(|| "transpose operation failed".to_string())
+                }
+            }
+        }
+
+        Expr::FunctionCall { name, arg } => {
+            let arg_val = eval_ast(arg, rows)?;
+            eval_function(name, arg_val)
+        }
+    }
+}
+
+/// Evaluate a binary operation
+fn eval_binary_op(op: BinaryOperator, left: Value, right: Value) -> Result<Value, String> {
+    match op {
+        BinaryOperator::Add => evaluate_operation('+', left, right),
+        BinaryOperator::Sub => evaluate_operation('-', left, right),
+        BinaryOperator::Mul => evaluate_operation('*', left, right),
+        BinaryOperator::Div => evaluate_operation('/', left, right),
+        BinaryOperator::Pow => evaluate_operation('^', left, right),
+        BinaryOperator::MatMul => evaluate_operation('@', left, right),
+    }
+}
+
+/// Evaluate a function call
+fn eval_function(name: &str, arg: Value) -> Result<Value, String> {
+    match name.to_lowercase().as_str() {
+        "sum" => {
+            match arg {
+                Value::Scalar(s) => Ok(Value::Scalar(s)), // sum of scalar is itself
+                Value::Matrix { data, .. } => {
+                    let sum = data.iter().fold(Decimal::ZERO, |acc, &x| acc + x);
+                    Ok(Value::Scalar(sum))
+                }
+            }
+        }
+        _ => Err(format!("unknown function: '{}' (supported functions: sum)", name))
+    }
+}
+
 /// Applies a column vector of values to a table column
 /// Starts at first data row (after header and separator)
 fn apply_column_vector_assignment(rows: &mut Vec<Vec<String>>, col: usize, value: &Value) {
@@ -819,25 +1089,19 @@ fn detect_function_call(tokens: &[String]) -> Option<(String, usize, usize)> {
 ///
 /// # Returns
 ///
-/// * `Some(Value::Scalar)` for scalar results
-/// * `Some(Value::Vector)` for vector results
-/// * `None` if the expression is invalid or contains errors
+/// * `Ok(Value::Scalar)` for scalar results
+/// * `Ok(Value::Matrix)` for matrix/vector results
+/// * `Err(String)` with specific error message if evaluation fails
 fn evaluate_expression_value(expr: &str, rows: &Vec<Vec<String>>) -> Result<Value, String> {
+    // Step 1: Tokenize the expression
     let tokens = tokenize_expression(expr);
 
-    // Check for function call at the start
-    if let Some((func_name, arg_start, arg_end)) = detect_function_call(&tokens) {
-        // Extract argument tokens
-        let arg_tokens = &tokens[arg_start..arg_end];
-        // Recursively evaluate the argument
-        let arg_expr = arg_tokens.join(" ");
-        let arg_value = evaluate_expression_value(&arg_expr, rows)?;
-        // Apply the function
-        return evaluate_function_call(&func_name, arg_value);
-    }
+    // Step 2: Parse tokens into AST
+    let mut parser = Parser::new(tokens);
+    let ast = parser.parse()?;
 
-    // Convert tokens to Values (resolve references and parse numbers)
-    eval_tokens_value(&tokens, rows)
+    // Step 3: Evaluate the AST
+    eval_ast(&ast, rows)
 }
 
 /// Evaluates tokens with proper operator precedence, supporting Value enum
