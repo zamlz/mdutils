@@ -161,6 +161,97 @@ Output:
 Formulas are evaluated in order, so later formulas can reference cells
 updated by earlier formulas.
 
+### Table of Contents Generation
+
+The `toc` subcommand automatically generates or updates a table of contents from markdown headers.
+
+**Basic usage:**
+```bash
+./result/bin/md toc < document.md
+```
+
+**How it works:**
+- Add a `<!-- md-toc: -->` marker where you want the TOC
+- The command scans all headers in the document
+- Generates clickable links with proper indentation
+- Adds `<!-- md-toc: end -->` after the TOC
+- Re-running updates the existing TOC
+
+**Example:**
+
+Input:
+```markdown
+# My Documentation
+<!-- md-toc: -->
+
+## Introduction
+### Background
+### Goals
+
+## Implementation
+### Architecture
+### Testing
+
+## Conclusion
+```
+
+Output:
+```markdown
+# My Documentation
+<!-- md-toc: -->
+- [Introduction](#introduction)
+  - [Background](#background)
+  - [Goals](#goals)
+- [Implementation](#implementation)
+  - [Architecture](#architecture)
+  - [Testing](#testing)
+- [Conclusion](#conclusion)
+<!-- md-toc: end -->
+
+## Introduction
+### Background
+### Goals
+
+## Implementation
+### Architecture
+### Testing
+
+## Conclusion
+```
+
+**Features:**
+- **GitHub-style slugs**: Links use the same anchor format as GitHub
+- **Automatic indentation**: H2 sections indented, H3 further indented, etc.
+- **Duplicate handling**: Headers with the same text get unique slugs (e.g., `#section`, `#section-1`, `#section-2`)
+- **Update support**: Re-running replaces the old TOC with updated content
+- **Smart parsing**: Only includes headers after the TOC marker (prevents self-reference)
+
+**Updating an existing TOC:**
+
+```markdown
+# Document
+<!-- md-toc: -->
+- [Old Section](#old-section)
+<!-- md-toc: end -->
+
+## New Section 1
+## New Section 2
+```
+
+After running `md toc`:
+```markdown
+# Document
+<!-- md-toc: -->
+- [New Section 1](#new-section-1)
+- [New Section 2](#new-section-2)
+<!-- md-toc: end -->
+
+## New Section 1
+## New Section 2
+```
+
+**Note:** If no `<!-- md-toc: -->` marker is found, the document is returned unchanged.
+
 ### Vector and Matrix Operations
 
 The table formula system supports vector operations, allowing you to

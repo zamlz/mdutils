@@ -1,0 +1,2 @@
+# Empty Document
+<!-- md-toc: -->
