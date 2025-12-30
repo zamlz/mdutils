@@ -3,9 +3,6 @@ mod formatter;
 mod formula;
 mod parser;
 
-pub use error::FormulaError;
-pub use formula::Span;
-
 use formatter::format_table_row;
 use formula::apply_formulas;
 use parser::{

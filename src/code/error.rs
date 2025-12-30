@@ -4,6 +4,7 @@ use thiserror::Error;
 
 /// Errors that can occur during code block processing
 #[derive(Debug, Error)]
+#[allow(dead_code)]
 pub enum CodeError {
     /// Directive parsing failed
     #[error("Failed to parse md-code directive: {0}")]

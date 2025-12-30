@@ -4,6 +4,7 @@ use thiserror::Error;
 
 /// Errors that can occur during table formula parsing and evaluation
 #[derive(Debug, Error, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum FormulaError {
     /// Formula parsing failed
     #[error("Failed to parse formula: {0}")]
@@ -93,19 +94,6 @@ pub enum FormulaError {
 }
 
 impl FormulaError {
-    /// Create a parse error
-    pub fn parse(msg: impl Into<String>) -> Self {
-        FormulaError::ParseError(msg.into())
-    }
-
-    /// Create an evaluation error
-    pub fn eval(expression: impl Into<String>, reason: impl Into<String>) -> Self {
-        FormulaError::EvalError {
-            expression: expression.into(),
-            reason: reason.into(),
-        }
-    }
-
     /// Create a cell out of bounds error
     pub fn cell_out_of_bounds(cell: impl Into<String>, reason: impl Into<String>) -> Self {
         FormulaError::CellOutOfBounds {
@@ -127,27 +115,6 @@ impl FormulaError {
         FormulaError::RowOutOfBounds {
             row,
             reason: reason.into(),
-        }
-    }
-
-    /// Create a dimension mismatch error
-    pub fn dimension_mismatch(
-        operation: impl Into<String>,
-        expected: impl Into<String>,
-        actual: impl Into<String>,
-    ) -> Self {
-        FormulaError::DimensionMismatch {
-            operation: operation.into(),
-            expected: expected.into(),
-            actual: actual.into(),
-        }
-    }
-
-    /// Create a type error
-    pub fn type_error(operation: impl Into<String>, operand_type: impl Into<String>) -> Self {
-        FormulaError::TypeError {
-            operation: operation.into(),
-            operand_type: operand_type.into(),
         }
     }
 
