@@ -1,0 +1,912 @@
+//! Formula evaluation system for markdown tables
+//!
+//! This module provides spreadsheet-like formula support for markdown tables,
+//! including scalar operations, vector operations, and matrix multiplication.
+//!
+//! # Features
+//!
+//! - **Scalar formulas**: `D2 = B2 * C2`
+//! - **Vector operations**: `C_ = A_ + B_` (element-wise operations on columns)
+//! - **Broadcasting**: `C_ = A_ * 0.5` (scalar applied to all vector elements)
+//! - **Matrix multiplication**: `D1 = A_.T @ B_` (dot product using transpose operator)
+//! - **Transpose operator**: `.T` to transpose vectors (e.g., `A_.T` converts column to row)
+//! - **Functions**: `sum(A_)` to aggregate vector values
+//! - **Operators**: `+`, `-`, `*`, `/`, `^`, `@` with proper precedence
+//! - **Parentheses**: `(A_ + B_) * 2` for grouping
+//!
+//! # Cell References
+//!
+//! - `A1`, `B2`, etc. - Scalar cell references (column letter + row number)
+//! - `A_`, `B_`, etc. - Column vector references (n×1 matrix, all rows in a column)
+//! - `_1`, `_2`, etc. - Row vector references (1×n matrix, all columns in a row)
+//! - `A_.T` - Transpose of column vector (converts n×1 to 1×n)
+//! - `_1.T` - Transpose of row vector (converts 1×n to n×1)
+//!
+//! Row 1 refers to the first data row (headers and separators are not addressable).
+//! Column references use alphabetic indexing (A=1st column, B=2nd, etc.) regardless of header text.
+//!
+//! # Matrix Operations
+//!
+//! Vectors are represented internally as matrices with dimension tracking:
+//! - Column vectors: n×1 matrices (e.g., `A_` with 3 rows is a 3×1 matrix)
+//! - Row vectors: 1×n matrices (e.g., `_1` with 3 columns is a 1×3 matrix)
+//! - Matrix multiplication follows standard linear algebra rules: (m×n) @ (n×p) = (m×p)
+//! - Dimension mismatch results in formula failure (no result computed)
+//!
+//! # Operator Precedence
+//!
+//! 1. Parentheses `()` and transpose `.T` (highest)
+//! 2. Exponentiation `^`
+//! 3. Matrix multiplication `@`, scalar multiplication `*`, and division `/`
+//! 4. Addition `+` and subtraction `-` (lowest)
+//!
+//! # Examples
+//!
+//! ```text
+//! <!-- md-table: D1 = B1 * C1 -->                 // Scalar formula
+//! <!-- md-table: C_ = A_ + B_ -->                 // Vector addition
+//! <!-- md-table: D_ = A_ * 0.08 -->               // Broadcast scalar
+//! <!-- md-table: E1 = sum(A_ ^ 2) -->             // Sum of squares
+//! <!-- md-table: F_ = (A_ + B_) / 2 -->           // Average of two columns
+//! <!-- md-table: G1 = A_.T @ B_ -->               // Dot product (transpose then multiply)
+//! <!-- md-table: H1 = _1 @ A_ -->                 // Row times column
+//! <!-- md-table: I1 = (A_.T @ B_) + 10 -->        // Matrix mult in expression
+//! ```
+
+// Internal modules
+mod types;
+mod ast;
+mod evaluator;
+mod reference;
+mod tokenizer;
+
+// Internal imports
+use types::{Value, Assignment};
+use crate::table::error::FormulaError;
+use types::{FIRST_DATA_ROW_INDEX, formula_row_to_table_index};
+use ast::Parser;
+use evaluator::eval_ast;
+use tokenizer::tokenize_expression;
+
+/// Applies a column vector of values to a table column
+/// Starts at first data row (after header and separator)
+fn apply_column_vector_assignment(rows: &mut [Vec<String>], col: usize, value: &Value) {
+    if let Value::Matrix { rows: _n_rows, cols: 1, data } = value {
+        for (i, &val) in data.iter().enumerate() {
+            let row_idx = FIRST_DATA_ROW_INDEX + i;
+            if row_idx < rows.len() && col < rows[row_idx].len() {
+                rows[row_idx][col] = val.to_string();
+            }
+        }
+    }
+}
+
+/// Applies spreadsheet-style formulas to table cells.
+///
+/// Formulas are evaluated in order, allowing later formulas to reference
+/// cells updated by earlier formulas. Each formula follows the pattern:
+/// `TARGET = EXPRESSION` where TARGET can be a scalar cell (e.g., `D2`) or
+/// a column vector (e.g., `D_`).
+///
+/// # Arguments
+///
+/// * `rows` - Mutable reference to the table rows (header, separator, then data rows)
+/// * `formulas` - Slice of formula strings to evaluate (e.g., `["D1 = B1 * C1", "D_ = A_ + B_"]`)
+///
+/// # Examples
+///
+/// ```
+/// // Scalar formula: D2 = B2 * C2
+/// // Vector formula: D_ = A_ + B_
+/// // Sum function: E1 = sum(A_)
+/// ```
+///
+/// # Returns
+///
+/// A vector of Option<String> where each element corresponds to a formula.
+/// None indicates the formula succeeded, Some(error) indicates it failed with the given error message.
+pub fn apply_formulas(rows: &mut Vec<Vec<String>>, formulas: &[String]) -> Vec<Option<String>> {
+    let mut errors = Vec::new();
+
+    for formula in formulas {
+        let formula_trimmed = formula.trim();
+
+        // Try to parse the formula
+        let (assignment, expr) = match parse_formula(formula_trimmed) {
+            Some(parsed) => parsed,
+            None => {
+                errors.push(Some(format!("Failed to parse formula '{}': invalid syntax (expected format: TARGET = EXPRESSION)", formula_trimmed)));
+                continue;
+            }
+        };
+
+        // Try to evaluate the expression
+        let value = match evaluate_expression_value(&expr, rows) {
+            Ok(v) => v,
+            Err(error) => {
+                // Convert FormulaError to String
+                errors.push(Some(format!("Failed to evaluate expression '{}': {}", expr, error)));
+                continue;
+            }
+        };
+
+        // Try to apply the assignment
+        let error = match assignment {
+            Assignment::Scalar { row, col } => {
+                // Scalar assignment: single cell update
+                match value.as_scalar() {
+                    Some(decimal) => {
+                        if row >= rows.len() || col >= rows[row].len() {
+                            Some(format!("Assignment failed for '{}': cell index out of bounds", formula_trimmed))
+                        } else {
+                            rows[row][col] = decimal.to_string();
+                            None  // Success
+                        }
+                    }
+                    None => {
+                        Some(format!("Assignment failed for '{}': cannot assign matrix to scalar cell (use a cell vector assignment like C_ instead)", formula_trimmed))
+                    }
+                }
+            }
+            Assignment::ColumnVector { col } => {
+                // Column vector assignment: update entire column
+                if !value.is_column_vector() {
+                    Some(format!("Assignment failed for '{}': expected column vector but got {} result",
+                        formula_trimmed,
+                        match value {
+                            Value::Scalar(_) => "scalar",
+                            Value::Matrix { rows: num_rows, cols: _, .. } => {
+                                if num_rows == 1 {
+                                    "row vector"
+                                } else {
+                                    "matrix"
+                                }
+                            }
+                        }
+                    ))
+                } else if col >= rows.first().map(|r| r.len()).unwrap_or(0) {
+                    Some(format!("Assignment failed for '{}': column index out of bounds", formula_trimmed))
+                } else {
+                    apply_column_vector_assignment(rows, col, &value);
+                    None  // Success
+                }
+            }
+        };
+
+        errors.push(error);
+    }
+
+    errors
+}
+
+/// Parses an assignment target (left side of formula)
+/// Supports: A1 (scalar), A_ (column vector)
+fn parse_assignment(target: &str) -> Option<Assignment> {
+    let target = target.trim().to_uppercase();
+    if target.is_empty() {
+        return None;
+    }
+
+    // Check for column vector pattern: A_
+    if target.ends_with('_') {
+        let col_str = &target[..target.len() - 1];
+        if col_str.len() == 1 {
+            let col_char = col_str.chars().next()?;
+            if col_char.is_ascii_alphabetic() {
+                let col_idx = (col_char as u32 - 'A' as u32) as usize;
+                return Some(Assignment::ColumnVector { col: col_idx });
+            }
+        }
+        return None;
+    }
+
+    // Check for scalar pattern: A1
+    let mut chars = target.chars();
+    let first = chars.next()?;
+    if !first.is_ascii_alphabetic() {
+        return None;
+    }
+
+    let rest: String = chars.collect();
+    if rest.is_empty() {
+        return None;
+    }
+
+    // Verify rest is all digits
+    if !rest.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+
+    let col_idx = (first as u32 - 'A' as u32) as usize;
+    let row_num: usize = rest.parse().ok()?;
+
+    if row_num == 0 {
+        return None;
+    }
+
+    let row_idx = formula_row_to_table_index(row_num);
+    Some(Assignment::Scalar { row: row_idx, col: col_idx })
+}
+
+/// Parses a formula like "A1 = B1 + C1" into (assignment, expression)
+fn parse_formula(formula: &str) -> Option<(Assignment, String)> {
+    let parts: Vec<&str> = formula.split('=').collect();
+    if parts.len() == 2 {
+        let assignment = parse_assignment(parts[0])?;
+        Some((assignment, parts[1].trim().to_string()))
+    } else {
+        None
+    }
+}
+
+/// Evaluates a mathematical expression string and returns its computed value.
+///
+/// Supports cell references, numbers, operators, functions, and parentheses.
+/// Handles both scalar and vector expressions with automatic type inference.
+///
+/// # Expression Components
+///
+/// - **Cell references**: `A1` (scalar), `A_` (column vector), `_1` (row vector)
+/// - **Numbers**: `42`, `3.14`, `-5`
+/// - **Operators**: `+`, `-`, `*`, `/`, `^`, `@` (with proper precedence)
+/// - **Functions**: `sum(expression)`
+/// - **Parentheses**: `(A_ + B_) * 2`
+///
+/// # Operator Precedence
+///
+/// 1. Parentheses `()` (highest)
+/// 2. Exponentiation `^`
+/// 3. Multiplication `*`, Division `/`, and Matrix multiplication `@`
+/// 4. Addition `+` and Subtraction `-` (lowest)
+///
+/// # Arguments
+///
+/// * `expr` - The expression string to evaluate
+/// * `rows` - Reference to the table rows for resolving cell references
+///
+/// # Returns
+///
+/// * `Ok(Value::Scalar)` for scalar results
+/// * `Ok(Value::Matrix)` for matrix/vector results
+/// * `Err(String)` with specific error message if evaluation fails
+fn evaluate_expression_value(expr: &str, rows: &Vec<Vec<String>>) -> Result<Value, FormulaError> {
+    // Step 1: Tokenize the expression
+    let tokens = tokenize_expression(expr);
+
+    // Step 2: Parse tokens into AST
+    let mut parser = Parser::new(tokens);
+    let ast = parser.parse()?;
+
+    // Step 3: Evaluate the AST
+    eval_ast(&ast, rows)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rust_decimal::Decimal;
+    use types::CellReference;
+
+    #[test]
+    fn test_parse_formula() {
+        assert_eq!(
+            parse_formula("A1 = B1 + C1"),
+            Some((Assignment::Scalar { row: 2, col: 0 }, "B1 + C1".to_string()))
+        );
+        assert_eq!(
+            parse_formula("D2 = B2 * C2"),
+            Some((Assignment::Scalar { row: 3, col: 3 }, "B2 * C2".to_string()))
+        );
+        assert_eq!(
+            parse_formula("C_ = A_ + B_"),
+            Some((Assignment::ColumnVector { col: 2 }, "A_ + B_".to_string()))
+        );
+        assert_eq!(parse_formula("invalid"), None);
+    }
+
+    // Tests for vector/matrix operations
+
+    #[test]
+    fn test_parse_column_vector() {
+        use reference::parse_cell_reference;
+        assert_eq!(
+            parse_cell_reference("A_"),
+            Some(CellReference::ColumnVector { col: 0 })
+        );
+        assert_eq!(
+            parse_cell_reference("B_"),
+            Some(CellReference::ColumnVector { col: 1 })
+        );
+        assert_eq!(
+            parse_cell_reference("Z_"),
+            Some(CellReference::ColumnVector { col: 25 })
+        );
+        assert_eq!(parse_cell_reference("a_"), Some(CellReference::ColumnVector { col: 0 })); // lowercase
+    }
+
+    #[test]
+    fn test_parse_row_vector() {
+        use reference::parse_cell_reference;
+        assert_eq!(
+            parse_cell_reference("_1"),
+            Some(CellReference::RowVector { row: 1 })
+        );
+        assert_eq!(
+            parse_cell_reference("_2"),
+            Some(CellReference::RowVector { row: 2 })
+        );
+        assert_eq!(
+            parse_cell_reference("_10"),
+            Some(CellReference::RowVector { row: 10 })
+        );
+    }
+
+    #[test]
+    fn test_parse_scalar_ref() {
+        use reference::parse_cell_reference;
+        assert_eq!(
+            parse_cell_reference("A1"),
+            Some(CellReference::Scalar { row: 2, col: 0 })
+        );
+        assert_eq!(
+            parse_cell_reference("B2"),
+            Some(CellReference::Scalar { row: 3, col: 1 })
+        );
+    }
+
+    #[test]
+    fn test_resolve_column_vector() {
+        use reference::resolve_reference;
+        let rows = vec![
+            vec!["Name".to_string(), "Value".to_string()],
+            vec!["---".to_string(), "---".to_string()],
+            vec!["A".to_string(), "10".to_string()],
+            vec!["B".to_string(), "20".to_string()],
+            vec!["C".to_string(), "30".to_string()],
+        ];
+
+        let col_ref = CellReference::ColumnVector { col: 1 };
+        let result = resolve_reference(&col_ref, &rows);
+
+        assert_eq!(
+            result,
+            Ok(Value::column_vector(vec![
+                Decimal::from(10),
+                Decimal::from(20),
+                Decimal::from(30)
+            ]))
+        );
+    }
+
+    #[test]
+    fn test_resolve_row_vector() {
+        use reference::resolve_reference;
+        let rows = vec![
+            vec!["Name".to_string(), "A".to_string(), "B".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["Values".to_string(), "10".to_string(), "20".to_string()],
+        ];
+
+        let row_ref = CellReference::RowVector { row: 1 };
+        let result = resolve_reference(&row_ref, &rows);
+
+        // Row 1 is first data row (index 2), includes all columns
+        assert_eq!(
+            result,
+            Ok(Value::row_vector(vec![
+                Decimal::ZERO,  // "Values" is non-numeric, treated as 0
+                Decimal::from(10),
+                Decimal::from(20)
+            ]))
+        );
+    }
+
+    #[test]
+    fn test_resolve_empty_cells_as_zero() {
+        use reference::resolve_reference;
+        let rows = vec![
+            vec!["Col".to_string()],
+            vec!["---".to_string()],
+            vec!["10".to_string()],
+            vec!["".to_string()],  // empty
+            vec!["text".to_string()],  // non-numeric
+            vec!["30".to_string()],
+        ];
+
+        let col_ref = CellReference::ColumnVector { col: 0 };
+        let result = resolve_reference(&col_ref, &rows);
+
+        assert_eq!(
+            result,
+            Ok(Value::column_vector(vec![
+                Decimal::from(10),
+                Decimal::ZERO,  // empty treated as 0
+                Decimal::ZERO,  // non-numeric treated as 0
+                Decimal::from(30)
+            ]))
+        );
+    }
+
+    #[test]
+    fn test_vector_addition() {
+        use evaluator::evaluate_operation;
+        // Column vector + Column vector
+        let left = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let right = Value::column_vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
+
+        let result = evaluate_operation('+', left, right);
+
+        assert_eq!(
+            result,
+            Ok(Value::column_vector(vec![
+                Decimal::from(5),
+                Decimal::from(7),
+                Decimal::from(9)
+            ]))
+        );
+    }
+
+    #[test]
+    fn test_vector_scalar_multiply() {
+        use evaluator::evaluate_operation;
+        // Column vector * Scalar (broadcasting)
+        let vec = Value::column_vector(vec![Decimal::from(2), Decimal::from(4), Decimal::from(6)]);
+        let scalar = Value::Scalar(Decimal::from(3));
+
+        let result = evaluate_operation('*', vec, scalar);
+
+        assert_eq!(
+            result,
+            Ok(Value::column_vector(vec![
+                Decimal::from(6),
+                Decimal::from(12),
+                Decimal::from(18)
+            ]))
+        );
+    }
+
+    #[test]
+    fn test_broadcast_scalar() {
+        use evaluator::evaluate_operation;
+        // Scalar + Column vector (broadcasting)
+        let scalar = Value::Scalar(Decimal::from(10));
+        let vec = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+
+        let result = evaluate_operation('+', scalar, vec);
+
+        assert_eq!(
+            result,
+            Ok(Value::column_vector(vec![
+                Decimal::from(11),
+                Decimal::from(12),
+                Decimal::from(13)
+            ]))
+        );
+    }
+
+    #[test]
+    fn test_length_mismatch() {
+        use evaluator::evaluate_operation;
+        // Different length column vectors - should fail (dimensions must match for element-wise ops)
+        let left = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let right = Value::column_vector(vec![Decimal::from(10), Decimal::from(20)]);
+
+        let result = evaluate_operation('+', left, right);
+
+        // Dimensions don't match (3×1 vs 2×1), so operation fails
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sum_vector() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let result = eval_function("sum", vec);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(6))));
+    }
+
+    #[test]
+    fn test_sum_scalar() {
+        use evaluator::eval_function;
+        let scalar = Value::Scalar(Decimal::from(42));
+        let result = eval_function("sum", scalar);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(42))));
+    }
+
+    #[test]
+    fn test_sum_empty_vector() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![]);
+        let result = eval_function("sum", vec);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::ZERO)));
+    }
+
+    #[test]
+    fn test_power_operator() {
+        use evaluator::evaluate_operation;
+        let base = Value::Scalar(Decimal::from(2));
+        let exp = Value::Scalar(Decimal::from(3));
+
+        let result = evaluate_operation('^', base, exp);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(8))));
+    }
+
+    #[test]
+    fn test_power_precedence() {
+        // Test: 2 * 3^2 = 2 * 9 = 18
+        let rows = vec![
+            vec!["A".to_string()],
+            vec!["---".to_string()],
+        ];
+
+        let result = evaluate_expression_value("2 * 3 ^ 2", &rows);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(18))));
+    }
+
+    #[test]
+    fn test_power_in_expression() {
+        // Test: (2+3)^2 = 5^2 = 25
+        let rows = vec![
+            vec!["A".to_string()],
+            vec!["---".to_string()],
+        ];
+
+        let result = evaluate_expression_value("( 2 + 3 ) ^ 2", &rows);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(25))));
+    }
+
+    #[test]
+    fn test_column_assignment() {
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "0".to_string()],
+            vec!["3".to_string(), "4".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["C_ = A_ + B_".to_string()];
+        apply_formulas(&mut rows, &formulas);
+
+        assert_eq!(rows[2][2], "3");  // 1 + 2
+        assert_eq!(rows[3][2], "7");  // 3 + 4
+    }
+
+    #[test]
+    fn test_vector_scalar_assignment() {
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string()],
+            vec!["---".to_string(), "---".to_string()],
+            vec!["10".to_string(), "0".to_string()],
+            vec!["20".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["B_ = A_ * 0.5".to_string()];
+        apply_formulas(&mut rows, &formulas);
+
+        assert_eq!(rows[2][1], "5.0");   // 10 * 0.5
+        assert_eq!(rows[3][1], "10.0");  // 20 * 0.5
+    }
+
+    #[test]
+    fn test_sum_expression() {
+        let mut rows = vec![
+            vec!["A".to_string(), "Sum".to_string()],
+            vec!["---".to_string(), "---".to_string()],
+            vec!["10".to_string(), "0".to_string()],
+            vec!["20".to_string(), "0".to_string()],
+            vec!["30".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["B1 = sum(A_)".to_string()];
+        apply_formulas(&mut rows, &formulas);
+
+        assert_eq!(rows[2][1], "60");  // 10 + 20 + 30
+    }
+
+    #[test]
+    fn test_sum_complex_expression() {
+        // Test: sum(A_ * 2)
+        let mut rows = vec![
+            vec!["A".to_string(), "Result".to_string()],
+            vec!["---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "0".to_string()],
+            vec!["2".to_string(), "0".to_string()],
+            vec!["3".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["B1 = sum(A_ * 2)".to_string()];
+        apply_formulas(&mut rows, &formulas);
+
+        assert_eq!(rows[2][1], "12");  // (1+2+3) * 2 = 6 * 2 = 12
+    }
+
+    #[test]
+    fn test_existing_scalar_formulas_still_work() {
+        // Ensure backward compatibility
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["5".to_string(), "10".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec!["C1 = A1 + B1".to_string()];
+        apply_formulas(&mut rows, &formulas);
+
+        assert_eq!(rows[2][2], "15");  // 5 + 10
+    }
+
+    // Matrix multiplication tests
+
+    #[test]
+    fn test_dot_product_row_times_column() {
+        use evaluator::evaluate_operation;
+        // Test row vector @ column vector: (1×3) @ (3×1) = (1×1) = scalar
+        // [1, 2, 3] @ [4; 5; 6] = 1*4 + 2*5 + 3*6 = 32
+        let row = Value::row_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let col = Value::column_vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
+
+        let result = evaluate_operation('@', row, col);
+
+        // Result is a 1×1 matrix
+        assert_eq!(
+            result,
+            Ok(Value::Matrix {
+                rows: 1,
+                cols: 1,
+                data: vec![Decimal::from(32)]
+            })
+        );
+    }
+
+    #[test]
+    fn test_dot_product_dimension_mismatch() {
+        use evaluator::evaluate_operation;
+        // (1×3) @ (2×1) is invalid - inner dimensions don't match
+        let row = Value::row_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let col = Value::column_vector(vec![Decimal::from(4), Decimal::from(5)]);
+
+        let result = evaluate_operation('@', row, col);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_matrix_mult_scalar_not_supported() {
+        use evaluator::evaluate_operation;
+        // Matrix multiplication with scalars is not defined
+        let scalar = Value::Scalar(Decimal::from(5));
+        let col = Value::column_vector(vec![Decimal::from(1), Decimal::from(2)]);
+
+        let result = evaluate_operation('@', scalar.clone(), col.clone());
+        assert!(result.is_err());
+
+        let result2 = evaluate_operation('@', col, scalar);
+        assert!(result2.is_err());
+    }
+
+    #[test]
+    fn test_matrix_mult_scalar_scalar_invalid() {
+        use evaluator::evaluate_operation;
+        // Scalar @ Scalar is not valid for matrix multiplication
+        let left = Value::Scalar(Decimal::from(5));
+        let right = Value::Scalar(Decimal::from(10));
+
+        let result = evaluate_operation('@', left, right);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_column_column_invalid() {
+        use evaluator::evaluate_operation;
+        // Column @ Column is invalid: (3×1) @ (3×1) - inner dimensions don't match
+        let left = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let right = Value::column_vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
+
+        let result = evaluate_operation('@', left, right);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_row_row_invalid() {
+        use evaluator::evaluate_operation;
+        // Row @ Row is invalid: (1×3) @ (1×3) - inner dimensions don't match
+        let left = Value::row_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let right = Value::row_vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
+
+        let result = evaluate_operation('@', left, right);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_row_vector_column_vector_dot_product() {
+        // Test the example from user: _1 @ A_ in a square table
+        // For this to work, we need a square data portion (n rows × n columns)
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["2".to_string(), "3".to_string(), "4".to_string()],
+            vec!["5".to_string(), "6".to_string(), "7".to_string()],
+            vec!["8".to_string(), "9".to_string(), "10".to_string()],
+        ];
+
+        // C1 = _1 @ A_
+        // _1 = [2, 3, 4] (first row, all 3 columns)
+        // A_ = [2, 5, 8] (column A, all 3 rows)
+        // Dot product = 2*2 + 3*5 + 4*8 = 4 + 15 + 32 = 51
+        let formulas = vec!["C1 = _1 @ A_".to_string()];
+        apply_formulas(&mut rows, &formulas);
+
+        assert_eq!(rows[2][2], "51");
+    }
+
+    #[test]
+    fn test_matrix_mult_with_expression() {
+        // Test matrix multiplication with transpose in a complex expression
+        let mut rows = vec![
+            vec!["X".to_string(), "Y".to_string(), "Result".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "0".to_string()],
+            vec!["3".to_string(), "4".to_string(), "0".to_string()],
+            vec!["5".to_string(), "6".to_string(), "0".to_string()],
+        ];
+
+        // C1 = (A_.T @ B_) + 10
+        // A_ = [1, 3, 5] (column vector 3×1)
+        // A_.T = [1, 3, 5] (row vector 1×3)
+        // B_ = [2, 4, 6] (column vector 3×1)
+        // A_.T @ B_ = (1×3) @ (3×1) = 1*2 + 3*4 + 5*6 = 44
+        // Result = 44 + 10 = 54
+        let formulas = vec!["C1 = (A_.T @ B_) + 10".to_string()];
+        apply_formulas(&mut rows, &formulas);
+
+        assert_eq!(rows[2][2], "54");
+    }
+
+    #[test]
+    fn test_matrix_mult_precedence() {
+        // Test that @ has same precedence as *
+        // 2 + 3 @ 4 should fail because 3 and 4 are scalars, not vectors
+        let rows = vec![
+            vec!["A".to_string()],
+            vec!["---".to_string()],
+        ];
+
+        let result = evaluate_expression_value("2 + 3 @ 4", &rows);
+
+        // Should return None because @ doesn't work with scalars
+        assert!(result.is_err());
+    }
+
+    // Transpose operator (.T) tests
+
+    #[test]
+    fn test_transpose_column_to_row() {
+        // Test column vector transposing to row vector
+        let col = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let result = col.transpose();
+
+        assert_eq!(
+            result,
+            Some(Value::row_vector(vec![
+                Decimal::from(1),
+                Decimal::from(2),
+                Decimal::from(3)
+            ]))
+        );
+    }
+
+    #[test]
+    fn test_transpose_row_to_column() {
+        // Test row vector transposing to column vector
+        let row = Value::row_vector(vec![Decimal::from(4), Decimal::from(5)]);
+        let result = row.transpose();
+
+        assert_eq!(
+            result,
+            Some(Value::column_vector(vec![Decimal::from(4), Decimal::from(5)]))
+        );
+    }
+
+    #[test]
+    fn test_transpose_scalar_fails() {
+        // Scalars cannot be transposed
+        let scalar = Value::Scalar(Decimal::from(42));
+        let result = scalar.transpose();
+
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_transpose_operator_in_table() {
+        // Test using .T operator in a real table formula
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "Result".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "0".to_string()],
+            vec!["3".to_string(), "4".to_string(), "0".to_string()],
+            vec!["5".to_string(), "6".to_string(), "0".to_string()],
+        ];
+
+        // C1 = A_.T @ B_
+        // A_ = [1, 3, 5] (column 3×1)
+        // A_.T = [1, 3, 5] (row 1×3)
+        // B_ = [2, 4, 6] (column 3×1)
+        // A_.T @ B_ = 1*2 + 3*4 + 5*6 = 2 + 12 + 30 = 44
+        let formulas = vec!["C1 = A_.T @ B_".to_string()];
+        apply_formulas(&mut rows, &formulas);
+
+        assert_eq!(rows[2][2], "44");
+    }
+
+    #[test]
+    fn test_multiple_formulas_with_transpose() {
+        // Test multiple formulas using matrix operations
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "0".to_string()],
+            vec!["4".to_string(), "5".to_string(), "0".to_string()],
+            vec!["7".to_string(), "8".to_string(), "0".to_string()],
+        ];
+
+        // First: C_ = A_ + B_ (element-wise addition)
+        // Then: C1 = _1 @ A_ (row dot column = 30)
+        // _1 = [1, 2, 3] after first formula, A_ = [1, 4, 7]
+        // _1 @ A_ = 1*1 + 2*4 + 3*7 = 1 + 8 + 21 = 30
+        let formulas = vec![
+            "C_ = A_ + B_".to_string(),
+            "C1 = _1 @ A_".to_string(),
+        ];
+        apply_formulas(&mut rows, &formulas);
+
+        // After C_ = A_ + B_: C1=3, C2=9, C3=15
+        // After C1 = _1 @ A_: C1=30 (overwrites 3)
+        assert_eq!(rows[2][2], "30");  // C1
+        assert_eq!(rows[3][2], "9");   // C2
+        assert_eq!(rows[4][2], "15");  // C3
+    }
+
+    #[test]
+    fn test_matrix_dimensions_in_result() {
+        use evaluator::evaluate_operation;
+        // Verify that matrix multiplication preserves correct dimensions
+        // (1×3) @ (3×1) should produce (1×1)
+        let row = Value::row_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let col = Value::column_vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
+
+        let result = evaluate_operation('@', row, col);
+
+        match result {
+            Ok(Value::Matrix { rows: 1, cols: 1, data }) => {
+                assert_eq!(data.len(), 1);
+                assert_eq!(data[0], Decimal::from(32));
+            }
+            _ => panic!("Expected 1×1 matrix result"),
+        }
+    }
+
+    #[test]
+    fn test_as_scalar_extraction() {
+        // Test that 1×1 matrices can be extracted as scalars
+        let one_by_one = Value::Matrix {
+            rows: 1,
+            cols: 1,
+            data: vec![Decimal::from(42)],
+        };
+
+        assert_eq!(one_by_one.as_scalar(), Some(Decimal::from(42)));
+
+        // But larger matrices cannot
+        let col = Value::column_vector(vec![Decimal::from(1), Decimal::from(2)]);
+        assert_eq!(col.as_scalar(), None);
+    }
+}
