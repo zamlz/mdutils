@@ -227,36 +227,74 @@ Output:
 
 Example: `2 + 3 ^ 2 * 4` evaluates as `2 + ((3^2) * 4)` = `2 + (9 * 4)` = `2 + 36` = `38`
 
-**sum() Function:**
+**Formula Functions:**
 
-Sum all values in a vector:
+The formula system provides aggregate functions that work with both scalars and vectors/matrices.
+All functions reduce matrices to scalar values.
+
+**Available Functions:**
+
+1. **`sum(expr)`** - Sum of all elements
+   - Scalar: `sum(5)` → `5`
+   - Vector: `sum([10, 20, 30])` → `60`
+   - Complex: `sum(A_ + B_)` → Sum of element-wise addition
+
+2. **`avg(expr)`** - Average of all elements
+   - Scalar: `avg(5)` → `5`
+   - Vector: `avg([10, 20, 30])` → `20`
+   - Complex: `avg(A_ * 2)` → Average of doubled values
+
+3. **`min(expr)`** - Minimum value across all elements
+   - Scalar: `min(5)` → `5`
+   - Vector: `min([30, 10, 20])` → `10`
+   - Complex: `min(A_ + B_)` → Minimum of element-wise addition
+
+4. **`max(expr)`** - Maximum value across all elements
+   - Scalar: `max(5)` → `5`
+   - Vector: `max([30, 10, 20])` → `30`
+   - Complex: `max(A_ - B_)` → Maximum of element-wise subtraction
+
+5. **`count(expr)`** - Number of elements
+   - Scalar: `count(5)` → `1`
+   - Vector: `count([10, 20, 30])` → `3`
+   - Usage: `count(A_)` → Number of rows in column A
+
+6. **`prod(expr)`** - Product of all elements
+   - Scalar: `prod(5)` → `5`
+   - Vector: `prod([2, 3, 4])` → `24` (2 × 3 × 4)
+   - Complex: `prod(A_ + 1)` → Product of incremented values
+
+**Example - Multiple Functions:**
+
+Input:
 ```markdown
-| Item | Price | Quantity | Total |
-|------|-------|----------|-------|
-| A    | 10    | 5        | 0     |
-| B    | 20    | 3        | 0     |
-| C    | 15    | 2        | 0     |
-| SUM  | 0     | 0        | 0     |
-<!-- md-table: D_ = B_ * C_; A4 = sum(B_); B4 = sum(C_); D4 = sum(D_) -->
+| Values | Sum | Avg | Min | Max | Count | Prod   |
+| ------ | --- | --- | --- | --- | ----- | ------ |
+| 10     | 0   | 0   | 0   | 0   | 0     | 0      |
+| 20     | 0   | 0   | 0   | 0   | 0     | 0      |
+| 30     | 0   | 0   | 0   | 0   | 0     | 0      |
+| 40     | 0   | 0   | 0   | 0   | 0     | 0      |
+<!-- md-table: B1 = sum(A_); C1 = avg(A_); D1 = min(A_); E1 = max(A_); F1 = count(A_); G1 = prod(A_) -->
 ```
 
 Output:
 ```markdown
-| Item | Price | Quantity | Total |
-| ---- | ----- | -------- | ----- |
-| A    | 10    | 5        | 50    |
-| B    | 20    | 3        | 60    |
-| C    | 15    | 2        | 30    |
-| 45   | 10    | 0        | 140   |
-<!-- md-table: D_ = B_ * C_; A4 = sum(B_); B4 = sum(C_); D4 = sum(D_) -->
+| Values | Sum | Avg  | Min | Max | Count | Prod   |
+| ------ | --- | ---- | --- | --- | ----- | ------ |
+| 10     | 100 | 25   | 10  | 40  | 4     | 240000 |
+| 20     | 0   | 0    | 0   | 0   | 0     | 0      |
+| 30     | 0   | 0    | 0   | 0   | 0     | 0      |
+| 40     | 0   | 0    | 0   | 0   | 0     | 0      |
+<!-- md-table: B1 = sum(A_); C1 = avg(A_); D1 = min(A_); E1 = max(A_); F1 = count(A_); G1 = prod(A_) -->
 ```
 
-**Complex Expressions in sum():**
+**Complex Function Expressions:**
 
-The `sum()` function supports complex nested expressions:
+All functions support complex nested expressions:
 - `C1 = sum(A_ + B_)` - Sum of element-wise addition
-- `D1 = sum(A_ * 2)` - Sum of doubled values
-- `E1 = sum((A_ + B_ * 0.8) ^ 2)` - Sum of squared weighted values
+- `D1 = avg(A_ * 2)` - Average of doubled values
+- `E1 = max((A_ + B_ * 0.8) ^ 2)` - Maximum of squared weighted values
+- `F1 = prod(A_ / 10)` - Product of scaled values
 
 **Empty and Non-Numeric Cells:**
 
@@ -356,12 +394,12 @@ Result: C1 = (1×2 + 3×4 + 5×6) + 10 = 44 + 10 = 54
 3. Matrix multiplication `@`, Multiplication `*`, and Division `/`
 4. Addition `+` and Subtraction `-` (lowest)
 
-**All operators supported:**
+**All operators and functions supported:**
 - Arithmetic: `+`, `-`, `*`, `/`, `^`
 - Matrix multiplication: `@`
 - Transpose: `.T`
 - Parentheses: `()`
-- Functions: `sum()`
+- Functions: `sum()`, `avg()`, `min()`, `max()`, `count()`, `prod()`
 
 ### Formula Error Handling
 
@@ -369,11 +407,70 @@ When formulas contain errors, the system reports them using HTML comments
 with the `<!-- md-error: -->` marker. Error comments are inserted directly
 after the formula that failed.
 
+**Enhanced Error Messages with Position Tracking:**
+
+Error messages now include visual indicators pointing to the exact location
+of the error in the expression, making debugging faster and easier.
+
 **Error Types:**
 
 1. **Parse Errors** - Invalid formula syntax
 2. **Evaluation Errors** - Invalid expressions or references
 3. **Assignment Errors** - Type mismatches or out-of-bounds assignments
+
+**Example - Unknown Function Error:**
+
+Input:
+```markdown
+| A | B |
+|---|---|
+| 1 | 0 |
+| 2 | 0 |
+<!-- md-table: B1 = foo(A_) -->
+```
+
+Output:
+```markdown
+| A   | B   |
+| --- | --- |
+| 1   | 0   |
+| 2   | 0   |
+<!-- md-table: B1 = foo(A_) -->
+<!-- md-error: Failed to evaluate expression:
+unknown function: 'foo' (supported functions: sum, avg, min, max, count, prod)
+foo(A_)
+^^^ -->
+```
+
+Notice the `^^^` indicator pointing to the exact location of the unknown function.
+
+**Example - Column Out of Bounds Error:**
+
+Input:
+```markdown
+| A | B | C |
+|---|---|---|
+| 1 | 2 | 0 |
+| 3 | 4 | 0 |
+<!-- md-table: C_ = A_ + B_; D_ = X_ + Y_ -->
+```
+
+Output:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 1   | 2   | 3   |
+| 3   | 4   | 7   |
+<!-- md-table: C_ = A_ + B_; D_ = X_ + Y_ -->
+<!-- md-error: Failed to evaluate expression:
+column vector X_ is out of bounds: column X does not exist (table has 3 columns)
+X_ + Y_
+^ -->
+```
+
+Note: The first formula (`C_ = A_ + B_`) succeeded and updated column C,
+while the second formula (`D_ = X_ + Y_`) failed with a precise error message
+showing exactly where the problem occurs. Each formula is evaluated independently.
 
 **Example - Parse Error:**
 
@@ -394,50 +491,6 @@ Output:
 | 3   | 4   | 0   |
 <!-- md-table: this is invalid -->
 <!-- md-error: Failed to parse formula 'this is invalid': invalid syntax (expected format: TARGET = EXPRESSION) -->
-```
-
-**Example - Evaluation Error:**
-
-Input:
-```markdown
-| A | B | C |
-|---|---|---|
-| 1 | 2 | 0 |
-| 3 | 4 | 0 |
-<!-- md-table: C_ = A_ + B_; D_ = X_ + Y_ -->
-```
-
-Output:
-```markdown
-| A   | B   | C   |
-| --- | --- | --- |
-| 1   | 2   | 3   |
-| 3   | 4   | 7   |
-<!-- md-table: C_ = A_ + B_; D_ = X_ + Y_ -->
-<!-- md-error: Failed to evaluate expression 'X_ + Y_': invalid expression or dimension mismatch -->
-```
-
-Note: The first formula (`C_ = A_ + B_`) succeeded and updated column C,
-while the second formula (`D_ = X_ + Y_`) failed because columns X and Y
-don't exist. Each formula is evaluated independently.
-
-**Example - Assignment Error:**
-
-Input:
-```markdown
-| A | B |
-|---|---|
-| 1 | 2 |
-<!-- md-table: Z1 = A1 + B1 -->
-```
-
-Output:
-```markdown
-| A   | B   |
-| --- | --- |
-| 1   | 2   |
-<!-- md-table: Z1 = A1 + B1 -->
-<!-- md-error: Assignment failed for 'Z1 = A1 + B1': cell index out of bounds -->
 ```
 
 **Error Behavior:**
