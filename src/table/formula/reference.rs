@@ -366,3 +366,45 @@ pub(crate) fn resolve_reference(cell_ref: &CellReference, rows: &[Vec<String>]) 
         }
     }
 }
+
+/// Converts an entire table to a matrix (all data rows, all columns)
+pub(crate) fn table_to_matrix(rows: &[Vec<String>]) -> Result<Value, FormulaError> {
+    if rows.len() < FIRST_DATA_ROW_INDEX {
+        return Err(FormulaError::RuntimeError(
+            "table has no data rows".to_string()
+        ));
+    }
+
+    let num_rows = rows.len() - FIRST_DATA_ROW_INDEX;
+    if num_rows == 0 {
+        return Ok(Value::Matrix {
+            rows: 0,
+            cols: 0,
+            data: vec![],
+        });
+    }
+
+    let num_cols = rows[FIRST_DATA_ROW_INDEX].len();
+    let mut data = Vec::new();
+
+    for row_idx in FIRST_DATA_ROW_INDEX..rows.len() {
+        for col_idx in 0..num_cols {
+            if col_idx < rows[row_idx].len() {
+                let cell = &rows[row_idx][col_idx];
+                if let Ok(decimal) = Decimal::from_str(cell) {
+                    data.push(decimal);
+                } else {
+                    data.push(Decimal::ZERO);
+                }
+            } else {
+                data.push(Decimal::ZERO);
+            }
+        }
+    }
+
+    Ok(Value::Matrix {
+        rows: num_rows,
+        cols: num_cols,
+        data,
+    })
+}

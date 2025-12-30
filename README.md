@@ -264,6 +264,13 @@ All functions reduce matrices to scalar values.
    - Vector: `prod([2, 3, 4])` → `24` (2 × 3 × 4)
    - Complex: `prod(A_ + 1)` → Product of incremented values
 
+7. **`from("table_id")` or `from("table_id", range)`** - Cross-table reference
+   - Whole table: `from("sales")` → Entire table as matrix
+   - Column: `from("sales", A_)` → Column A from sales table
+   - Cell: `from("sales", B2)` → Cell B2 from sales table
+   - Range: `from("sales", A1:C3)` → Range from sales table
+   - See [Cross-Table References](#cross-table-references) for details
+
 **Example - Multiple Functions:**
 
 Input:
@@ -653,7 +660,7 @@ Output:
 ### Table IDs
 
 Tables can be assigned optional identifiers using the `id` attribute in the `md-table` directive.
-This feature is designed for future functionality where tables can reference each other's data.
+This allows tables to reference each other's data using the `from()` function in formulas.
 
 **ID Syntax:**
 
@@ -727,6 +734,136 @@ Output:
 - IDs can be any non-empty string
 - IDs must be unique within the document (future enhancement)
 - The ID validation logic is shared with code block IDs for consistency
+
+### Cross-Table References
+
+Tables with IDs can reference data from other tables in the same document using the `from()` function.
+This enables powerful data flows between tables, allowing you to build dashboards, summaries, and aggregations.
+
+**The `from()` function:**
+
+The `from()` function retrieves data from another table by its ID. It has two forms:
+
+1. **Full table reference:** `from("table_id")` - Returns the entire data portion of the table as a matrix
+2. **Range reference:** `from("table_id", range)` - Returns a specific cell, column, row, or range from the table
+
+**Syntax:**
+```
+from("table_id")          # Entire table as matrix
+from("table_id", A_)      # Column A from the table
+from("table_id", _1)      # Row 1 from the table
+from("table_id", A1)      # Single cell from the table
+from("table_id", A1:C3)   # Range from the table
+```
+
+**Example 1: Sum data from another table**
+
+Input:
+```markdown
+| Value |
+| ----- |
+| 10    |
+| 20    |
+| 30    |
+<!-- md-table: id="source" -->
+
+| Total |
+| ----- |
+| 0     |
+<!-- md-table: A1 = sum(from("source", A_)) -->
+```
+
+Output:
+```markdown
+| Value |
+| ----- |
+| 10    |
+| 20    |
+| 30    |
+<!-- md-table: id="source" -->
+
+| Total |
+| ----- |
+| 60    |
+<!-- md-table: A1 = sum(from("source", A_)) -->
+```
+
+**Example 2: Reference entire table**
+
+Input:
+```markdown
+| A   | B   |
+| --- | --- |
+| 1   | 2   |
+| 3   | 4   |
+<!-- md-table: id="data" -->
+
+| Sum |
+| --- |
+| 0   |
+<!-- md-table: A1 = sum(from("data")) -->
+```
+
+Output:
+```markdown
+| A   | B   |
+| --- | --- |
+| 1   | 2   |
+| 3   | 4   |
+<!-- md-table: id="data" -->
+
+| Sum |
+| --- |
+| 10  |
+<!-- md-table: A1 = sum(from("data")) -->
+```
+
+**Example 3: Multiple aggregations**
+
+```markdown
+| Sales |
+| ----- |
+| 100   |
+| 200   |
+| 150   |
+<!-- md-table: id="sales" -->
+
+| Metric  | Value |
+| ------- | ----- |
+| Total   | 0     |
+| Average | 0     |
+| Maximum | 0     |
+<!-- md-table: id="summary"; B1 = sum(from("sales", A_)); B2 = avg(from("sales", A_)); B3 = max(from("sales", A_)) -->
+```
+
+**Error handling:**
+
+If you reference a table that doesn't exist, an error is displayed:
+
+```markdown
+| Result |
+| ------ |
+| 0      |
+<!-- md-table: A1 = from("missing") -->
+<!-- md-error: Failed to evaluate expression 'from("missing")': table 'missing' not found (tables must have an id attribute) -->
+```
+
+**Supported functions with `from()`:**
+
+All aggregate functions work with cross-table references:
+- `sum(from("id", range))` - Sum of values
+- `avg(from("id", range))` - Average of values
+- `min(from("id", range))` - Minimum value
+- `max(from("id", range))` - Maximum value
+- `count(from("id", range))` - Count of values
+- `prod(from("id", range))` - Product of values
+
+**Notes:**
+- Table IDs must be unique within the document
+- The referenced table must appear before the formula is evaluated (tables are processed top-to-bottom)
+- Empty or non-numeric cells in the source table are treated as 0
+- String literals in formulas (like `"table_id"`) must be enclosed in double quotes
+- Cross-table references can be combined with other operations and functions
 
 ### Code Block Execution
 

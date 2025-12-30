@@ -68,7 +68,6 @@ use types::{Value, Assignment};
 use crate::table::error::FormulaError;
 use types::{FIRST_DATA_ROW_INDEX, formula_row_to_table_index};
 use ast::Parser;
-use evaluator::eval_ast;
 use tokenizer::tokenize_expression;
 
 /// Applies a column vector of values to a table column
@@ -84,31 +83,25 @@ fn apply_column_vector_assignment(rows: &mut [Vec<String>], col: usize, value: &
     }
 }
 
-/// Applies spreadsheet-style formulas to table cells.
+/// Applies spreadsheet-style formulas to table cells with access to other tables.
 ///
-/// Formulas are evaluated in order, allowing later formulas to reference
-/// cells updated by earlier formulas. Each formula follows the pattern:
-/// `TARGET = EXPRESSION` where TARGET can be a scalar cell (e.g., `D2`) or
-/// a column vector (e.g., `D_`).
+/// This version supports cross-table references via the from() function.
 ///
 /// # Arguments
 ///
 /// * `rows` - Mutable reference to the table rows (header, separator, then data rows)
-/// * `formulas` - Slice of formula strings to evaluate (e.g., `["D1 = B1 * C1", "D_ = A_ + B_"]`)
-///
-/// # Examples
-///
-/// ```
-/// // Scalar formula: D2 = B2 * C2
-/// // Vector formula: D_ = A_ + B_
-/// // Sum function: E1 = sum(A_)
-/// ```
+/// * `formulas` - Slice of formula strings to evaluate
+/// * `table_map` - Map of table IDs to their data for cross-table references
 ///
 /// # Returns
 ///
 /// A vector of Option<String> where each element corresponds to a formula.
 /// None indicates the formula succeeded, Some(error) indicates it failed with the given error message.
-pub fn apply_formulas(rows: &mut Vec<Vec<String>>, formulas: &[String]) -> Vec<Option<String>> {
+pub fn apply_formulas_with_tables(
+    rows: &mut Vec<Vec<String>>,
+    formulas: &[String],
+    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>
+) -> Vec<Option<String>> {
     let mut errors = Vec::new();
 
     for formula in formulas {
@@ -123,8 +116,8 @@ pub fn apply_formulas(rows: &mut Vec<Vec<String>>, formulas: &[String]) -> Vec<O
             }
         };
 
-        // Try to evaluate the expression
-        let value = match evaluate_expression_value(&expr, rows) {
+        // Try to evaluate the expression (with table_map for from() support)
+        let value = match evaluate_expression_value_with_tables(&expr, rows, table_map) {
             Ok(v) => v,
             Err(error) => {
                 // Try to extract span information by re-parsing for better error messages
@@ -355,7 +348,12 @@ fn extract_error_span(expr: &str, error: &FormulaError) -> Option<Span> {
 /// * `Ok(Value::Scalar)` for scalar results
 /// * `Ok(Value::Matrix)` for matrix/vector results
 /// * `Err(String)` with specific error message if evaluation fails
-fn evaluate_expression_value(expr: &str, rows: &Vec<Vec<String>>) -> Result<Value, FormulaError> {
+/// Evaluate an expression with access to other tables
+fn evaluate_expression_value_with_tables(
+    expr: &str,
+    rows: &Vec<Vec<String>>,
+    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>
+) -> Result<Value, FormulaError> {
     // Step 1: Tokenize the expression
     let tokens = tokenize_expression(expr);
 
@@ -363,8 +361,20 @@ fn evaluate_expression_value(expr: &str, rows: &Vec<Vec<String>>) -> Result<Valu
     let mut parser = Parser::new(tokens);
     let ast = parser.parse()?;
 
-    // Step 3: Evaluate the AST
-    eval_ast(&ast, rows)
+    // Step 3: Evaluate the AST with table_map support
+    evaluator::eval_ast_with_tables(&ast, rows, table_map)
+}
+
+/// Evaluate an expression (backwards compatibility, no cross-table refs)
+fn evaluate_expression_value(expr: &str, rows: &Vec<Vec<String>>) -> Result<Value, FormulaError> {
+    use std::collections::HashMap;
+    evaluate_expression_value_with_tables(expr, rows, &HashMap::new())
+}
+
+/// Backwards-compatible apply_formulas (no cross-table refs)
+pub fn apply_formulas(rows: &mut Vec<Vec<String>>, formulas: &[String]) -> Vec<Option<String>> {
+    use std::collections::HashMap;
+    apply_formulas_with_tables(rows, formulas, &HashMap::new())
 }
 
 #[cfg(test)]

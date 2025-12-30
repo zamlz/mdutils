@@ -1,25 +1,35 @@
 use crate::table::error::FormulaError;
 use crate::table::formula::types::Value;
 use crate::table::formula::ast::{Expr, BinaryOperator};
-use crate::table::formula::reference::resolve_reference;
+use crate::table::formula::reference::{self, resolve_reference};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::{ToPrimitive, FromPrimitive};
 
-/// Evaluates an AST expression node to a Value
-pub(crate) fn eval_ast(expr: &Expr, rows: &Vec<Vec<String>>) -> Result<Value, FormulaError> {
+/// Evaluates an AST expression node to a Value with access to other tables
+pub(crate) fn eval_ast_with_tables(
+    expr: &Expr,
+    rows: &Vec<Vec<String>>,
+    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>
+) -> Result<Value, FormulaError> {
     match expr {
         Expr::Literal(d, _span) => Ok(Value::Scalar(*d)),
+
+        Expr::String(_s, _span) => {
+            Err(FormulaError::RuntimeError(
+                "string literals can only be used as arguments to functions like from()".to_string()
+            ))
+        }
 
         Expr::CellRef(cell_ref, _span) => resolve_reference(cell_ref, rows),
 
         Expr::BinaryOp { left, op, right, span: _span } => {
-            let left_val = eval_ast(left, rows)?;
-            let right_val = eval_ast(right, rows)?;
+            let left_val = eval_ast_with_tables(left, rows, table_map)?;
+            let right_val = eval_ast_with_tables(right, rows, table_map)?;
             eval_binary_op(*op, left_val, right_val)
         }
 
         Expr::Transpose(inner, _span) => {
-            let val = eval_ast(inner, rows)?;
+            let val = eval_ast_with_tables(inner, rows, table_map)?;
             match val {
                 Value::Scalar(_) => {
                     Err(FormulaError::RuntimeError(
@@ -34,11 +44,16 @@ pub(crate) fn eval_ast(expr: &Expr, rows: &Vec<Vec<String>>) -> Result<Value, Fo
             }
         }
 
-        Expr::FunctionCall { name, arg, span: _span } => {
-            let arg_val = eval_ast(arg, rows)?;
-            eval_function(name, arg_val)
+        Expr::FunctionCall { name, args, span: _span } => {
+            eval_function_call_with_tables(name, args, rows, table_map)
         }
     }
+}
+
+/// Evaluates an AST expression node to a Value (backwards compatibility)
+pub(crate) fn eval_ast(expr: &Expr, rows: &Vec<Vec<String>>) -> Result<Value, FormulaError> {
+    use std::collections::HashMap;
+    eval_ast_with_tables(expr, rows, &HashMap::new())
 }
 
 /// Evaluate a binary operation
@@ -53,12 +68,89 @@ pub(crate) fn eval_binary_op(op: BinaryOperator, left: Value, right: Value) -> R
     }
 }
 
-/// Evaluate a function call
+/// Evaluate a function call from AST with table map support
+fn eval_function_call_with_tables(
+    name: &str,
+    args: &[Expr],
+    rows: &Vec<Vec<String>>,
+    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>
+) -> Result<Value, FormulaError> {
+    match name.to_lowercase().as_str() {
+        "from" => {
+            // from() requires 1 or 2 arguments
+            // from("table_id") - returns entire table
+            // from("table_id", range) - returns specific range from table
+            if args.is_empty() || args.len() > 2 {
+                return Err(FormulaError::RuntimeError(
+                    format!("function 'from' expects 1 or 2 arguments, got {}", args.len())
+                ));
+            }
+
+            // First argument must be a string literal (table ID)
+            let table_id = match &args[0] {
+                Expr::String(id, _) => id.clone(),
+                _ => {
+                    return Err(FormulaError::RuntimeError(
+                        "from() first argument must be a string literal (table ID)".to_string()
+                    ));
+                }
+            };
+
+            // Look up the table
+            let target_rows = table_map.get(&table_id)
+                .ok_or_else(|| FormulaError::RuntimeError(
+                    format!("table '{}' not found (tables must have an id attribute)", table_id)
+                ))?;
+
+            // If only one argument, return entire table as matrix
+            if args.len() == 1 {
+                return reference::table_to_matrix(target_rows);
+            }
+
+            // If two arguments, second must be a cell reference or range
+            let range_value = match &args[1] {
+                Expr::CellRef(cell_ref, _) => {
+                    // Resolve the reference from the target table
+                    resolve_reference(cell_ref, target_rows)?
+                }
+                _ => {
+                    return Err(FormulaError::RuntimeError(
+                        "from() second argument must be a cell reference or range".to_string()
+                    ));
+                }
+            };
+
+            Ok(range_value)
+        }
+        // All other functions expect exactly one argument
+        "sum" | "avg" | "min" | "max" | "count" | "prod" => {
+            if args.len() != 1 {
+                return Err(FormulaError::RuntimeError(
+                    format!("function '{}' expects exactly 1 argument, got {}", name, args.len())
+                ));
+            }
+
+            let arg = eval_ast_with_tables(&args[0], rows, table_map)?;
+            eval_function(name, arg)
+        }
+        _ => Err(FormulaError::RuntimeError(
+            format!("unknown function: '{}' (supported functions: sum, avg, min, max, count, prod, from)", name)
+        ))
+    }
+}
+
+/// Evaluate a function call from AST (backwards compatibility)
+fn eval_function_call(name: &str, args: &[Expr], rows: &Vec<Vec<String>>) -> Result<Value, FormulaError> {
+    use std::collections::HashMap;
+    eval_function_call_with_tables(name, args, rows, &HashMap::new())
+}
+
+/// Evaluate a function with a Value argument (for single-arg functions)
 pub(crate) fn eval_function(name: &str, arg: Value) -> Result<Value, FormulaError> {
     match name.to_lowercase().as_str() {
         "sum" => {
             match arg {
-                Value::Scalar(s) => Ok(Value::Scalar(s)), // sum of scalar is itself
+                Value::Scalar(s) => Ok(Value::Scalar(s)),
                 Value::Matrix { data, .. } => {
                     let sum = data.iter().fold(Decimal::ZERO, |acc, &x| acc + x);
                     Ok(Value::Scalar(sum))
@@ -67,7 +159,7 @@ pub(crate) fn eval_function(name: &str, arg: Value) -> Result<Value, FormulaErro
         }
         "avg" => {
             match arg {
-                Value::Scalar(s) => Ok(Value::Scalar(s)), // avg of scalar is itself
+                Value::Scalar(s) => Ok(Value::Scalar(s)),
                 Value::Matrix { data, .. } => {
                     if data.is_empty() {
                         return Ok(Value::Scalar(Decimal::ZERO));
@@ -80,7 +172,7 @@ pub(crate) fn eval_function(name: &str, arg: Value) -> Result<Value, FormulaErro
         }
         "min" => {
             match arg {
-                Value::Scalar(s) => Ok(Value::Scalar(s)), // min of scalar is itself
+                Value::Scalar(s) => Ok(Value::Scalar(s)),
                 Value::Matrix { data, .. } => {
                     if data.is_empty() {
                         return Ok(Value::Scalar(Decimal::ZERO));
@@ -92,7 +184,7 @@ pub(crate) fn eval_function(name: &str, arg: Value) -> Result<Value, FormulaErro
         }
         "max" => {
             match arg {
-                Value::Scalar(s) => Ok(Value::Scalar(s)), // max of scalar is itself
+                Value::Scalar(s) => Ok(Value::Scalar(s)),
                 Value::Matrix { data, .. } => {
                     if data.is_empty() {
                         return Ok(Value::Scalar(Decimal::ZERO));
@@ -104,7 +196,7 @@ pub(crate) fn eval_function(name: &str, arg: Value) -> Result<Value, FormulaErro
         }
         "count" => {
             match arg {
-                Value::Scalar(_) => Ok(Value::Scalar(Decimal::ONE)), // count of scalar is 1
+                Value::Scalar(_) => Ok(Value::Scalar(Decimal::ONE)),
                 Value::Matrix { data, .. } => {
                     let count = Decimal::from(data.len());
                     Ok(Value::Scalar(count))
@@ -113,7 +205,7 @@ pub(crate) fn eval_function(name: &str, arg: Value) -> Result<Value, FormulaErro
         }
         "prod" => {
             match arg {
-                Value::Scalar(s) => Ok(Value::Scalar(s)), // product of scalar is itself
+                Value::Scalar(s) => Ok(Value::Scalar(s)),
                 Value::Matrix { data, .. } => {
                     let product = data.iter().fold(Decimal::ONE, |acc, &x| acc * x);
                     Ok(Value::Scalar(product))
@@ -121,7 +213,7 @@ pub(crate) fn eval_function(name: &str, arg: Value) -> Result<Value, FormulaErro
             }
         }
         _ => Err(FormulaError::RuntimeError(
-            format!("unknown function: '{}' (supported functions: sum, avg, min, max, count, prod)", name)
+            format!("unknown function: '{}'", name)
         ))
     }
 }

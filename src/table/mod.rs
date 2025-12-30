@@ -4,7 +4,7 @@ mod formula;
 mod parser;
 
 use formatter::format_table_row;
-use formula::apply_formulas;
+use formula::apply_formulas_with_tables;
 use parser::{
     extract_formulas_from_comment, is_formula_comment, is_md_table_comment,
     is_table_row, parse_table_row,
@@ -101,7 +101,58 @@ pub fn parse_table_spec(spec: &str) -> Result<(usize, usize), String> {
 
 /// Formats markdown tables in the input text and returns the full text with aligned tables
 pub fn format_tables(text: &str) -> String {
+    use std::collections::HashMap;
+
     let lines: Vec<&str> = text.lines().collect();
+
+    // First pass: collect all tables with IDs
+    let mut table_map: HashMap<String, Vec<Vec<String>>> = HashMap::new();
+    let mut i = 0;
+
+    while i < lines.len() {
+        if is_table_row(lines[i]) {
+            let mut table_lines = Vec::new();
+            table_lines.push(lines[i]);
+            i += 1;
+
+            while i < lines.len() && is_table_row(lines[i]) {
+                table_lines.push(lines[i]);
+                i += 1;
+            }
+
+            // Check for table ID in following comment
+            let mut table_id: Option<String> = None;
+            if i < lines.len() && is_md_table_comment(lines[i]) {
+                if let Ok((id, _formulas)) = extract_formulas_from_comment(lines[i]) {
+                    table_id = id;
+                }
+
+                // Also check continuation lines
+                let mut j = i + 1;
+                while j < lines.len() && is_formula_comment(lines[j]) {
+                    if let Ok((id, _formulas)) = extract_formulas_from_comment(lines[j]) {
+                        if id.is_some() && table_id.is_none() {
+                            table_id = id;
+                            break;
+                        }
+                    }
+                    j += 1;
+                }
+            }
+
+            // If this table has an ID, parse and store it
+            if let Some(id) = table_id {
+                let rows: Vec<Vec<String>> = table_lines.iter()
+                    .map(|line| parse_table_row(line))
+                    .collect();
+                table_map.insert(id, rows);
+            }
+        } else {
+            i += 1;
+        }
+    }
+
+    // Second pass: format tables with formulas (with access to table_map)
     let mut output = Vec::new();
     let mut current_table_lines = Vec::new();
     let mut i = 0;
@@ -159,11 +210,11 @@ pub fn format_tables(text: &str) -> String {
                 }
             }
 
-            // Format the table with all formulas applied
+            // Format the table with all formulas applied (now with table_map)
             let all_formulas: Vec<String> = formula_comments.iter()
                 .flat_map(|(_, formulas, _)| formulas.clone())
                 .collect();
-            let (formatted, all_errors) = format_table_with_formulas(&current_table_lines, &all_formulas);
+            let (formatted, all_errors) = format_table_with_formulas_and_tables(&current_table_lines, &all_formulas, &table_map);
             output.push(formatted);
 
             // Add the formula comments back with their respective errors
@@ -205,10 +256,14 @@ pub fn format_tables(text: &str) -> String {
     result
 }
 
-/// Formats a table with formula evaluation
+/// Formats a table with formula evaluation and access to other tables
 /// Returns a tuple of (formatted_table, per_formula_errors)
 /// where per_formula_errors[i] is None if formula i succeeded, or Some(error) if it failed
-fn format_table_with_formulas(lines: &[&str], formulas: &[String]) -> (String, Vec<Option<String>>) {
+fn format_table_with_formulas_and_tables(
+    lines: &[&str],
+    formulas: &[String],
+    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>
+) -> (String, Vec<Option<String>>) {
     if lines.is_empty() {
         return (String::new(), Vec::new());
     }
@@ -225,7 +280,7 @@ fn format_table_with_formulas(lines: &[&str], formulas: &[String]) -> (String, V
 
     // Apply formulas if any and collect errors per formula
     let errors = if !formulas.is_empty() {
-        apply_formulas(&mut rows, formulas)
+        apply_formulas_with_tables(&mut rows, formulas, table_map)
     } else {
         Vec::new()
     };
@@ -247,6 +302,14 @@ fn format_table_with_formulas(lines: &[&str], formulas: &[String]) -> (String, V
         .collect();
 
     (formatted_rows.join("\n"), errors)
+}
+
+/// Formats a table with formula evaluation (backwards compatibility, no cross-table refs)
+/// Returns a tuple of (formatted_table, per_formula_errors)
+/// where per_formula_errors[i] is None if formula i succeeded, or Some(error) if it failed
+fn format_table_with_formulas(lines: &[&str], formulas: &[String]) -> (String, Vec<Option<String>>) {
+    use std::collections::HashMap;
+    format_table_with_formulas_and_tables(lines, formulas, &HashMap::new())
 }
 
 #[cfg(test)]

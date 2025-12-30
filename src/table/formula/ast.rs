@@ -10,6 +10,9 @@ pub(crate) enum Expr {
     /// A literal decimal number
     Literal(Decimal, Span),
 
+    /// A string literal (e.g., "table_name")
+    String(String, Span),
+
     /// A cell reference (scalar, column vector, or row vector)
     CellRef(CellReference, Span),
 
@@ -24,10 +27,10 @@ pub(crate) enum Expr {
     /// Unary transpose operation (e.g., A_.T)
     Transpose(Box<Expr>, Span),
 
-    /// Function call (e.g., sum(A_))
+    /// Function call (e.g., sum(A_), from("sales", A1:C3))
     FunctionCall {
         name: String,
-        arg: Box<Expr>,
+        args: Vec<Expr>,
         span: Span,
     },
 }
@@ -37,6 +40,7 @@ impl Expr {
     pub(crate) fn span(&self) -> Span {
         match self {
             Expr::Literal(_, s) => *s,
+            Expr::String(_, s) => *s,
             Expr::CellRef(_, s) => *s,
             Expr::BinaryOp { span, .. } => *span,
             Expr::Transpose(_, s) => *s,
@@ -207,7 +211,21 @@ impl Parser {
             let func_name = token.value.clone();
             let func_span = token.span;
             self.pos += 2; // Skip function name and '('
-            let arg = self.parse_expression()?;
+
+            // Parse function arguments (comma-separated)
+            let mut args = Vec::new();
+
+            // Check for empty argument list
+            if self.pos < self.tokens.len() && self.tokens[self.pos].value != ")" {
+                args.push(self.parse_expression()?);
+
+                // Parse additional arguments separated by commas
+                while self.pos < self.tokens.len() && self.tokens[self.pos].value == "," {
+                    self.pos += 1; // Skip ','
+                    args.push(self.parse_expression()?);
+                }
+            }
+
             if self.pos >= self.tokens.len() || self.tokens[self.pos].value != ")" {
                 return Err(FormulaError::RuntimeError(
                     format!("unmatched '(' in function call '{}'", func_name)
@@ -218,7 +236,7 @@ impl Parser {
             let span = func_span.merge(&close_span);
             return Ok(Expr::FunctionCall {
                 name: func_name,
-                arg: Box::new(arg),
+                args,
                 span,
             });
         }
@@ -314,6 +332,15 @@ impl Parser {
             return Ok(Expr::CellRef(cell_ref, span));
         }
 
+        // Check for string literal
+        if token.value.starts_with('"') && token.value.ends_with('"') {
+            let span = token.span;
+            // Remove surrounding quotes
+            let string_content = token.value[1..token.value.len()-1].to_string();
+            self.pos += 1;
+            return Ok(Expr::String(string_content, span));
+        }
+
         // Check for number literal
         if let Ok(decimal) = Decimal::from_str(&token.value) {
             let span = token.span;
@@ -322,7 +349,7 @@ impl Parser {
         }
 
         Err(FormulaError::RuntimeError(
-            format!("invalid token: '{}' is not a valid number or cell reference", token.value)
+            format!("invalid token: '{}' is not a valid number, string, or cell reference", token.value)
         ))
     }
 }

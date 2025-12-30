@@ -35,11 +35,17 @@ impl Token {
 /// - Arithmetic: `+`, `-`, `*`, `/`, `^` (exponentiation)
 /// - Matrix operations: `@` (matrix multiplication)
 /// - Range: `:` (cell range operator, e.g., A1:C5)
+/// - Comma: `,` (function argument separator)
 /// - Each operator becomes a single-character token
 ///
 /// **Parentheses** are split into individual tokens:
 /// - Opening `(` and closing `)` parentheses
 /// - Used for grouping expressions and function arguments
+///
+/// **String literals** are kept together as single tokens:
+/// - Enclosed in double quotes: `"table_name"`, `"sales"`
+/// - The quotes are preserved in the token value
+/// - Used for table IDs in cross-table references
 ///
 /// **The dot operator** for transpose (`.T`) is handled specially:
 /// - The dot `.` and `T` are kept as separate tokens
@@ -71,7 +77,41 @@ pub(crate) fn tokenize_expression(expr: &str) -> Vec<Token> {
         let ch = chars[i];
 
         match ch {
-            '+' | '-' | '*' | '/' | '^' | '@' | '(' | ')' | ':' => {
+            '"' => {
+                // Handle string literals
+                if !current_token.is_empty() {
+                    let trimmed = current_token.trim();
+                    if !trimmed.is_empty() {
+                        tokens.push(Token::new(
+                            trimmed.to_string(),
+                            Span::new(token_start, i),
+                        ));
+                    }
+                    current_token.clear();
+                }
+
+                // Find the closing quote
+                let string_start = i;
+                i += 1; // Skip opening quote
+                let mut string_value = String::new();
+
+                while i < chars.len() && chars[i] != '"' {
+                    string_value.push(chars[i]);
+                    i += 1;
+                }
+
+                if i < chars.len() {
+                    i += 1; // Skip closing quote
+                }
+
+                // Store the string without quotes, but mark it as a string token with special prefix
+                tokens.push(Token::new(
+                    format!("\"{}\"", string_value),
+                    Span::new(string_start, i),
+                ));
+                token_start = i;
+            }
+            '+' | '-' | '*' | '/' | '^' | '@' | '(' | ')' | ':' | ',' => {
                 if !current_token.is_empty() {
                     let trimmed = current_token.trim();
                     if !trimmed.is_empty() {
@@ -210,5 +250,37 @@ mod tests {
 
         assert_eq!(tokens[2].span.start, 7);
         assert_eq!(tokens[2].span.end, 10); // "2.5"
+    }
+
+    #[test]
+    fn test_tokenize_string_literal() {
+        let tokens = tokenize_expression(r#"from("sales", A1:C3)"#);
+
+        assert_eq!(tokens.len(), 8);
+        assert_eq!(tokens[0].value, "from");
+        assert_eq!(tokens[1].value, "(");
+        assert_eq!(tokens[2].value, r#""sales""#);
+        assert_eq!(tokens[3].value, ",");
+        assert_eq!(tokens[4].value, "A1");
+        assert_eq!(tokens[5].value, ":");
+        assert_eq!(tokens[6].value, "C3");
+        assert_eq!(tokens[7].value, ")");
+
+        // Check string literal span
+        assert_eq!(tokens[2].span.start, 5);
+        assert_eq!(tokens[2].span.end, 12); // "sales" with quotes
+    }
+
+    #[test]
+    fn test_tokenize_function_with_comma() {
+        let tokens = tokenize_expression("from(\"table\", A_)");
+
+        assert_eq!(tokens.len(), 6);
+        assert_eq!(tokens[0].value, "from");
+        assert_eq!(tokens[1].value, "(");
+        assert_eq!(tokens[2].value, "\"table\"");
+        assert_eq!(tokens[3].value, ",");
+        assert_eq!(tokens[4].value, "A_");
+        assert_eq!(tokens[5].value, ")");
     }
 }

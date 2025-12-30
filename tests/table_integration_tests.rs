@@ -307,3 +307,45 @@ fn test_all_formula_functions() {
     assert!(output.contains("| 10     | 100 | 25   | 10  | 40  | 4     | 240000 |"));
     assert!(!output.contains("md-error:"));
 }
+
+#[test]
+fn test_cross_table_reference() {
+    let input = fs::read_to_string("tests/table/fixtures/cross_table_reference_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/cross_table_reference_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify from() function works with column reference
+    assert!(output.contains("| 60   | 20   |"));
+    assert!(!output.contains("md-error:"));
+}
+
+#[test]
+fn test_cross_table_full_matrix() {
+    let input = fs::read_to_string("tests/table/fixtures/cross_table_full_matrix_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/cross_table_full_matrix_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify from() function works with entire table
+    assert!(output.contains("| 10    |"));
+    assert!(!output.contains("md-error:"));
+}
+
+#[test]
+fn test_cross_table_missing_id() {
+    let input = fs::read_to_string("tests/table/fixtures/cross_table_missing_id_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/cross_table_missing_id_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify error when table ID doesn't exist
+    assert!(output.contains("md-error:"));
+    assert!(output.contains("table 'nonexistent' not found"));
+}
