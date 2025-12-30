@@ -1,4 +1,5 @@
 use crate::code::error::CodeError;
+use crate::common::validate_id;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -107,6 +108,10 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
 
     let id = id.ok_or_else(|| CodeError::DirectiveParseError("Missing required id attribute".to_string()))?;
 
+    // Validate ID format
+    validate_id(&id)
+        .map_err(|e| CodeError::DirectiveParseError(format!("Invalid ID: {}", e)))?;
+
     Ok(CodeBlockDirective {
         id,
         execute,
@@ -137,7 +142,13 @@ pub fn parse_md_code_output_directive(line: &str) -> Result<String, CodeError> {
     // Extract id value
     if content.starts_with("id=") {
         let value = content.strip_prefix("id=").unwrap().trim();
-        extract_quoted_value(value)
+        let id = extract_quoted_value(value)?;
+
+        // Validate ID format
+        validate_id(&id)
+            .map_err(|e| CodeError::DirectiveParseError(format!("Invalid ID: {}", e)))?;
+
+        Ok(id)
     } else {
         Err(CodeError::DirectiveParseError("Missing id attribute in md-code-output".to_string()))
     }

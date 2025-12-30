@@ -650,6 +650,84 @@ Output:
 - Successful formulas update their cells even if others fail
 - Error messages are descriptive and include the failing formula
 
+### Table IDs
+
+Tables can be assigned optional identifiers using the `id` attribute in the `md-table` directive.
+This feature is designed for future functionality where tables can reference each other's data.
+
+**ID Syntax:**
+
+Table IDs are specified as an attribute in the `md-table` directive, similar to code blocks:
+
+```markdown
+| Name | Age |
+|------|-----|
+| Alice| 30  |
+| Bob  | 25  |
+<!-- md-table: id="employee_data" -->
+```
+
+**ID Validation Rules:**
+
+Table IDs must follow these rules:
+- Cannot be empty
+- Any other non-empty string is valid
+
+**Valid ID examples:**
+- `id="sales_data"`
+- `id="table1"`
+- `id="my_table_123"`
+- `id="_results"`
+- `id="sales data"` (whitespace is allowed)
+- `id="sales-data"` (hyphens are allowed)
+- `id="sales.data"` (periods are allowed)
+- `id="2024-Q1-sales"` (any characters are allowed)
+- `id="user@domain"` (special characters are allowed)
+
+**Invalid ID examples:**
+- `id=""` (empty)
+
+**Combining IDs with formulas:**
+
+You can use both an ID and formulas in the same directive:
+
+```markdown
+| Product | Price | Tax | Total |
+|---------|-------|-----|-------|
+| Laptop  | 1000  | 0   | 0     |
+| Mouse   | 25    | 0   | 0     |
+<!-- md-table: id="product_table"; C_ = B_ * 0.08; D_ = B_ + C_ -->
+```
+
+The `id` attribute comes first, followed by formulas separated by semicolons.
+
+**Error handling:**
+
+Empty table IDs produce descriptive error messages:
+
+Input:
+```markdown
+| A | B |
+|---|---|
+| 1 | 2 |
+<!-- md-table: id="" -->
+```
+
+Output:
+```markdown
+| A   | B   |
+| --- | --- |
+| 1   | 2   |
+<!-- md-table: id="" -->
+<!-- md-error: Invalid table ID: ID cannot be empty -->
+```
+
+**Notes:**
+- Table IDs are optional (unlike code blocks where IDs are required for execution)
+- IDs can be any non-empty string
+- IDs must be unique within the document (future enhancement)
+- The ID validation logic is shared with code block IDs for consistency
+
 ### Code Block Execution
 
 The `code` subcommand allows you to execute code blocks in markdown

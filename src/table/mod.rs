@@ -6,8 +6,8 @@ mod parser;
 use formatter::format_table_row;
 use formula::apply_formulas;
 use parser::{
-    extract_formulas_from_comment, is_formula_comment, is_md_table_comment, is_table_row,
-    parse_table_row,
+    extract_formulas_from_comment, is_formula_comment, is_md_table_comment,
+    is_table_row, parse_table_row,
 };
 
 /// Creates a new empty markdown table with the specified dimensions
@@ -118,36 +118,63 @@ pub fn format_tables(text: &str) -> String {
                 i += 1;
             }
 
-            // Collect all formula comments and their formulas
+            // Collect all formula comments and extract table ID from first comment
             let mut formula_comments = Vec::new();
+            let mut table_id: Option<String> = None;
 
-            // Look for <!-- md-table: --> comment
+            // Look for <!-- md-table: --> comments
             if i < lines.len() && is_md_table_comment(lines[i]) {
                 let comment_line = lines[i];
-                let formulas = extract_formulas_from_comment(comment_line);
-                formula_comments.push((comment_line, formulas));
+                match extract_formulas_from_comment(comment_line) {
+                    Ok((id, formulas)) => {
+                        // Extract ID from first comment if present
+                        if id.is_some() {
+                            table_id = id;
+                        }
+                        formula_comments.push((comment_line, formulas, None));
+                    }
+                    Err(e) => {
+                        // Parse error - store it to output later
+                        formula_comments.push((comment_line, Vec::new(), Some(e)));
+                    }
+                }
                 i += 1;
 
                 // Collect additional formula comments on following lines
                 while i < lines.len() && is_formula_comment(lines[i]) {
                     let comment_line = lines[i];
-                    let formulas = extract_formulas_from_comment(comment_line);
-                    formula_comments.push((comment_line, formulas));
+                    match extract_formulas_from_comment(comment_line) {
+                        Ok((id, formulas)) => {
+                            // Extract ID if present (though typically only in first comment)
+                            if id.is_some() && table_id.is_none() {
+                                table_id = id;
+                            }
+                            formula_comments.push((comment_line, formulas, None));
+                        }
+                        Err(e) => {
+                            formula_comments.push((comment_line, Vec::new(), Some(e)));
+                        }
+                    }
                     i += 1;
                 }
             }
 
             // Format the table with all formulas applied
             let all_formulas: Vec<String> = formula_comments.iter()
-                .flat_map(|(_, formulas)| formulas.clone())
+                .flat_map(|(_, formulas, _)| formulas.clone())
                 .collect();
             let (formatted, all_errors) = format_table_with_formulas(&current_table_lines, &all_formulas);
             output.push(formatted);
 
-            // Add the comments back with their respective errors
+            // Add the formula comments back with their respective errors
             let mut error_idx = 0;
-            for (comment_line, formulas) in &formula_comments {
+            for (comment_line, formulas, parse_error) in &formula_comments {
                 output.push(comment_line.to_string());
+
+                // Add parse error if present
+                if let Some(ref error) = parse_error {
+                    output.push(format!("<!-- md-error: {} -->", error));
+                }
 
                 // Add error comments for formulas from this comment line
                 for _ in 0..formulas.len() {
@@ -407,5 +434,107 @@ With some text but no tables.
         assert!(output.contains("| 2    | 4"));  // 2^2 = 4
         assert!(output.contains("| 3    | 9"));  // 3^2 = 9
         assert!(output.contains("| 4    | 16")); // 4^2 = 16
+    }
+
+    #[test]
+    fn test_table_with_valid_id() {
+        let input = r#"| A | B | C |
+|---|---|---|
+| 1 | 2 | 3 |
+<!-- md-table: id="sales_data"; C1 = A1 + B1 -->"#;
+
+        let output = format_tables(input);
+
+        // Table ID directive should be preserved
+        assert!(output.contains("<!-- md-table: id=\"sales_data\"; C1 = A1 + B1 -->"));
+        // Formula should work
+        assert!(output.contains("| 3"));
+        // Should not have any errors
+        assert!(!output.contains("md-error"));
+    }
+
+    #[test]
+    fn test_table_with_id_containing_whitespace() {
+        let input = r#"| A | B |
+|---|---|
+| 1 | 2 |
+<!-- md-table: id="sales data" -->"#;
+
+        let output = format_tables(input);
+
+        // Whitespace is now allowed in IDs
+        assert!(output.contains("<!-- md-table: id=\"sales data\" -->"));
+        // Should not have any errors
+        assert!(!output.contains("md-error"));
+    }
+
+    #[test]
+    fn test_table_with_id_containing_special_chars() {
+        let input = r#"| A | B |
+|---|---|
+| 1 | 2 |
+<!-- md-table: id="my-table-2024" -->"#;
+
+        let output = format_tables(input);
+
+        // Special characters are now allowed in IDs
+        assert!(output.contains("<!-- md-table: id=\"my-table-2024\" -->"));
+        // Should not have any errors
+        assert!(!output.contains("md-error"));
+    }
+
+    #[test]
+    fn test_table_with_invalid_id_empty() {
+        let input = r#"| A | B |
+|---|---|
+| 1 | 2 |
+<!-- md-table: id="" -->"#;
+
+        let output = format_tables(input);
+
+        // Should have an error about empty ID
+        assert!(output.contains("md-error"));
+        assert!(output.contains("Invalid table ID"));
+        assert!(output.contains("cannot be empty"));
+    }
+
+    #[test]
+    fn test_multiple_tables_with_ids() {
+        let input = r#"| A | B |
+|---|---|
+| 1 | 2 |
+<!-- md-table: id="table1" -->
+
+| X | Y |
+|---|---|
+| 3 | 4 |
+<!-- md-table: id="table2" -->"#;
+
+        let output = format_tables(input);
+
+        // Both IDs should be preserved
+        assert!(output.contains("<!-- md-table: id=\"table1\" -->"));
+        assert!(output.contains("<!-- md-table: id=\"table2\" -->"));
+        // No errors
+        assert!(!output.contains("md-error"));
+    }
+
+    #[test]
+    fn test_table_with_id_and_formulas() {
+        let input = r#"| A | B | C |
+|---|---|---|
+| 5 | 10 | 0 |
+| 7 | 3 | 0 |
+<!-- md-table: id="calc_table"; C_ = A_ + B_ -->"#;
+
+        let output = format_tables(input);
+
+        // ID directive should be preserved
+        assert!(output.contains("<!-- md-table: id=\"calc_table\"; C_ = A_ + B_ -->"));
+        // Formulas should work
+        assert!(output.contains("| 15"));
+        assert!(output.contains("| 10"));
+        // No errors
+        assert!(!output.contains("md-error"));
     }
 }

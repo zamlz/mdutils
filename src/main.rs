@@ -1,5 +1,6 @@
 mod code;
 mod table;
+mod common;
 
 use clap::{Parser, Subcommand};
 use code::process_code_blocks;
