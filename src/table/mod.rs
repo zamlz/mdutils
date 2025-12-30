@@ -66,6 +66,7 @@ pub fn create_table(rows: usize, cols: usize) -> String {
 /// # Examples
 ///
 /// ```
+/// use mdutils::table::parse_table_spec;
 /// let (rows, cols) = parse_table_spec("table:2:3").unwrap();
 /// assert_eq!(rows, 2);
 /// assert_eq!(cols, 3);

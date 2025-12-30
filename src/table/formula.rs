@@ -1,40 +1,56 @@
 //! Formula evaluation system for markdown tables
 //!
 //! This module provides spreadsheet-like formula support for markdown tables,
-//! including both scalar and vector operations.
+//! including scalar operations, vector operations, and matrix multiplication.
 //!
 //! # Features
 //!
 //! - **Scalar formulas**: `D2 = B2 * C2`
 //! - **Vector operations**: `C_ = A_ + B_` (element-wise operations on columns)
 //! - **Broadcasting**: `C_ = A_ * 0.5` (scalar applied to all vector elements)
+//! - **Matrix multiplication**: `D1 = A_.T @ B_` (dot product using transpose operator)
+//! - **Transpose operator**: `.T` to transpose vectors (e.g., `A_.T` converts column to row)
 //! - **Functions**: `sum(A_)` to aggregate vector values
-//! - **Operators**: `+`, `-`, `*`, `/`, `^` with proper precedence
+//! - **Operators**: `+`, `-`, `*`, `/`, `^`, `@` with proper precedence
 //! - **Parentheses**: `(A_ + B_) * 2` for grouping
 //!
 //! # Cell References
 //!
 //! - `A1`, `B2`, etc. - Scalar cell references (column letter + row number)
-//! - `A_`, `B_`, etc. - Column vector references (entire column)
-//! - `_1`, `_2`, etc. - Row vector references (entire row)
+//! - `A_`, `B_`, etc. - Column vector references (n×1 matrix, all rows in a column)
+//! - `_1`, `_2`, etc. - Row vector references (1×n matrix, all columns in a row)
+//! - `A_.T` - Transpose of column vector (converts n×1 to 1×n)
+//! - `_1.T` - Transpose of row vector (converts 1×n to n×1)
 //!
 //! Row 1 refers to the first data row (headers and separators are not addressable).
+//! Column references use alphabetic indexing (A=1st column, B=2nd, etc.) regardless of header text.
+//!
+//! # Matrix Operations
+//!
+//! Vectors are represented internally as matrices with dimension tracking:
+//! - Column vectors: n×1 matrices (e.g., `A_` with 3 rows is a 3×1 matrix)
+//! - Row vectors: 1×n matrices (e.g., `_1` with 3 columns is a 1×3 matrix)
+//! - Matrix multiplication follows standard linear algebra rules: (m×n) @ (n×p) = (m×p)
+//! - Dimension mismatch results in formula failure (no result computed)
 //!
 //! # Operator Precedence
 //!
-//! 1. Parentheses `()` (highest)
+//! 1. Parentheses `()` and transpose `.T` (highest)
 //! 2. Exponentiation `^`
-//! 3. Multiplication `*` and Division `/`
-//! 4. Addition `+` and Subtraction `-` (lowest)
+//! 3. Matrix multiplication `@`, scalar multiplication `*`, and division `/`
+//! 4. Addition `+` and subtraction `-` (lowest)
 //!
 //! # Examples
 //!
 //! ```text
-//! <!-- md-table: D1 = B1 * C1 -->           // Scalar formula
-//! <!-- md-table: C_ = A_ + B_ -->           // Vector addition
-//! <!-- md-table: D_ = A_ * 0.08 -->         // Broadcast scalar
-//! <!-- md-table: E1 = sum(A_ ^ 2) -->       // Sum of squares
-//! <!-- md-table: F_ = (A_ + B_) / 2 -->     // Average of two columns
+//! <!-- md-table: D1 = B1 * C1 -->                 // Scalar formula
+//! <!-- md-table: C_ = A_ + B_ -->                 // Vector addition
+//! <!-- md-table: D_ = A_ * 0.08 -->               // Broadcast scalar
+//! <!-- md-table: E1 = sum(A_ ^ 2) -->             // Sum of squares
+//! <!-- md-table: F_ = (A_ + B_) / 2 -->           // Average of two columns
+//! <!-- md-table: G1 = A_.T @ B_ -->               // Dot product (transpose then multiply)
+//! <!-- md-table: H1 = _1 @ A_ -->                 // Row times column
+//! <!-- md-table: I1 = (A_.T @ B_) + 10 -->        // Matrix mult in expression
 //! ```
 
 use rust_decimal::Decimal;
@@ -52,11 +68,64 @@ fn formula_row_to_table_index(row_num: usize) -> usize {
     FIRST_DATA_ROW_INDEX + (row_num - 1)
 }
 
-/// Represents a value in a formula - either a scalar or a vector
+/// Represents a value in a formula - either a scalar or a matrix
 #[derive(Debug, Clone, PartialEq)]
 enum Value {
     Scalar(Decimal),
-    Vector(Vec<Decimal>),
+    Matrix {
+        rows: usize,
+        cols: usize,
+        data: Vec<Decimal>, // stored in row-major order
+    },
+}
+
+impl Value {
+    /// Creates a row vector (1×n matrix)
+    fn row_vector(data: Vec<Decimal>) -> Self {
+        let cols = data.len();
+        Value::Matrix { rows: 1, cols, data }
+    }
+
+    /// Creates a column vector (n×1 matrix)
+    fn column_vector(data: Vec<Decimal>) -> Self {
+        let rows = data.len();
+        Value::Matrix { rows, cols: 1, data }
+    }
+
+    /// Transposes a matrix (swaps rows and cols)
+    fn transpose(self) -> Option<Self> {
+        match self {
+            Value::Scalar(_) => None, // Cannot transpose a scalar
+            Value::Matrix { rows, cols, data } => {
+                // Transpose by converting row-major to column-major
+                let mut transposed = Vec::with_capacity(data.len());
+                for col in 0..cols {
+                    for row in 0..rows {
+                        transposed.push(data[row * cols + col]);
+                    }
+                }
+                Some(Value::Matrix {
+                    rows: cols,
+                    cols: rows,
+                    data: transposed,
+                })
+            }
+        }
+    }
+
+    /// Checks if this is a 1×1 matrix (can be extracted as scalar)
+    fn as_scalar(&self) -> Option<Decimal> {
+        match self {
+            Value::Scalar(d) => Some(*d),
+            Value::Matrix { rows: 1, cols: 1, data } => data.get(0).copied(),
+            _ => None,
+        }
+    }
+
+    /// Checks if this is a column vector (n×1 matrix)
+    fn is_column_vector(&self) -> bool {
+        matches!(self, Value::Matrix { cols: 1, .. })
+    }
 }
 
 /// Represents different types of cell references
@@ -74,13 +143,15 @@ enum Assignment {
     ColumnVector { col: usize },         // D_ = ...
 }
 
-/// Applies a vector of values to a column
+/// Applies a column vector of values to a table column
 /// Starts at first data row (after header and separator)
-fn apply_vector_assignment(rows: &mut Vec<Vec<String>>, col: usize, values: Vec<Decimal>) {
-    for (i, value) in values.iter().enumerate() {
-        let row_idx = FIRST_DATA_ROW_INDEX + i;
-        if row_idx < rows.len() && col < rows[row_idx].len() {
-            rows[row_idx][col] = value.to_string();
+fn apply_column_vector_assignment(rows: &mut Vec<Vec<String>>, col: usize, value: &Value) {
+    if let Value::Matrix { rows: _n_rows, cols: 1, data } = value {
+        for (i, &val) in data.iter().enumerate() {
+            let row_idx = FIRST_DATA_ROW_INDEX + i;
+            if row_idx < rows.len() && col < rows[row_idx].len() {
+                rows[row_idx][col] = val.to_string();
+            }
         }
     }
 }
@@ -117,16 +188,16 @@ pub fn apply_formulas(rows: &mut Vec<Vec<String>>, formulas: &[String]) {
                 match assignment {
                     Assignment::Scalar { row, col } => {
                         // Scalar assignment: single cell update
-                        if let Value::Scalar(decimal) = value {
+                        if let Some(decimal) = value.as_scalar() {
                             if row < rows.len() && col < rows[row].len() {
                                 rows[row][col] = decimal.to_string();
                             }
                         }
                     }
                     Assignment::ColumnVector { col } => {
-                        // Vector assignment: update entire column
-                        if let Value::Vector(values) = value {
-                            apply_vector_assignment(rows, col, values);
+                        // Column vector assignment: update entire column
+                        if value.is_column_vector() {
+                            apply_column_vector_assignment(rows, col, &value);
                         }
                     }
                 }
@@ -244,7 +315,7 @@ fn cell_ref_to_index(cell_ref: &str) -> Option<(usize, usize)> {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// parse_cell_reference("A1")  // Some(Scalar { row: 2, col: 0 })
 /// parse_cell_reference("B_")  // Some(ColumnVector { col: 1 })
 /// parse_cell_reference("_1")  // Some(RowVector { row: 1 })
@@ -354,35 +425,37 @@ fn resolve_reference(cell_ref: &CellReference, rows: &Vec<Vec<String>>) -> Optio
         }
         CellReference::ColumnVector { col } => {
             // Get all values in the column (starting from first data row)
-            let mut values = Vec::new();
+            // Returns a column vector (n×1 matrix)
+            let mut data = Vec::new();
             for row_idx in FIRST_DATA_ROW_INDEX..rows.len() {
                 if *col < rows[row_idx].len() {
                     let cell_value = &rows[row_idx][*col];
                     if let Ok(decimal) = Decimal::from_str(cell_value) {
-                        values.push(decimal);
+                        data.push(decimal);
                     } else {
                         // Empty or non-numeric cells are treated as 0
-                        values.push(Decimal::ZERO);
+                        data.push(Decimal::ZERO);
                     }
                 }
             }
-            Some(Value::Vector(values))
+            Some(Value::column_vector(data))
         }
         CellReference::RowVector { row } => {
             // Get all values in the row
             // Row 1 means first data row
+            // Returns a row vector (1×n matrix)
             let row_idx = formula_row_to_table_index(*row);
             if row_idx < rows.len() {
-                let mut values = Vec::new();
+                let mut data = Vec::new();
                 for cell_value in &rows[row_idx] {
                     if let Ok(decimal) = Decimal::from_str(cell_value) {
-                        values.push(decimal);
+                        data.push(decimal);
                     } else {
                         // Empty or non-numeric cells are treated as 0
-                        values.push(Decimal::ZERO);
+                        data.push(Decimal::ZERO);
                     }
                 }
-                Some(Value::Vector(values))
+                Some(Value::row_vector(data))
             } else {
                 None
             }
@@ -446,6 +519,7 @@ fn decimal_pow(base: Decimal, exp: Decimal) -> Option<Decimal> {
 /// * `*` - Multiplication
 /// * `/` - Division (returns `None` on division by zero)
 /// * `^` - Exponentiation
+/// * `@` - Matrix multiplication (dot product for vectors)
 ///
 /// # Arguments
 ///
@@ -458,97 +532,102 @@ fn decimal_pow(base: Decimal, exp: Decimal) -> Option<Decimal> {
 /// * `Some(Value)` if the operation succeeds
 /// * `None` if division by zero occurs or the operator is invalid
 fn evaluate_operation(op: char, left: Value, right: Value) -> Option<Value> {
+    // Handle matrix multiplication (@) - uses proper matrix multiplication rules
+    if op == '@' {
+        return match (&left, &right) {
+            (Value::Matrix { rows: m, cols: n, data: left_data },
+             Value::Matrix { rows: n2, cols: p, data: right_data }) => {
+                // Check dimension compatibility: (m×n) @ (n2×p) requires n == n2
+                if n != n2 {
+                    return None;
+                }
+
+                // Perform matrix multiplication
+                let mut result = Vec::with_capacity(m * p);
+                for i in 0..(*m) {
+                    for j in 0..(*p) {
+                        let mut sum = Decimal::ZERO;
+                        for k in 0..(*n) {
+                            sum += left_data[i * n + k] * right_data[k * p + j];
+                        }
+                        result.push(sum);
+                    }
+                }
+
+                // Return result as (m×p) matrix
+                Some(Value::Matrix {
+                    rows: *m,
+                    cols: *p,
+                    data: result,
+                })
+            }
+            (Value::Scalar(_), _) | (_, Value::Scalar(_)) => None, // Scalars don't support @
+        };
+    }
+
+    // Handle other operators (+, -, *, /, ^)
     match (left, right) {
         // Scalar op Scalar
         (Value::Scalar(l), Value::Scalar(r)) => {
-            let result = match op {
-                '+' => l + r,
-                '-' => l - r,
-                '*' => l * r,
-                '/' => {
-                    if r == Decimal::ZERO {
-                        return None; // Division by zero
-                    }
-                    l / r
-                }
-                '^' => decimal_pow(l, r)?,
-                _ => return None,
-            };
+            let result = apply_scalar_op(op, l, r)?;
             Some(Value::Scalar(result))
         }
 
-        // Vector op Vector (element-wise)
-        (Value::Vector(l_vec), Value::Vector(r_vec)) => {
-            let min_len = l_vec.len().min(r_vec.len());
-            let mut result = Vec::with_capacity(min_len);
-
-            for i in 0..min_len {
-                let val = match op {
-                    '+' => l_vec[i] + r_vec[i],
-                    '-' => l_vec[i] - r_vec[i],
-                    '*' => l_vec[i] * r_vec[i],
-                    '/' => {
-                        if r_vec[i] == Decimal::ZERO {
-                            return None; // Division by zero
-                        }
-                        l_vec[i] / r_vec[i]
-                    }
-                    '^' => decimal_pow(l_vec[i], r_vec[i])?,
-                    _ => return None,
-                };
-                result.push(val);
+        // Matrix op Matrix (element-wise) - must have same dimensions
+        (Value::Matrix { rows: m1, cols: n1, data: data1 },
+         Value::Matrix { rows: m2, cols: n2, data: data2 }) => {
+            // For element-wise operations, dimensions must match
+            if m1 != m2 || n1 != n2 {
+                return None;
             }
 
-            Some(Value::Vector(result))
+            let result: Option<Vec<_>> = data1.iter()
+                .zip(data2.iter())
+                .map(|(&a, &b)| apply_scalar_op(op, a, b))
+                .collect();
+
+            result.map(|data| Value::Matrix {
+                rows: m1,
+                cols: n1,
+                data,
+            })
         }
 
-        // Vector op Scalar (broadcast scalar to each element)
-        (Value::Vector(vec), Value::Scalar(scalar)) => {
-            let mut result = Vec::with_capacity(vec.len());
+        // Matrix op Scalar (broadcast scalar to all elements)
+        (Value::Matrix { rows, cols, data }, Value::Scalar(scalar)) => {
+            let result: Option<Vec<_>> = data.iter()
+                .map(|&v| apply_scalar_op(op, v, scalar))
+                .collect();
 
-            for v in vec {
-                let val = match op {
-                    '+' => v + scalar,
-                    '-' => v - scalar,
-                    '*' => v * scalar,
-                    '/' => {
-                        if scalar == Decimal::ZERO {
-                            return None; // Division by zero
-                        }
-                        v / scalar
-                    }
-                    '^' => decimal_pow(v, scalar)?,
-                    _ => return None,
-                };
-                result.push(val);
+            result.map(|data| Value::Matrix { rows, cols, data })
+        }
+
+        // Scalar op Matrix (broadcast scalar to all elements)
+        (Value::Scalar(scalar), Value::Matrix { rows, cols, data }) => {
+            let result: Option<Vec<_>> = data.iter()
+                .map(|&v| apply_scalar_op(op, scalar, v))
+                .collect();
+
+            result.map(|data| Value::Matrix { rows, cols, data })
+        }
+    }
+}
+
+/// Helper function to apply a scalar operation to two Decimal values
+fn apply_scalar_op(op: char, left: Decimal, right: Decimal) -> Option<Decimal> {
+    match op {
+        '+' => Some(left + right),
+        '-' => Some(left - right),
+        '*' => Some(left * right),
+        '/' => {
+            if right == Decimal::ZERO {
+                None
+            } else {
+                Some(left / right)
             }
-
-            Some(Value::Vector(result))
         }
-
-        // Scalar op Vector (broadcast scalar to each element)
-        (Value::Scalar(scalar), Value::Vector(vec)) => {
-            let mut result = Vec::with_capacity(vec.len());
-
-            for v in vec {
-                let val = match op {
-                    '+' => scalar + v,
-                    '-' => scalar - v,
-                    '*' => scalar * v,
-                    '/' => {
-                        if v == Decimal::ZERO {
-                            return None; // Division by zero
-                        }
-                        scalar / v
-                    }
-                    '^' => decimal_pow(scalar, v)?,
-                    _ => return None,
-                };
-                result.push(val);
-            }
-
-            Some(Value::Vector(result))
-        }
+        '^' => decimal_pow(left, right),
+        _ => None,
     }
 }
 
@@ -559,8 +638,8 @@ fn evaluate_function_call(name: &str, arg_value: Value) -> Option<Value> {
         "sum" => {
             match arg_value {
                 Value::Scalar(s) => Some(Value::Scalar(s)), // sum of scalar is itself
-                Value::Vector(vec) => {
-                    let sum = vec.iter().fold(Decimal::ZERO, |acc, &x| acc + x);
+                Value::Matrix { data, .. } => {
+                    let sum = data.iter().fold(Decimal::ZERO, |acc, &x| acc + x);
                     Some(Value::Scalar(sum))
                 }
             }
@@ -604,7 +683,7 @@ fn detect_function_call(tokens: &[String]) -> Option<(String, usize, usize)> {
 ///
 /// - **Cell references**: `A1` (scalar), `A_` (column vector), `_1` (row vector)
 /// - **Numbers**: `42`, `3.14`, `-5`
-/// - **Operators**: `+`, `-`, `*`, `/`, `^` (with proper precedence)
+/// - **Operators**: `+`, `-`, `*`, `/`, `^`, `@` (with proper precedence)
 /// - **Functions**: `sum(expression)`
 /// - **Parentheses**: `(A_ + B_) * 2`
 ///
@@ -612,7 +691,7 @@ fn detect_function_call(tokens: &[String]) -> Option<(String, usize, usize)> {
 ///
 /// 1. Parentheses `()` (highest)
 /// 2. Exponentiation `^`
-/// 3. Multiplication `*` and Division `/`
+/// 3. Multiplication `*`, Division `/`, and Matrix multiplication `@`
 /// 4. Addition `+` and Subtraction `-` (lowest)
 ///
 /// # Arguments
@@ -671,6 +750,15 @@ fn eval_tokens_value(tokens: &[String], rows: &Vec<Vec<String>>) -> Option<Value
         return eval_tokens_value(&processed, rows);
     }
 
+    // Handle .T transpose operator (postfix operator with highest precedence)
+    // Check if the expression ends with a ".T" pattern
+    if tokens.len() >= 3 && tokens[tokens.len() - 1] == "T" && tokens[tokens.len() - 2] == "." {
+        // Evaluate everything before ".T"
+        let value = eval_tokens_value(&tokens[..tokens.len() - 2], rows)?;
+        // Apply transpose
+        return value.transpose();
+    }
+
     // Find lowest precedence operator (+ or -) at the top level (evaluated last)
     let mut depth = 0;
     for (i, token) in tokens.iter().enumerate().rev() {
@@ -686,14 +774,14 @@ fn eval_tokens_value(tokens: &[String], rows: &Vec<Vec<String>>) -> Option<Value
         }
     }
 
-    // Find next precedence operator (* or /) at the top level
+    // Find next precedence operator (*, /, @) at the top level
     depth = 0;
     for (i, token) in tokens.iter().enumerate().rev() {
         if token == ")" {
             depth += 1;
         } else if token == "(" {
             depth -= 1;
-        } else if depth == 0 && (token == "*" || token == "/") && i > 0 {
+        } else if depth == 0 && (token == "*" || token == "/" || token == "@") && i > 0 {
             let left = eval_tokens_value(&tokens[..i], rows)?;
             let right = eval_tokens_value(&tokens[i + 1..], rows)?;
             let op = token.chars().next()?;
@@ -746,7 +834,15 @@ fn process_parentheses_value(tokens: &[String], rows: &Vec<Vec<String>>) -> Opti
     // Convert result back to string token
     let result_str = match result {
         Value::Scalar(d) => d.to_string(),
-        Value::Vector(_) => return None, // Can't reduce vector in parentheses context yet
+        Value::Matrix { .. } => {
+            // Try to convert 1×1 matrix to scalar
+            if let Some(scalar) = result.as_scalar() {
+                scalar.to_string()
+            } else {
+                // Can't reduce non-1×1 matrix in expression context
+                return None;
+            }
+        }
     };
 
     // Build new token list with the parentheses replaced by the result
@@ -771,14 +867,14 @@ fn process_parentheses_value(tokens: &[String], rows: &Vec<Vec<String>>) -> Opti
 /// # Returns
 ///
 /// A vector of token strings. Each token is one of:
-/// - An operator: `+`, `-`, `*`, `/`, `^`
+/// - An operator: `+`, `-`, `*`, `/`, `^`, `@`
 /// - A parenthesis: `(`, `)`
 /// - A number: `42`, `3.14`
 /// - An identifier: `A1`, `B_`, `sum`
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// tokenize_expression("A1 + B2 * 3")  // ["A1", "+", "B2", "*", "3"]
 /// tokenize_expression("sum(A_)")      // ["sum", "(", "A_", ")"]
 /// tokenize_expression("(2 + 3) ^ 2")  // ["(", "2", "+", "3", ")", "^", "2"]
@@ -786,24 +882,55 @@ fn process_parentheses_value(tokens: &[String], rows: &Vec<Vec<String>>) -> Opti
 fn tokenize_expression(expr: &str) -> Vec<String> {
     let mut tokens = Vec::new();
     let mut current_token = String::new();
+    let chars: Vec<char> = expr.chars().collect();
 
-    for ch in expr.chars() {
+    let mut i = 0;
+    while i < chars.len() {
+        let ch = chars[i];
+
         match ch {
-            '+' | '-' | '*' | '/' | '^' | '(' | ')' => {
+            '+' | '-' | '*' | '/' | '^' | '@' | '(' | ')' => {
                 if !current_token.is_empty() {
                     tokens.push(current_token.trim().to_string());
                     current_token.clear();
                 }
                 tokens.push(ch.to_string());
+                i += 1;
+            }
+            '.' => {
+                // Check if this is a decimal point in a number
+                // It's a decimal point if:
+                // 1. We're building a numeric token AND
+                // 2. The next character is a digit
+                let is_decimal_point = !current_token.is_empty()
+                    && current_token.chars().all(|c| c.is_ascii_digit())
+                    && i + 1 < chars.len()
+                    && chars[i + 1].is_ascii_digit();
+
+                if is_decimal_point {
+                    // Include the decimal point in the current number token
+                    current_token.push(ch);
+                    i += 1;
+                } else {
+                    // It's the transpose operator - treat as separate token
+                    if !current_token.is_empty() {
+                        tokens.push(current_token.trim().to_string());
+                        current_token.clear();
+                    }
+                    tokens.push(ch.to_string());
+                    i += 1;
+                }
             }
             ' ' => {
                 if !current_token.is_empty() {
                     tokens.push(current_token.trim().to_string());
                     current_token.clear();
                 }
+                i += 1;
             }
             _ => {
                 current_token.push(ch);
+                i += 1;
             }
         }
     }
@@ -910,7 +1037,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Some(Value::Vector(vec![
+            Some(Value::column_vector(vec![
                 Decimal::from(10),
                 Decimal::from(20),
                 Decimal::from(30)
@@ -932,7 +1059,7 @@ mod tests {
         // Row 1 is first data row (index 2), includes all columns
         assert_eq!(
             result,
-            Some(Value::Vector(vec![
+            Some(Value::row_vector(vec![
                 Decimal::ZERO,  // "Values" is non-numeric, treated as 0
                 Decimal::from(10),
                 Decimal::from(20)
@@ -956,7 +1083,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Some(Value::Vector(vec![
+            Some(Value::column_vector(vec![
                 Decimal::from(10),
                 Decimal::ZERO,  // empty treated as 0
                 Decimal::ZERO,  // non-numeric treated as 0
@@ -967,14 +1094,15 @@ mod tests {
 
     #[test]
     fn test_vector_addition() {
-        let left = Value::Vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
-        let right = Value::Vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
+        // Column vector + Column vector
+        let left = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let right = Value::column_vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
 
         let result = evaluate_operation('+', left, right);
 
         assert_eq!(
             result,
-            Some(Value::Vector(vec![
+            Some(Value::column_vector(vec![
                 Decimal::from(5),
                 Decimal::from(7),
                 Decimal::from(9)
@@ -984,14 +1112,15 @@ mod tests {
 
     #[test]
     fn test_vector_scalar_multiply() {
-        let vec = Value::Vector(vec![Decimal::from(2), Decimal::from(4), Decimal::from(6)]);
+        // Column vector * Scalar (broadcasting)
+        let vec = Value::column_vector(vec![Decimal::from(2), Decimal::from(4), Decimal::from(6)]);
         let scalar = Value::Scalar(Decimal::from(3));
 
         let result = evaluate_operation('*', vec, scalar);
 
         assert_eq!(
             result,
-            Some(Value::Vector(vec![
+            Some(Value::column_vector(vec![
                 Decimal::from(6),
                 Decimal::from(12),
                 Decimal::from(18)
@@ -1001,14 +1130,15 @@ mod tests {
 
     #[test]
     fn test_broadcast_scalar() {
+        // Scalar + Column vector (broadcasting)
         let scalar = Value::Scalar(Decimal::from(10));
-        let vec = Value::Vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let vec = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
 
         let result = evaluate_operation('+', scalar, vec);
 
         assert_eq!(
             result,
-            Some(Value::Vector(vec![
+            Some(Value::column_vector(vec![
                 Decimal::from(11),
                 Decimal::from(12),
                 Decimal::from(13)
@@ -1018,24 +1148,19 @@ mod tests {
 
     #[test]
     fn test_length_mismatch() {
-        let left = Value::Vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
-        let right = Value::Vector(vec![Decimal::from(10), Decimal::from(20)]);
+        // Different length column vectors - should fail (dimensions must match for element-wise ops)
+        let left = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let right = Value::column_vector(vec![Decimal::from(10), Decimal::from(20)]);
 
         let result = evaluate_operation('+', left, right);
 
-        // Should use minimum length (2)
-        assert_eq!(
-            result,
-            Some(Value::Vector(vec![
-                Decimal::from(11),
-                Decimal::from(22)
-            ]))
-        );
+        // Dimensions don't match (3×1 vs 2×1), so operation fails
+        assert_eq!(result, None);
     }
 
     #[test]
     fn test_sum_vector() {
-        let vec = Value::Vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let vec = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
         let result = evaluate_function_call("sum", vec);
 
         assert_eq!(result, Some(Value::Scalar(Decimal::from(6))));
@@ -1051,7 +1176,7 @@ mod tests {
 
     #[test]
     fn test_sum_empty_vector() {
-        let vec = Value::Vector(vec![]);
+        let vec = Value::column_vector(vec![]);
         let result = evaluate_function_call("sum", vec);
 
         assert_eq!(result, Some(Value::Scalar(Decimal::ZERO)));
@@ -1171,5 +1296,267 @@ mod tests {
         apply_formulas(&mut rows, &formulas);
 
         assert_eq!(rows[2][2], "15");  // 5 + 10
+    }
+
+    // Matrix multiplication tests
+
+    #[test]
+    fn test_dot_product_row_times_column() {
+        // Test row vector @ column vector: (1×3) @ (3×1) = (1×1) = scalar
+        // [1, 2, 3] @ [4; 5; 6] = 1*4 + 2*5 + 3*6 = 32
+        let row = Value::row_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let col = Value::column_vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
+
+        let result = evaluate_operation('@', row, col);
+
+        // Result is a 1×1 matrix
+        assert_eq!(
+            result,
+            Some(Value::Matrix {
+                rows: 1,
+                cols: 1,
+                data: vec![Decimal::from(32)]
+            })
+        );
+    }
+
+    #[test]
+    fn test_dot_product_dimension_mismatch() {
+        // (1×3) @ (2×1) is invalid - inner dimensions don't match
+        let row = Value::row_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let col = Value::column_vector(vec![Decimal::from(4), Decimal::from(5)]);
+
+        let result = evaluate_operation('@', row, col);
+
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_matrix_mult_scalar_not_supported() {
+        // Matrix multiplication with scalars is not defined
+        let scalar = Value::Scalar(Decimal::from(5));
+        let col = Value::column_vector(vec![Decimal::from(1), Decimal::from(2)]);
+
+        let result = evaluate_operation('@', scalar.clone(), col.clone());
+        assert_eq!(result, None);
+
+        let result2 = evaluate_operation('@', col, scalar);
+        assert_eq!(result2, None);
+    }
+
+    #[test]
+    fn test_matrix_mult_scalar_scalar_invalid() {
+        // Scalar @ Scalar is not valid for matrix multiplication
+        let left = Value::Scalar(Decimal::from(5));
+        let right = Value::Scalar(Decimal::from(10));
+
+        let result = evaluate_operation('@', left, right);
+
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_column_column_invalid() {
+        // Column @ Column is invalid: (3×1) @ (3×1) - inner dimensions don't match
+        let left = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let right = Value::column_vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
+
+        let result = evaluate_operation('@', left, right);
+
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_row_row_invalid() {
+        // Row @ Row is invalid: (1×3) @ (1×3) - inner dimensions don't match
+        let left = Value::row_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let right = Value::row_vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
+
+        let result = evaluate_operation('@', left, right);
+
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_row_vector_column_vector_dot_product() {
+        // Test the example from user: _1 @ A_ in a square table
+        // For this to work, we need a square data portion (n rows × n columns)
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["2".to_string(), "3".to_string(), "4".to_string()],
+            vec!["5".to_string(), "6".to_string(), "7".to_string()],
+            vec!["8".to_string(), "9".to_string(), "10".to_string()],
+        ];
+
+        // C1 = _1 @ A_
+        // _1 = [2, 3, 4] (first row, all 3 columns)
+        // A_ = [2, 5, 8] (column A, all 3 rows)
+        // Dot product = 2*2 + 3*5 + 4*8 = 4 + 15 + 32 = 51
+        let formulas = vec!["C1 = _1 @ A_".to_string()];
+        apply_formulas(&mut rows, &formulas);
+
+        assert_eq!(rows[2][2], "51");
+    }
+
+    #[test]
+    fn test_matrix_mult_with_expression() {
+        // Test matrix multiplication with transpose in a complex expression
+        let mut rows = vec![
+            vec!["X".to_string(), "Y".to_string(), "Result".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "0".to_string()],
+            vec!["3".to_string(), "4".to_string(), "0".to_string()],
+            vec!["5".to_string(), "6".to_string(), "0".to_string()],
+        ];
+
+        // C1 = (A_.T @ B_) + 10
+        // A_ = [1, 3, 5] (column vector 3×1)
+        // A_.T = [1, 3, 5] (row vector 1×3)
+        // B_ = [2, 4, 6] (column vector 3×1)
+        // A_.T @ B_ = (1×3) @ (3×1) = 1*2 + 3*4 + 5*6 = 44
+        // Result = 44 + 10 = 54
+        let formulas = vec!["C1 = (A_.T @ B_) + 10".to_string()];
+        apply_formulas(&mut rows, &formulas);
+
+        assert_eq!(rows[2][2], "54");
+    }
+
+    #[test]
+    fn test_matrix_mult_precedence() {
+        // Test that @ has same precedence as *
+        // 2 + 3 @ 4 should fail because 3 and 4 are scalars, not vectors
+        let rows = vec![
+            vec!["A".to_string()],
+            vec!["---".to_string()],
+        ];
+
+        let result = evaluate_expression_value("2 + 3 @ 4", &rows);
+
+        // Should return None because @ doesn't work with scalars
+        assert_eq!(result, None);
+    }
+
+    // Transpose operator (.T) tests
+
+    #[test]
+    fn test_transpose_column_to_row() {
+        // Test column vector transposing to row vector
+        let col = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let result = col.transpose();
+
+        assert_eq!(
+            result,
+            Some(Value::row_vector(vec![
+                Decimal::from(1),
+                Decimal::from(2),
+                Decimal::from(3)
+            ]))
+        );
+    }
+
+    #[test]
+    fn test_transpose_row_to_column() {
+        // Test row vector transposing to column vector
+        let row = Value::row_vector(vec![Decimal::from(4), Decimal::from(5)]);
+        let result = row.transpose();
+
+        assert_eq!(
+            result,
+            Some(Value::column_vector(vec![Decimal::from(4), Decimal::from(5)]))
+        );
+    }
+
+    #[test]
+    fn test_transpose_scalar_fails() {
+        // Scalars cannot be transposed
+        let scalar = Value::Scalar(Decimal::from(42));
+        let result = scalar.transpose();
+
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_transpose_operator_in_table() {
+        // Test using .T operator in a real table formula
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "Result".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "0".to_string()],
+            vec!["3".to_string(), "4".to_string(), "0".to_string()],
+            vec!["5".to_string(), "6".to_string(), "0".to_string()],
+        ];
+
+        // C1 = A_.T @ B_
+        // A_ = [1, 3, 5] (column 3×1)
+        // A_.T = [1, 3, 5] (row 1×3)
+        // B_ = [2, 4, 6] (column 3×1)
+        // A_.T @ B_ = 1*2 + 3*4 + 5*6 = 2 + 12 + 30 = 44
+        let formulas = vec!["C1 = A_.T @ B_".to_string()];
+        apply_formulas(&mut rows, &formulas);
+
+        assert_eq!(rows[2][2], "44");
+    }
+
+    #[test]
+    fn test_multiple_formulas_with_transpose() {
+        // Test multiple formulas using matrix operations
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["1".to_string(), "2".to_string(), "0".to_string()],
+            vec!["4".to_string(), "5".to_string(), "0".to_string()],
+            vec!["7".to_string(), "8".to_string(), "0".to_string()],
+        ];
+
+        // First: C_ = A_ + B_ (element-wise addition)
+        // Then: C1 = _1 @ A_ (row dot column = 30)
+        // _1 = [1, 2, 3] after first formula, A_ = [1, 4, 7]
+        // _1 @ A_ = 1*1 + 2*4 + 3*7 = 1 + 8 + 21 = 30
+        let formulas = vec![
+            "C_ = A_ + B_".to_string(),
+            "C1 = _1 @ A_".to_string(),
+        ];
+        apply_formulas(&mut rows, &formulas);
+
+        // After C_ = A_ + B_: C1=3, C2=9, C3=15
+        // After C1 = _1 @ A_: C1=30 (overwrites 3)
+        assert_eq!(rows[2][2], "30");  // C1
+        assert_eq!(rows[3][2], "9");   // C2
+        assert_eq!(rows[4][2], "15");  // C3
+    }
+
+    #[test]
+    fn test_matrix_dimensions_in_result() {
+        // Verify that matrix multiplication preserves correct dimensions
+        // (1×3) @ (3×1) should produce (1×1)
+        let row = Value::row_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
+        let col = Value::column_vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
+
+        let result = evaluate_operation('@', row, col);
+
+        match result {
+            Some(Value::Matrix { rows: 1, cols: 1, data }) => {
+                assert_eq!(data.len(), 1);
+                assert_eq!(data[0], Decimal::from(32));
+            }
+            _ => panic!("Expected 1×1 matrix result"),
+        }
+    }
+
+    #[test]
+    fn test_as_scalar_extraction() {
+        // Test that 1×1 matrices can be extracted as scalars
+        let one_by_one = Value::Matrix {
+            rows: 1,
+            cols: 1,
+            data: vec![Decimal::from(42)],
+        };
+
+        assert_eq!(one_by_one.as_scalar(), Some(Decimal::from(42)));
+
+        // But larger matrices cannot
+        let col = Value::column_vector(vec![Decimal::from(1), Decimal::from(2)]);
+        assert_eq!(col.as_scalar(), None);
     }
 }

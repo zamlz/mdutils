@@ -289,7 +289,10 @@ End."#;
     #[test]
     fn test_error_captures_stderr() {
         let input = r#"```python
-import sys; sys.exit(1)
+import sys
+sys.stdout.write("This should not appear\n")
+sys.stderr.write("Error message\n")
+sys.exit(1)
 ```
 <!-- md-code: id="test"; execute; bin="python3" -->"#;
 
@@ -299,6 +302,16 @@ import sys; sys.exit(1)
             let output = result.unwrap();
             // Output block should be created (stderr is not empty)
             assert!(output.contains("md-code-output:"));
+            assert!(output.contains("Error message"));
+
+            // Extract just the output block to verify stdout was not captured
+            let output_block_start = output.find("Output:\n```").unwrap();
+            let output_block_end = output.find("<!-- md-code-output:").unwrap();
+            let output_block = &output[output_block_start..output_block_end];
+
+            // Verify that stdout is NOT captured in the output block (only stderr is)
+            assert!(!output_block.contains("This should not appear"));
+            assert!(output_block.contains("Error message"));
         }
     }
 

@@ -249,8 +249,85 @@ Result: A1 = 40 (only 10 and 30 are counted)
 - `C_ = A_ / B_` - Element-wise division
 - `C_ = A_ ^ B_` - Element-wise exponentiation
 
+### Matrix Multiplication and Transpose Operator
+
+The formula system supports matrix multiplication using the `@` operator, following standard linear algebra rules. Vectors are treated as matrices with dimension tracking.
+
+**Matrix Dimensions:**
+- Column vectors (`A_`, `B_`, etc.) are n×1 matrices
+- Row vectors (`_1`, `_2`, etc.) are 1×n matrices
+- Matrix multiplication follows the rule: (m×n) @ (n×p) = (m×p)
+- Dimensions must match for multiplication to work
+
+**Transpose Operator (`.T`):**
+
+The `.T` operator transposes vectors, converting between row and column vectors:
+- `A_.T` - Transpose column A to a row vector (n×1 → 1×n)
+- `_1.T` - Transpose row 1 to a column vector (1×n → n×1)
+
+**Dot Product Example:**
+
+Computing a dot product using transpose and matrix multiplication:
+
+```markdown
+| A | B | Result |
+|---|---|--------|
+| 1 | 2 | 0      |
+| 4 | 5 | 0      |
+| 7 | 8 | 0      |
+<!-- md-table: C1 = A_.T @ B_ -->
+```
+
+Output:
+```markdown
+| A | B | Result |
+|---|---|--------|
+| 1 | 2 | 78     |
+| 4 | 5 | 0      |
+| 7 | 8 | 0      |
+<!-- md-table: C1 = A_.T @ B_ -->
+```
+
+**Calculation:** A_.T @ B_ = [1, 4, 7] @ [2; 5; 8] = 1×2 + 4×5 + 7×8 = 2 + 20 + 56 = 78
+
+**Row-Column Multiplication:**
+
+```markdown
+| A | B | C |
+|---|---|---|
+| 1 | 2 | 0 |
+| 3 | 4 | 0 |
+| 5 | 6 | 0 |
+<!-- md-table: C1 = _1 @ A_ -->
+```
+
+Result: C1 = _1 @ A_ = [1, 2, 0] @ [1; 3; 5] = 1×1 + 2×3 + 0×5 = 7
+
+**Complex Matrix Expressions:**
+
+Matrix operations can be combined with other operators:
+
+```markdown
+| A | B | Result |
+|---|---|--------|
+| 1 | 2 | 0      |
+| 3 | 4 | 0      |
+| 5 | 6 | 0      |
+<!-- md-table: C1 = (A_.T @ B_) + 10 -->
+```
+
+Result: C1 = (1×2 + 3×4 + 5×6) + 10 = 44 + 10 = 54
+
+**Operator Precedence (Updated):**
+1. Parentheses `()` and Transpose `.T` (highest)
+2. Exponentiation `^`
+3. Matrix multiplication `@`, Multiplication `*`, and Division `/`
+4. Addition `+` and Subtraction `-` (lowest)
+
 **All operators supported:**
 - Arithmetic: `+`, `-`, `*`, `/`, `^`
+- Matrix multiplication: `@`
+- Transpose: `.T`
 - Parentheses: `()`
 - Functions: `sum()`
 
