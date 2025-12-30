@@ -123,7 +123,7 @@ impl Value {
     fn as_scalar(&self) -> Option<Decimal> {
         match self {
             Value::Scalar(d) => Some(*d),
-            Value::Matrix { rows: 1, cols: 1, data } => data.get(0).copied(),
+            Value::Matrix { rows: 1, cols: 1, data } => data.first().copied(),
             _ => None,
         }
     }
@@ -187,15 +187,6 @@ enum BinaryOperator {
 }
 
 impl BinaryOperator {
-    /// Get operator precedence (higher = evaluated first)
-    fn precedence(&self) -> u8 {
-        match self {
-            BinaryOperator::Add | BinaryOperator::Sub => 1,
-            BinaryOperator::Mul | BinaryOperator::Div | BinaryOperator::MatMul => 2,
-            BinaryOperator::Pow => 3,
-        }
-    }
-
     /// Parse operator from token string
     fn from_token(token: &str) -> Option<Self> {
         match token {
@@ -421,7 +412,7 @@ fn eval_function(name: &str, arg: Value) -> Result<Value, String> {
 
 /// Applies a column vector of values to a table column
 /// Starts at first data row (after header and separator)
-fn apply_column_vector_assignment(rows: &mut Vec<Vec<String>>, col: usize, value: &Value) {
+fn apply_column_vector_assignment(rows: &mut [Vec<String>], col: usize, value: &Value) {
     if let Value::Matrix { rows: _n_rows, cols: 1, data } = value {
         for (i, &val) in data.iter().enumerate() {
             let row_idx = FIRST_DATA_ROW_INDEX + i;
@@ -514,7 +505,7 @@ pub fn apply_formulas(rows: &mut Vec<Vec<String>>, formulas: &[String]) -> Vec<O
                             }
                         }
                     ))
-                } else if col >= rows.get(0).map(|r| r.len()).unwrap_or(0) {
+                } else if col >= rows.first().map(|r| r.len()).unwrap_or(0) {
                     Some(format!("Assignment failed for '{}': column index out of bounds", formula_trimmed))
                 } else {
                     apply_column_vector_assignment(rows, col, &value);
@@ -589,37 +580,6 @@ fn parse_formula(formula: &str) -> Option<(Assignment, String)> {
     }
 }
 
-/// Converts cell reference (like "A1", "B2") to (row_index, col_index)
-/// Note: Row 1 is the first data row (headers are not addressable)
-/// The separator row (|---|---|) is automatically skipped
-fn cell_ref_to_index(cell_ref: &str) -> Option<(usize, usize)> {
-    let cell_ref = cell_ref.trim().to_uppercase();
-    let mut chars = cell_ref.chars();
-
-    // Get column letter (A, B, C, etc.)
-    let col_char = chars.next()?;
-    if !col_char.is_ascii_alphabetic() {
-        return None;
-    }
-
-    // Convert A=0, B=1, C=2, etc.
-    let col_idx = (col_char as u32 - 'A' as u32) as usize;
-
-    // Get row number (1, 2, 3, etc.)
-    let row_str: String = chars.collect();
-    let row_num: usize = row_str.parse().ok()?;
-
-    // Convert to 0-based index
-    // Row 1 = first data row, Row 2 = second data row, etc.
-    if row_num == 0 {
-        return None;
-    }
-
-    let row_idx = formula_row_to_table_index(row_num);
-
-    Some((row_idx, col_idx))
-}
-
 /// Parses a cell reference string into a structured `CellReference`.
 ///
 /// Recognizes three types of references:
@@ -662,8 +622,7 @@ fn parse_cell_reference(token: &str) -> Option<CellReference> {
     }
 
     // Check for row vector pattern: _N (underscore followed by number)
-    if token.starts_with('_') {
-        let row_str = &token[1..];
+    if let Some(row_str) = token.strip_prefix('_') {
         if let Ok(row_num) = row_str.parse::<usize>() {
             if row_num > 0 {
                 return Some(CellReference::RowVector { row: row_num });
@@ -741,7 +700,7 @@ fn parse_cell_reference(token: &str) -> Option<CellReference> {
 /// // Given a table with values in column A: [10, "", "text", 30]
 /// // ColumnVector resolves to: Vector([10, 0, 0, 30])
 /// ```
-fn resolve_reference(cell_ref: &CellReference, rows: &Vec<Vec<String>>) -> Result<Value, String> {
+fn resolve_reference(cell_ref: &CellReference, rows: &[Vec<String>]) -> Result<Value, String> {
     match cell_ref {
         CellReference::Scalar { row, col } => {
             // Get single cell value
@@ -789,9 +748,9 @@ fn resolve_reference(cell_ref: &CellReference, rows: &Vec<Vec<String>>) -> Resul
             }
 
             let mut data = Vec::new();
-            for row_idx in FIRST_DATA_ROW_INDEX..rows.len() {
-                if *col < rows[row_idx].len() {
-                    let cell_value = &rows[row_idx][*col];
+            for row in rows.iter().skip(FIRST_DATA_ROW_INDEX) {
+                if *col < row.len() {
+                    let cell_value = &row[*col];
                     if let Ok(decimal) = Decimal::from_str(cell_value) {
                         data.push(decimal);
                     } else {
@@ -1019,49 +978,6 @@ fn apply_scalar_op(op: char, left: Decimal, right: Decimal) -> Option<Decimal> {
     }
 }
 
-/// Evaluates a function call (e.g., sum(...))
-/// Currently supports: sum
-fn evaluate_function_call(name: &str, arg_value: Value) -> Result<Value, String> {
-    match name.to_lowercase().as_str() {
-        "sum" => {
-            match arg_value {
-                Value::Scalar(s) => Ok(Value::Scalar(s)), // sum of scalar is itself
-                Value::Matrix { data, .. } => {
-                    let sum = data.iter().fold(Decimal::ZERO, |acc, &x| acc + x);
-                    Ok(Value::Scalar(sum))
-                }
-            }
-        }
-        _ => Err(format!("unknown function: '{}' (supported functions: sum)", name))
-    }
-}
-
-/// Helper to detect if expression starts with a function call
-/// Returns (function_name, arg_start_idx, arg_end_idx) if found
-fn detect_function_call(tokens: &[String]) -> Option<(String, usize, usize)> {
-    if tokens.len() < 3 {
-        return None;
-    }
-
-    // Check if first token looks like a function name and second is '('
-    if tokens[1] == "(" {
-        let func_name = tokens[0].to_lowercase();
-        // Find matching closing parenthesis
-        let mut depth = 1;
-        for (i, token) in tokens.iter().enumerate().skip(2) {
-            if token == "(" {
-                depth += 1;
-            } else if token == ")" {
-                depth -= 1;
-                if depth == 0 {
-                    return Some((func_name, 2, i));
-                }
-            }
-        }
-    }
-    None
-}
-
 /// Evaluates a mathematical expression string and returns its computed value.
 ///
 /// Supports cell references, numbers, operators, functions, and parentheses.
@@ -1102,154 +1018,6 @@ fn evaluate_expression_value(expr: &str, rows: &Vec<Vec<String>>) -> Result<Valu
 
     // Step 3: Evaluate the AST
     eval_ast(&ast, rows)
-}
-
-/// Evaluates tokens with proper operator precedence, supporting Value enum
-fn eval_tokens_value(tokens: &[String], rows: &Vec<Vec<String>>) -> Result<Value, String> {
-    if tokens.is_empty() {
-        return Err("empty expression".to_string());
-    }
-
-    // Base case: single token
-    if tokens.len() == 1 {
-        let token = &tokens[0];
-
-        // Try to parse as cell reference (scalar or vector)
-        if let Some(cell_ref) = parse_cell_reference(token) {
-            return resolve_reference(&cell_ref, rows);
-        }
-
-        // Try to parse as number
-        if let Ok(decimal) = Decimal::from_str(token) {
-            return Ok(Value::Scalar(decimal));
-        }
-
-        return Err(format!("invalid token: '{}' is not a valid number or cell reference", token));
-    }
-
-    // Handle parentheses first
-    if let Some(processed) = process_parentheses_value(tokens, rows)? {
-        return eval_tokens_value(&processed, rows);
-    }
-
-    // Handle .T transpose operator (postfix operator with highest precedence)
-    // Check if the expression ends with a ".T" pattern
-    if tokens.len() >= 3 && tokens[tokens.len() - 1] == "T" && tokens[tokens.len() - 2] == "." {
-        // Evaluate everything before ".T"
-        let value = eval_tokens_value(&tokens[..tokens.len() - 2], rows)?;
-        // Apply transpose
-        match value {
-            Value::Scalar(_) => {
-                return Err("cannot transpose a scalar value - only matrices can be transposed".to_string());
-            }
-            Value::Matrix { .. } => {
-                return value.transpose().ok_or_else(|| "transpose operation failed".to_string());
-            }
-        }
-    }
-
-    // Find lowest precedence operator (+ or -) at the top level (evaluated last)
-    let mut depth = 0;
-    for (i, token) in tokens.iter().enumerate().rev() {
-        if token == ")" {
-            depth += 1;
-        } else if token == "(" {
-            depth -= 1;
-        } else if depth == 0 && (token == "+" || token == "-") && i > 0 {
-            let left = eval_tokens_value(&tokens[..i], rows)?;
-            let right = eval_tokens_value(&tokens[i + 1..], rows)?;
-            let op = token.chars().next().unwrap();
-            return evaluate_operation(op, left, right);
-        }
-    }
-
-    // Find next precedence operator (*, /, @) at the top level
-    depth = 0;
-    for (i, token) in tokens.iter().enumerate().rev() {
-        if token == ")" {
-            depth += 1;
-        } else if token == "(" {
-            depth -= 1;
-        } else if depth == 0 && (token == "*" || token == "/" || token == "@") && i > 0 {
-            let left = eval_tokens_value(&tokens[..i], rows)?;
-            let right = eval_tokens_value(&tokens[i + 1..], rows)?;
-            let op = token.chars().next().unwrap();
-            return evaluate_operation(op, left, right);
-        }
-    }
-
-    // Find highest precedence operator (^) at the top level (evaluated first)
-    depth = 0;
-    for (i, token) in tokens.iter().enumerate().rev() {
-        if token == ")" {
-            depth += 1;
-        } else if token == "(" {
-            depth -= 1;
-        } else if depth == 0 && token == "^" && i > 0 {
-            let left = eval_tokens_value(&tokens[..i], rows)?;
-            let right = eval_tokens_value(&tokens[i + 1..], rows)?;
-            return evaluate_operation('^', left, right);
-        }
-    }
-
-    Err(format!("could not evaluate expression with tokens: {:?}", tokens))
-}
-
-/// Processes parentheses by finding the first pair and evaluating the content
-fn process_parentheses_value(tokens: &[String], rows: &Vec<Vec<String>>) -> Result<Option<Vec<String>>, String> {
-    // Find the first opening parenthesis
-    let open_idx = match tokens.iter().position(|t| t == "(") {
-        Some(idx) => idx,
-        None => return Ok(None), // No parentheses found
-    };
-
-    // Find the matching closing parenthesis
-    let mut depth = 1;
-    let mut close_idx = None;
-    for (i, token) in tokens.iter().enumerate().skip(open_idx + 1) {
-        if token == "(" {
-            depth += 1;
-        } else if token == ")" {
-            depth -= 1;
-            if depth == 0 {
-                close_idx = Some(i);
-                break;
-            }
-        }
-    }
-
-    let close_idx = match close_idx {
-        Some(idx) => idx,
-        None => return Err("unmatched opening parenthesis '(' - missing closing ')'".to_string()),
-    };
-
-    // Evaluate the content inside the parentheses
-    let result = eval_tokens_value(&tokens[open_idx + 1..close_idx], rows)?;
-
-    // Convert result back to string token
-    let result_str = match result {
-        Value::Scalar(d) => d.to_string(),
-        Value::Matrix { rows, cols, .. } => {
-            // Try to convert 1×1 matrix to scalar
-            if let Some(scalar) = result.as_scalar() {
-                scalar.to_string()
-            } else {
-                // Can't reduce non-1×1 matrix in expression context
-                return Err(format!(
-                    "cannot use ({}×{}) matrix result from parenthesized expression as a value in larger expression - only scalars and 1×1 matrices can be used",
-                    rows, cols
-                ));
-            }
-        }
-    };
-
-    // Build new token list with the parentheses replaced by the result
-    let mut new_tokens = Vec::new();
-    new_tokens.extend(tokens[..open_idx].iter().map(|s| s.to_string()));
-    new_tokens.push(result_str);
-    new_tokens.extend(tokens[close_idx + 1..].iter().map(|s| s.to_string()));
-
-    Ok(Some(new_tokens))
 }
 
 /// Tokenizes a mathematical expression string into individual components.
@@ -1366,18 +1134,6 @@ fn tokenize_expression(expr: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_cell_ref_to_index() {
-        assert_eq!(cell_ref_to_index("A1"), Some((2, 0))); // First data row (skips header at 0 and separator at 1)
-        assert_eq!(cell_ref_to_index("B1"), Some((2, 1))); // First data row, column B
-        assert_eq!(cell_ref_to_index("A2"), Some((3, 0))); // Second data row
-        assert_eq!(cell_ref_to_index("D3"), Some((4, 3))); // Third data row, column D
-        assert_eq!(cell_ref_to_index("Z10"), Some((11, 25))); // 10th data row, column Z
-        assert_eq!(cell_ref_to_index("a1"), Some((2, 0))); // lowercase
-        assert_eq!(cell_ref_to_index("A0"), None); // row 0 invalid
-        assert_eq!(cell_ref_to_index("1A"), None); // wrong format
-    }
 
     #[test]
     fn test_parse_formula() {
@@ -1582,7 +1338,7 @@ mod tests {
     #[test]
     fn test_sum_vector() {
         let vec = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
-        let result = evaluate_function_call("sum", vec);
+        let result = eval_function("sum", vec);
 
         assert_eq!(result, Ok(Value::Scalar(Decimal::from(6))));
     }
@@ -1590,7 +1346,7 @@ mod tests {
     #[test]
     fn test_sum_scalar() {
         let scalar = Value::Scalar(Decimal::from(42));
-        let result = evaluate_function_call("sum", scalar);
+        let result = eval_function("sum", scalar);
 
         assert_eq!(result, Ok(Value::Scalar(Decimal::from(42))));
     }
@@ -1598,7 +1354,7 @@ mod tests {
     #[test]
     fn test_sum_empty_vector() {
         let vec = Value::column_vector(vec![]);
-        let result = evaluate_function_call("sum", vec);
+        let result = eval_function("sum", vec);
 
         assert_eq!(result, Ok(Value::Scalar(Decimal::ZERO)));
     }

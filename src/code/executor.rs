@@ -5,6 +5,7 @@ use std::io::Write;
 const DEFAULT_TIMEOUT_SECONDS: u64 = 30;
 
 pub struct ExecutionResult {
+    #[allow(dead_code)]
     pub success: bool,
     pub output: String,
 }
@@ -50,7 +51,7 @@ pub fn execute_code(
 
 /// Waits for a child process with a timeout
 fn wait_with_timeout(
-    mut child: std::process::Child,
+    child: std::process::Child,
     timeout: Duration,
 ) -> Result<ExecutionResult, String> {
     use std::thread;

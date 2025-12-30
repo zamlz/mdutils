@@ -65,7 +65,7 @@ fn reconstruct_document(
 
     while i < lines.len() {
         // Check if this is a code block
-        if let Some(block) = find_code_block_at_line(&code_blocks, i) {
+        if let Some(block) = find_code_block_at_line(code_blocks, i) {
             // Output the code block
             output_lines.push(lines[i].to_string()); // Opening fence
             i += 1;

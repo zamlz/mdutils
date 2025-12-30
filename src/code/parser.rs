@@ -12,6 +12,7 @@ pub struct CodeBlockDirective {
 pub struct CodeBlock {
     pub start_line: usize,
     pub end_line: usize,
+    #[allow(dead_code)]
     pub language: String,
     pub content: String,
     pub directive: Option<CodeBlockDirective>,
@@ -19,9 +20,13 @@ pub struct CodeBlock {
 
 #[derive(Debug)]
 pub struct OutputBlock {
+    #[allow(dead_code)]
     pub start_line: usize,
+    #[allow(dead_code)]
     pub end_line: usize,
+    #[allow(dead_code)]
     pub id: String,
+    #[allow(dead_code)]
     pub content: String,
 }
 
@@ -197,7 +202,7 @@ pub fn parse_document(text: &str) -> Result<(Vec<CodeBlock>, HashMap<String, Out
                 None
             };
 
-            if let Some(ref dir) = directive {
+            if directive.is_some() {
                 code_blocks.push(CodeBlock {
                     start_line,
                     end_line,

@@ -1,6 +1,5 @@
 /// Library interface for mdutils functionality
 /// Exposes table and code processing modules for use in tests and as a library
-
 pub mod table;
 pub mod code;
 
