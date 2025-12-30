@@ -7,14 +7,16 @@ A Rust CLI tool for markdown processing with multiple subcommands.
 
 ### Creating New Tables
 
-The `new` subcommand creates a new empty markdown table with the specified dimensions and outputs it to STDOUT.
+The `new` subcommand creates a new empty markdown table with the specified
+dimensions and outputs it to STDOUT.
 
 **Create a table with specified rows and columns:**
 ```bash
 ./result/bin/md new table:3:2
 ```
 
-This creates a table with 3 rows and 2 columns. The format is `table:R:C` where R is the number of rows and C is the number of columns.
+This creates a table with 3 rows and 2 columns. The format is `table:R:C`
+where R is the number of rows and C is the number of columns.
 
 **Example:**
 
@@ -34,7 +36,9 @@ All cells are empty and ready to be filled in.
 
 ### Table Formatting
 
-The `table` subcommand reads markdown from STDIN, formats and aligns any markdown tables it finds, and outputs the entire document to STDOUT with nicely formatted tables.
+The `table` subcommand reads markdown from STDIN, formats and aligns any
+markdown tables it finds, and outputs the entire document to STDOUT with
+nicely formatted tables.
 
 **Format tables in a markdown file:**
 ```bash
@@ -81,11 +85,13 @@ Some introductory text.
 More text here.
 ```
 
-All content is preserved, but tables are properly aligned based on column widths.
+All content is preserved, but tables are properly aligned based on
+column widths.
 
 ### Table Formulas (Spreadsheet Functionality)
 
-Tables can include spreadsheet-like formulas using HTML comments with the `<!-- md-table: -->` marker.
+Tables can include spreadsheet-like formulas using HTML comments with the
+`<!-- md-table: -->` marker.
 
 **Basic formula syntax:**
 - Formulas are defined in HTML comments after the table
@@ -130,11 +136,13 @@ Output:
 <!-- D1 = B1 + C1 -->
 ```
 
-Formulas are evaluated in order, so later formulas can reference cells updated by earlier formulas.
+Formulas are evaluated in order, so later formulas can reference cells
+updated by earlier formulas.
 
 ### Vector and Matrix Operations
 
-The table formula system supports vector operations, allowing you to apply formulas to entire columns or rows at once.
+The table formula system supports vector operations, allowing you to
+apply formulas to entire columns or rows at once.
 
 **Vector Reference Syntax:**
 - `A_` - Column A as a vector (all data rows)
@@ -251,7 +259,9 @@ Result: A1 = 40 (only 10 and 30 are counted)
 
 ### Matrix Multiplication and Transpose Operator
 
-The formula system supports matrix multiplication using the `@` operator, following standard linear algebra rules. Vectors are treated as matrices with dimension tracking.
+The formula system supports matrix multiplication using the `@` operator,
+following standard linear algebra rules. Vectors are treated as matrices
+with dimension tracking.
 
 **Matrix Dimensions:**
 - Column vectors (`A_`, `B_`, etc.) are n×1 matrices
@@ -333,7 +343,9 @@ Result: C1 = (1×2 + 3×4 + 5×6) + 10 = 44 + 10 = 54
 
 ### Code Block Execution
 
-The `code` subcommand allows you to execute code blocks in markdown files and automatically capture their output. This is useful for creating executable documentation, tutorials, or notebooks.
+The `code` subcommand allows you to execute code blocks in markdown
+files and automatically capture their output. This is useful for creating
+executable documentation, tutorials, or notebooks.
 
 **Basic usage:**
 ```bash
