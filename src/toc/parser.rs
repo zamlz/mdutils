@@ -24,11 +24,28 @@ pub(crate) struct Header {
 /// # Returns
 ///
 /// Vector of parsed headers with generated slugs
+///
+/// # Note
+///
+/// Headers inside markdown code blocks (delimited by ``` or ~~~) are ignored.
 pub(crate) fn parse_headers(lines: &[&str], start_from: usize) -> Vec<Header> {
     let mut headers = Vec::new();
     let mut slug_counts: HashMap<String, usize> = HashMap::new();
+    let mut in_code_block = false;
 
     for (line_num, line) in lines.iter().enumerate().skip(start_from) {
+        // Check for code block delimiters (``` or ~~~)
+        let trimmed = line.trim();
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_code_block = !in_code_block;
+            continue;
+        }
+
+        // Skip header parsing if we're inside a code block
+        if in_code_block {
+            continue;
+        }
+
         if let Some(header) = parse_header_line(line, line_num) {
             // Generate unique slug
             let base_slug = generate_slug(&header.text);
@@ -249,5 +266,82 @@ mod tests {
         assert_eq!(headers.len(), 2);
         assert_eq!(headers[0].text, "Actual Content");
         assert_eq!(headers[1].text, "Subsection");
+    }
+
+    #[test]
+    fn test_skip_headers_in_code_blocks() {
+        let lines = vec![
+            "# Real Header",
+            "```markdown",
+            "# Fake Header in Code",
+            "## Another Fake",
+            "```",
+            "## Real Header 2",
+        ];
+
+        let headers = parse_headers(&lines, 0);
+
+        assert_eq!(headers.len(), 2);
+        assert_eq!(headers[0].text, "Real Header");
+        assert_eq!(headers[1].text, "Real Header 2");
+    }
+
+    #[test]
+    fn test_skip_headers_in_tilde_code_blocks() {
+        let lines = vec![
+            "## Header 1",
+            "~~~",
+            "# Should be ignored",
+            "~~~",
+            "## Header 2",
+        ];
+
+        let headers = parse_headers(&lines, 0);
+
+        assert_eq!(headers.len(), 2);
+        assert_eq!(headers[0].text, "Header 1");
+        assert_eq!(headers[1].text, "Header 2");
+    }
+
+    #[test]
+    fn test_multiple_code_blocks() {
+        let lines = vec![
+            "# Header 1",
+            "```",
+            "# Ignore this",
+            "```",
+            "## Header 2",
+            "```rust",
+            "## Also ignore",
+            "```",
+            "### Header 3",
+        ];
+
+        let headers = parse_headers(&lines, 0);
+
+        assert_eq!(headers.len(), 3);
+        assert_eq!(headers[0].text, "Header 1");
+        assert_eq!(headers[1].text, "Header 2");
+        assert_eq!(headers[2].text, "Header 3");
+    }
+
+    #[test]
+    fn test_nested_code_block_markers() {
+        let lines = vec![
+            "## Header 1",
+            "```",
+            "Some code with ``` inside",
+            "# Not a header",
+            "```",
+            "## Header 2",
+        ];
+
+        let headers = parse_headers(&lines, 0);
+
+        // The ``` inside the code block doesn't close it
+        // Only the final ``` closes it
+        assert_eq!(headers.len(), 2);
+        assert_eq!(headers[0].text, "Header 1");
+        assert_eq!(headers[1].text, "Header 2");
     }
 }

@@ -145,3 +145,42 @@ fn test_deep_nesting() {
     let output = process_toc(&input);
     assert_eq!(output.trim(), expected.trim());
 }
+
+#[test]
+fn test_code_blocks() {
+    let input = fs::read_to_string("tests/toc/fixtures/code_blocks_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/toc/fixtures/code_blocks_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = process_toc(&input);
+    assert_eq!(output.trim(), expected.trim());
+
+    // Verify that headers in code blocks are NOT in the TOC
+    assert!(!output.contains("[Example Header]"));
+    assert!(!output.contains("[Should not appear in TOC]"));
+    assert!(!output.contains("[Neither should this]"));
+}
+
+#[test]
+fn test_multiple_code_blocks() {
+    let input = fs::read_to_string("tests/toc/fixtures/multiple_code_blocks_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/toc/fixtures/multiple_code_blocks_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = process_toc(&input);
+    assert_eq!(output.trim(), expected.trim());
+
+    // Verify only real sections are in TOC
+    assert!(output.contains("[Section 1]"));
+    assert!(output.contains("[Section 2]"));
+    assert!(output.contains("[Section 3]"));
+    assert!(output.contains("[Section 4]"));
+
+    // Verify fake headers are NOT in TOC
+    assert!(!output.contains("[Fake header 1]"));
+    assert!(!output.contains("[Another fake header]"));
+    assert!(!output.contains("[Not real]"));
+    assert!(!output.contains("[Also fake]"));
+}
