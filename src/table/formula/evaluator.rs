@@ -65,8 +65,63 @@ pub(crate) fn eval_function(name: &str, arg: Value) -> Result<Value, FormulaErro
                 }
             }
         }
+        "avg" => {
+            match arg {
+                Value::Scalar(s) => Ok(Value::Scalar(s)), // avg of scalar is itself
+                Value::Matrix { data, .. } => {
+                    if data.is_empty() {
+                        return Ok(Value::Scalar(Decimal::ZERO));
+                    }
+                    let sum = data.iter().fold(Decimal::ZERO, |acc, &x| acc + x);
+                    let count = Decimal::from(data.len());
+                    Ok(Value::Scalar(sum / count))
+                }
+            }
+        }
+        "min" => {
+            match arg {
+                Value::Scalar(s) => Ok(Value::Scalar(s)), // min of scalar is itself
+                Value::Matrix { data, .. } => {
+                    if data.is_empty() {
+                        return Ok(Value::Scalar(Decimal::ZERO));
+                    }
+                    let min = data.iter().fold(data[0], |acc, &x| if x < acc { x } else { acc });
+                    Ok(Value::Scalar(min))
+                }
+            }
+        }
+        "max" => {
+            match arg {
+                Value::Scalar(s) => Ok(Value::Scalar(s)), // max of scalar is itself
+                Value::Matrix { data, .. } => {
+                    if data.is_empty() {
+                        return Ok(Value::Scalar(Decimal::ZERO));
+                    }
+                    let max = data.iter().fold(data[0], |acc, &x| if x > acc { x } else { acc });
+                    Ok(Value::Scalar(max))
+                }
+            }
+        }
+        "count" => {
+            match arg {
+                Value::Scalar(_) => Ok(Value::Scalar(Decimal::ONE)), // count of scalar is 1
+                Value::Matrix { data, .. } => {
+                    let count = Decimal::from(data.len());
+                    Ok(Value::Scalar(count))
+                }
+            }
+        }
+        "prod" => {
+            match arg {
+                Value::Scalar(s) => Ok(Value::Scalar(s)), // product of scalar is itself
+                Value::Matrix { data, .. } => {
+                    let product = data.iter().fold(Decimal::ONE, |acc, &x| acc * x);
+                    Ok(Value::Scalar(product))
+                }
+            }
+        }
         _ => Err(FormulaError::RuntimeError(
-            format!("unknown function: '{}' (supported functions: sum)", name)
+            format!("unknown function: '{}' (supported functions: sum, avg, min, max, count, prod)", name)
         ))
     }
 }

@@ -293,3 +293,17 @@ fn test_complex_expression_outer_transpose() {
     assert!(output.contains("| 1   | 2   | 2   | 283      |"));
     assert!(!output.contains("md-error:"));
 }
+
+#[test]
+fn test_all_formula_functions() {
+    let input = fs::read_to_string("tests/table/fixtures/all_functions_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/all_functions_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify all functions work correctly: sum, avg, min, max, count, prod
+    assert!(output.contains("| 10     | 100 | 25   | 10  | 40  | 4     | 240000 |"));
+    assert!(!output.contains("md-error:"));
+}

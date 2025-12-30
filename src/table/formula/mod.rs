@@ -995,4 +995,240 @@ mod tests {
         let col = Value::column_vector(vec![Decimal::from(1), Decimal::from(2)]);
         assert_eq!(col.as_scalar(), None);
     }
+
+    // ========== avg() function tests ==========
+
+    #[test]
+    fn test_avg_vector() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![Decimal::from(10), Decimal::from(20), Decimal::from(30)]);
+        let result = eval_function("avg", vec);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(20))));
+    }
+
+    #[test]
+    fn test_avg_scalar() {
+        use evaluator::eval_function;
+        let scalar = Value::Scalar(Decimal::from(42));
+        let result = eval_function("avg", scalar);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(42))));
+    }
+
+    #[test]
+    fn test_avg_empty_vector() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![]);
+        let result = eval_function("avg", vec);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::ZERO)));
+    }
+
+    #[test]
+    fn test_avg_matrix() {
+        use evaluator::eval_function;
+        // 2x2 matrix: [[1, 2], [3, 4]]
+        let matrix = Value::Matrix {
+            rows: 2,
+            cols: 2,
+            data: vec![Decimal::from(1), Decimal::from(2), Decimal::from(3), Decimal::from(4)],
+        };
+        let result = eval_function("avg", matrix);
+
+        // Average of [1, 2, 3, 4] is 2.5
+        assert_eq!(result, Ok(Value::Scalar(Decimal::new(25, 1))));
+    }
+
+    // ========== min() function tests ==========
+
+    #[test]
+    fn test_min_vector() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![Decimal::from(30), Decimal::from(10), Decimal::from(20)]);
+        let result = eval_function("min", vec);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(10))));
+    }
+
+    #[test]
+    fn test_min_scalar() {
+        use evaluator::eval_function;
+        let scalar = Value::Scalar(Decimal::from(42));
+        let result = eval_function("min", scalar);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(42))));
+    }
+
+    #[test]
+    fn test_min_empty_vector() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![]);
+        let result = eval_function("min", vec);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::ZERO)));
+    }
+
+    #[test]
+    fn test_min_with_negatives() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![Decimal::from(5), Decimal::from(-3), Decimal::from(10)]);
+        let result = eval_function("min", vec);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(-3))));
+    }
+
+    // ========== max() function tests ==========
+
+    #[test]
+    fn test_max_vector() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![Decimal::from(30), Decimal::from(10), Decimal::from(20)]);
+        let result = eval_function("max", vec);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(30))));
+    }
+
+    #[test]
+    fn test_max_scalar() {
+        use evaluator::eval_function;
+        let scalar = Value::Scalar(Decimal::from(42));
+        let result = eval_function("max", scalar);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(42))));
+    }
+
+    #[test]
+    fn test_max_empty_vector() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![]);
+        let result = eval_function("max", vec);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::ZERO)));
+    }
+
+    #[test]
+    fn test_max_with_negatives() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![Decimal::from(-5), Decimal::from(-3), Decimal::from(-10)]);
+        let result = eval_function("max", vec);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(-3))));
+    }
+
+    // ========== count() function tests ==========
+
+    #[test]
+    fn test_count_vector() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![Decimal::from(10), Decimal::from(20), Decimal::from(30)]);
+        let result = eval_function("count", vec);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(3))));
+    }
+
+    #[test]
+    fn test_count_scalar() {
+        use evaluator::eval_function;
+        let scalar = Value::Scalar(Decimal::from(42));
+        let result = eval_function("count", scalar);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::ONE)));
+    }
+
+    #[test]
+    fn test_count_empty_vector() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![]);
+        let result = eval_function("count", vec);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::ZERO)));
+    }
+
+    #[test]
+    fn test_count_matrix() {
+        use evaluator::eval_function;
+        // 2x3 matrix with 6 elements
+        let matrix = Value::Matrix {
+            rows: 2,
+            cols: 3,
+            data: vec![
+                Decimal::from(1), Decimal::from(2), Decimal::from(3),
+                Decimal::from(4), Decimal::from(5), Decimal::from(6),
+            ],
+        };
+        let result = eval_function("count", matrix);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(6))));
+    }
+
+    // ========== prod() function tests ==========
+
+    #[test]
+    fn test_prod_vector() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![Decimal::from(2), Decimal::from(3), Decimal::from(4)]);
+        let result = eval_function("prod", vec);
+
+        // 2 * 3 * 4 = 24
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(24))));
+    }
+
+    #[test]
+    fn test_prod_scalar() {
+        use evaluator::eval_function;
+        let scalar = Value::Scalar(Decimal::from(42));
+        let result = eval_function("prod", scalar);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::from(42))));
+    }
+
+    #[test]
+    fn test_prod_empty_vector() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![]);
+        let result = eval_function("prod", vec);
+
+        // Product of empty vector is 1 (identity element for multiplication)
+        assert_eq!(result, Ok(Value::Scalar(Decimal::ONE)));
+    }
+
+    #[test]
+    fn test_prod_with_zero() {
+        use evaluator::eval_function;
+        let vec = Value::column_vector(vec![Decimal::from(5), Decimal::ZERO, Decimal::from(10)]);
+        let result = eval_function("prod", vec);
+
+        assert_eq!(result, Ok(Value::Scalar(Decimal::ZERO)));
+    }
+
+    // ========== Integration tests for new functions ==========
+
+    #[test]
+    fn test_functions_in_formulas() {
+        let mut rows = vec![
+            vec!["A".to_string(), "B".to_string(), "C".to_string(), "D".to_string(), "E".to_string(), "F".to_string()],
+            vec!["---".to_string(), "---".to_string(), "---".to_string(), "---".to_string(), "---".to_string(), "---".to_string()],
+            vec!["10".to_string(), "20".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
+            vec!["30".to_string(), "40".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
+            vec!["50".to_string(), "60".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
+        ];
+
+        let formulas = vec![
+            "C1 = avg(A_)".to_string(),      // avg([10, 30, 50]) = 30
+            "D1 = min(A_)".to_string(),      // min([10, 30, 50]) = 10
+            "E1 = max(B_)".to_string(),      // max([20, 40, 60]) = 60
+            "F1 = count(A_)".to_string(),    // count([10, 30, 50]) = 3
+            "C2 = prod(A_)".to_string(),     // prod([10, 30, 50]) = 15000
+        ];
+
+        let errors = apply_formulas(&mut rows, &formulas);
+        assert!(errors.iter().all(|e| e.is_none()));
+
+        assert_eq!(rows[2][2], "30");     // avg
+        assert_eq!(rows[2][3], "10");     // min
+        assert_eq!(rows[2][4], "60");     // max
+        assert_eq!(rows[2][5], "3");      // count
+        assert_eq!(rows[3][2], "15000");  // prod
+    }
 }

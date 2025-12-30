@@ -4,6 +4,6 @@
 | 2   | 0   |
 <!-- md-table: B1 = foo(A_) -->
 <!-- md-error: Failed to evaluate expression:
-unknown function: 'foo' (supported functions: sum)
+unknown function: 'foo' (supported functions: sum, avg, min, max, count, prod)
 foo(A_)
 ^^^ -->
