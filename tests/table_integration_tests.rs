@@ -1,7 +1,7 @@
+use mdutils::format_tables;
 /// Integration tests for table formatting and formula evaluation
 /// Tests use fixture files in tests/table/fixtures/ directory
 use std::fs;
-use mdutils::format_tables;
 
 #[test]
 fn test_vector_addition() {
@@ -137,8 +137,9 @@ fn test_error_cell_out_of_bounds() {
 fn test_error_column_out_of_bounds() {
     let input = fs::read_to_string("tests/table/fixtures/error_column_out_of_bounds_input.md")
         .expect("Failed to read input fixture");
-    let expected = fs::read_to_string("tests/table/fixtures/error_column_out_of_bounds_expected.md")
-        .expect("Failed to read expected fixture");
+    let expected =
+        fs::read_to_string("tests/table/fixtures/error_column_out_of_bounds_expected.md")
+            .expect("Failed to read expected fixture");
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
@@ -163,8 +164,9 @@ fn test_error_row_out_of_bounds() {
 fn test_error_matrix_mult_dimension() {
     let input = fs::read_to_string("tests/table/fixtures/error_matrix_mult_dimension_input.md")
         .expect("Failed to read input fixture");
-    let expected = fs::read_to_string("tests/table/fixtures/error_matrix_mult_dimension_expected.md")
-        .expect("Failed to read expected fixture");
+    let expected =
+        fs::read_to_string("tests/table/fixtures/error_matrix_mult_dimension_expected.md")
+            .expect("Failed to read expected fixture");
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
@@ -190,8 +192,9 @@ fn test_error_transpose_scalar() {
 fn test_error_elementwise_dimension() {
     let input = fs::read_to_string("tests/table/fixtures/error_elementwise_dimension_input.md")
         .expect("Failed to read input fixture");
-    let expected = fs::read_to_string("tests/table/fixtures/error_elementwise_dimension_expected.md")
-        .expect("Failed to read expected fixture");
+    let expected =
+        fs::read_to_string("tests/table/fixtures/error_elementwise_dimension_expected.md")
+            .expect("Failed to read expected fixture");
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
@@ -270,8 +273,9 @@ fn test_error_matmul_scalar() {
 fn test_complex_nested_expression() {
     let input = fs::read_to_string("tests/table/fixtures/error_matrix_in_expression_input.md")
         .expect("Failed to read input fixture");
-    let expected = fs::read_to_string("tests/table/fixtures/error_matrix_in_expression_expected.md")
-        .expect("Failed to read expected fixture");
+    let expected =
+        fs::read_to_string("tests/table/fixtures/error_matrix_in_expression_expected.md")
+            .expect("Failed to read expected fixture");
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
@@ -282,10 +286,12 @@ fn test_complex_nested_expression() {
 
 #[test]
 fn test_complex_expression_outer_transpose() {
-    let input = fs::read_to_string("tests/table/fixtures/complex_expression_outer_transpose_input.md")
-        .expect("Failed to read input fixture");
-    let expected = fs::read_to_string("tests/table/fixtures/complex_expression_outer_transpose_expected.md")
-        .expect("Failed to read expected fixture");
+    let input =
+        fs::read_to_string("tests/table/fixtures/complex_expression_outer_transpose_input.md")
+            .expect("Failed to read input fixture");
+    let expected =
+        fs::read_to_string("tests/table/fixtures/complex_expression_outer_transpose_expected.md")
+            .expect("Failed to read expected fixture");
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
@@ -517,8 +523,9 @@ fn test_variables_error_undefined() {
 fn test_variables_error_invalid_name() {
     let input = fs::read_to_string("tests/table/fixtures/variables_error_invalid_name_input.md")
         .expect("Failed to read input fixture");
-    let expected = fs::read_to_string("tests/table/fixtures/variables_error_invalid_name_expected.md")
-        .expect("Failed to read expected fixture");
+    let expected =
+        fs::read_to_string("tests/table/fixtures/variables_error_invalid_name_expected.md")
+            .expect("Failed to read expected fixture");
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());

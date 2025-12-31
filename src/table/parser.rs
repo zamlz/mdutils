@@ -79,11 +79,10 @@ pub fn extract_formulas_from_comment(line: &str) -> Result<(Option<String>, Vec<
             let value = part.strip_prefix("id=").unwrap().trim();
 
             if value.starts_with('"') && value.ends_with('"') && value.len() >= 2 {
-                let extracted_id = value[1..value.len()-1].to_string();
+                let extracted_id = value[1..value.len() - 1].to_string();
 
                 // Validate ID format
-                validate_id(&extracted_id)
-                    .map_err(|e| format!("Invalid table ID: {}", e))?;
+                validate_id(&extracted_id).map_err(|e| format!("Invalid table ID: {}", e))?;
 
                 id = Some(extracted_id);
             } else {
@@ -135,11 +134,13 @@ mod tests {
     #[test]
     fn test_extract_formulas_from_comment() {
         // Test with formulas only (no ID)
-        let (id, formulas) = extract_formulas_from_comment("<!-- md-table: A1 = B1 + C1 -->").unwrap();
+        let (id, formulas) =
+            extract_formulas_from_comment("<!-- md-table: A1 = B1 + C1 -->").unwrap();
         assert_eq!(id, None);
         assert_eq!(formulas, vec!["A1 = B1 + C1"]);
 
-        let (id, formulas) = extract_formulas_from_comment("<!-- md-table: A1 = 5; B1 = 10 -->").unwrap();
+        let (id, formulas) =
+            extract_formulas_from_comment("<!-- md-table: A1 = 5; B1 = 10 -->").unwrap();
         assert_eq!(id, None);
         assert_eq!(formulas, vec!["A1 = 5", "B1 = 10"]);
 
@@ -151,16 +152,21 @@ mod tests {
     #[test]
     fn test_extract_formulas_with_id() {
         // Test with ID and formulas
-        let (id, formulas) = extract_formulas_from_comment("<!-- md-table: id=\"sales_data\"; A1 = B1 + C1 -->").unwrap();
+        let (id, formulas) =
+            extract_formulas_from_comment("<!-- md-table: id=\"sales_data\"; A1 = B1 + C1 -->")
+                .unwrap();
         assert_eq!(id, Some("sales_data".to_string()));
         assert_eq!(formulas, vec!["A1 = B1 + C1"]);
 
-        let (id, formulas) = extract_formulas_from_comment("<!-- md-table: id=\"my_table\"; A1 = 5; B1 = 10 -->").unwrap();
+        let (id, formulas) =
+            extract_formulas_from_comment("<!-- md-table: id=\"my_table\"; A1 = 5; B1 = 10 -->")
+                .unwrap();
         assert_eq!(id, Some("my_table".to_string()));
         assert_eq!(formulas, vec!["A1 = 5", "B1 = 10"]);
 
         // Test with ID only (no formulas)
-        let (id, formulas) = extract_formulas_from_comment("<!-- md-table: id=\"table1\" -->").unwrap();
+        let (id, formulas) =
+            extract_formulas_from_comment("<!-- md-table: id=\"table1\" -->").unwrap();
         assert_eq!(id, Some("table1".to_string()));
         assert_eq!(formulas.len(), 0);
     }

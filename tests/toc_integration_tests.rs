@@ -1,7 +1,7 @@
+use mdutils::process_toc;
 /// Integration tests for table of contents generation
 /// Tests use fixture files in tests/toc/fixtures/ directory
 use std::fs;
-use mdutils::process_toc;
 
 #[test]
 fn test_basic_toc_generation() {

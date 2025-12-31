@@ -1,37 +1,37 @@
 use crate::table::error::FormulaError;
-use crate::table::formula::types::Value;
-use crate::table::formula::ast::{Expr, BinaryOperator};
+use crate::table::formula::ast::{BinaryOperator, Expr};
 use crate::table::formula::reference::{self, resolve_reference};
+use crate::table::formula::types::Value;
+use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::Decimal;
-use rust_decimal::prelude::{ToPrimitive, FromPrimitive};
 
 /// Evaluates an AST expression node to a Value with access to other tables and variables
 pub(crate) fn eval_ast_with_tables(
     expr: &Expr,
     rows: &Vec<Vec<String>>,
     table_map: &std::collections::HashMap<String, Vec<Vec<String>>>,
-    variable_map: &std::collections::HashMap<String, Value>
+    variable_map: &std::collections::HashMap<String, Value>,
 ) -> Result<Value, FormulaError> {
     match expr {
         Expr::Literal(d, _span) => Ok(Value::Scalar(*d)),
 
-        Expr::String(_s, _span) => {
-            Err(FormulaError::RuntimeError(
-                "string literals can only be used as arguments to functions like from()".to_string()
-            ))
-        }
+        Expr::String(_s, _span) => Err(FormulaError::RuntimeError(
+            "string literals can only be used as arguments to functions like from()".to_string(),
+        )),
 
-        Expr::Variable(name, _span) => {
-            variable_map.get(name).cloned().ok_or_else(|| {
-                FormulaError::RuntimeError(
-                    format!("undefined variable: '{}'", name)
-                )
-            })
-        }
+        Expr::Variable(name, _span) => variable_map
+            .get(name)
+            .cloned()
+            .ok_or_else(|| FormulaError::RuntimeError(format!("undefined variable: '{}'", name))),
 
         Expr::CellRef(cell_ref, _span) => resolve_reference(cell_ref, rows),
 
-        Expr::BinaryOp { left, op, right, span: _span } => {
+        Expr::BinaryOp {
+            left,
+            op,
+            right,
+            span: _span,
+        } => {
             let left_val = eval_ast_with_tables(left, rows, table_map, variable_map)?;
             let right_val = eval_ast_with_tables(right, rows, table_map, variable_map)?;
             eval_binary_op(*op, left_val, right_val)
@@ -40,22 +40,20 @@ pub(crate) fn eval_ast_with_tables(
         Expr::Transpose(inner, _span) => {
             let val = eval_ast_with_tables(inner, rows, table_map, variable_map)?;
             match val {
-                Value::Scalar(_) => {
-                    Err(FormulaError::RuntimeError(
-                        "cannot transpose a scalar value - only matrices can be transposed".to_string()
-                    ))
-                }
-                Value::Matrix { .. } => {
-                    val.transpose().ok_or_else(|| FormulaError::RuntimeError(
-                        "transpose operation failed".to_string()
-                    ))
-                }
+                Value::Scalar(_) => Err(FormulaError::RuntimeError(
+                    "cannot transpose a scalar value - only matrices can be transposed".to_string(),
+                )),
+                Value::Matrix { .. } => val.transpose().ok_or_else(|| {
+                    FormulaError::RuntimeError("transpose operation failed".to_string())
+                }),
             }
         }
 
-        Expr::FunctionCall { name, args, span: _span } => {
-            eval_function_call_with_tables(name, args, rows, table_map, variable_map)
-        }
+        Expr::FunctionCall {
+            name,
+            args,
+            span: _span,
+        } => eval_function_call_with_tables(name, args, rows, table_map, variable_map),
     }
 }
 
@@ -67,7 +65,11 @@ pub(crate) fn eval_ast(expr: &Expr, rows: &Vec<Vec<String>>) -> Result<Value, Fo
 }
 
 /// Evaluate a binary operation
-pub(crate) fn eval_binary_op(op: BinaryOperator, left: Value, right: Value) -> Result<Value, FormulaError> {
+pub(crate) fn eval_binary_op(
+    op: BinaryOperator,
+    left: Value,
+    right: Value,
+) -> Result<Value, FormulaError> {
     match op {
         BinaryOperator::Add => evaluate_operation('+', left, right),
         BinaryOperator::Sub => evaluate_operation('-', left, right),
@@ -84,7 +86,7 @@ fn eval_function_call_with_tables(
     args: &[Expr],
     rows: &Vec<Vec<String>>,
     table_map: &std::collections::HashMap<String, Vec<Vec<String>>>,
-    variable_map: &std::collections::HashMap<String, Value>
+    variable_map: &std::collections::HashMap<String, Value>,
 ) -> Result<Value, FormulaError> {
     match name.to_lowercase().as_str() {
         "from" => {
@@ -94,19 +96,22 @@ fn eval_function_call_with_tables(
             // from(variable) - returns variable value (must be matrix)
             // from(variable, range) - returns specific range from variable matrix
             if args.is_empty() || args.len() > 2 {
-                return Err(FormulaError::RuntimeError(
-                    format!("function 'from' expects 1 or 2 arguments, got {}", args.len())
-                ));
+                return Err(FormulaError::RuntimeError(format!(
+                    "function 'from' expects 1 or 2 arguments, got {}",
+                    args.len()
+                )));
             }
 
             // First argument can be a string literal (table ID) or variable reference
             match &args[0] {
                 Expr::String(table_id, _) => {
                     // Look up the table
-                    let target_rows = table_map.get(table_id)
-                        .ok_or_else(|| FormulaError::RuntimeError(
-                            format!("table '{}' not found (tables must have an id attribute)", table_id)
-                        ))?;
+                    let target_rows = table_map.get(table_id).ok_or_else(|| {
+                        FormulaError::RuntimeError(format!(
+                            "table '{}' not found (tables must have an id attribute)",
+                            table_id
+                        ))
+                    })?;
 
                     // If only one argument, return entire table as matrix
                     if args.len() == 1 {
@@ -121,7 +126,8 @@ fn eval_function_call_with_tables(
                         }
                         _ => {
                             return Err(FormulaError::RuntimeError(
-                                "from() second argument must be a cell reference or range".to_string()
+                                "from() second argument must be a cell reference or range"
+                                    .to_string(),
                             ));
                         }
                     };
@@ -130,16 +136,16 @@ fn eval_function_call_with_tables(
                 }
                 Expr::Variable(var_name, _) => {
                     // Look up the variable
-                    let var_value = variable_map.get(var_name)
-                        .ok_or_else(|| FormulaError::RuntimeError(
-                            format!("undefined variable: '{}'", var_name)
-                        ))?;
+                    let var_value = variable_map.get(var_name).ok_or_else(|| {
+                        FormulaError::RuntimeError(format!("undefined variable: '{}'", var_name))
+                    })?;
 
                     // Variables used in from() must be matrices
                     if let Value::Scalar(_) = var_value {
-                        return Err(FormulaError::RuntimeError(
-                            format!("cannot use from() with scalar variable '{}' - expected matrix", var_name)
-                        ));
+                        return Err(FormulaError::RuntimeError(format!(
+                            "cannot use from() with scalar variable '{}' - expected matrix",
+                            var_name
+                        )));
                     }
 
                     // If only one argument, return the variable value
@@ -149,105 +155,100 @@ fn eval_function_call_with_tables(
 
                     // If two arguments with a variable, we need to handle range selection from the matrix
                     // For now, return an error as this is complex to implement
-                    return Err(FormulaError::RuntimeError(
+                    Err(FormulaError::RuntimeError(
                         "from(variable, range) is not yet supported - use from(variable) to get the entire matrix".to_string()
-                    ));
+                    ))
                 }
                 _ => {
-                    return Err(FormulaError::RuntimeError(
+                    Err(FormulaError::RuntimeError(
                         "from() first argument must be a string literal (table ID) or variable reference".to_string()
-                    ));
+                    ))
                 }
             }
         }
         // All other functions expect exactly one argument
         "sum" | "avg" | "min" | "max" | "count" | "prod" => {
             if args.len() != 1 {
-                return Err(FormulaError::RuntimeError(
-                    format!("function '{}' expects exactly 1 argument, got {}", name, args.len())
-                ));
+                return Err(FormulaError::RuntimeError(format!(
+                    "function '{}' expects exactly 1 argument, got {}",
+                    name,
+                    args.len()
+                )));
             }
 
             let arg = eval_ast_with_tables(&args[0], rows, table_map, variable_map)?;
             eval_function(name, arg)
         }
-        _ => Err(FormulaError::RuntimeError(
-            format!("unknown function: '{}' (supported functions: sum, avg, min, max, count, prod, from)", name)
-        ))
+        _ => Err(FormulaError::RuntimeError(format!(
+            "unknown function: '{}' (supported functions: sum, avg, min, max, count, prod, from)",
+            name
+        ))),
     }
 }
-
 
 /// Evaluate a function with a Value argument (for single-arg functions)
 pub(crate) fn eval_function(name: &str, arg: Value) -> Result<Value, FormulaError> {
     match name.to_lowercase().as_str() {
-        "sum" => {
-            match arg {
-                Value::Scalar(s) => Ok(Value::Scalar(s)),
-                Value::Matrix { data, .. } => {
-                    let sum = data.iter().fold(Decimal::ZERO, |acc, &x| acc + x);
-                    Ok(Value::Scalar(sum))
-                }
+        "sum" => match arg {
+            Value::Scalar(s) => Ok(Value::Scalar(s)),
+            Value::Matrix { data, .. } => {
+                let sum = data.iter().fold(Decimal::ZERO, |acc, &x| acc + x);
+                Ok(Value::Scalar(sum))
             }
-        }
-        "avg" => {
-            match arg {
-                Value::Scalar(s) => Ok(Value::Scalar(s)),
-                Value::Matrix { data, .. } => {
-                    if data.is_empty() {
-                        return Ok(Value::Scalar(Decimal::ZERO));
-                    }
-                    let sum = data.iter().fold(Decimal::ZERO, |acc, &x| acc + x);
-                    let count = Decimal::from(data.len());
-                    Ok(Value::Scalar(sum / count))
+        },
+        "avg" => match arg {
+            Value::Scalar(s) => Ok(Value::Scalar(s)),
+            Value::Matrix { data, .. } => {
+                if data.is_empty() {
+                    return Ok(Value::Scalar(Decimal::ZERO));
                 }
+                let sum = data.iter().fold(Decimal::ZERO, |acc, &x| acc + x);
+                let count = Decimal::from(data.len());
+                Ok(Value::Scalar(sum / count))
             }
-        }
-        "min" => {
-            match arg {
-                Value::Scalar(s) => Ok(Value::Scalar(s)),
-                Value::Matrix { data, .. } => {
-                    if data.is_empty() {
-                        return Ok(Value::Scalar(Decimal::ZERO));
-                    }
-                    let min = data.iter().fold(data[0], |acc, &x| if x < acc { x } else { acc });
-                    Ok(Value::Scalar(min))
+        },
+        "min" => match arg {
+            Value::Scalar(s) => Ok(Value::Scalar(s)),
+            Value::Matrix { data, .. } => {
+                if data.is_empty() {
+                    return Ok(Value::Scalar(Decimal::ZERO));
                 }
+                let min = data
+                    .iter()
+                    .fold(data[0], |acc, &x| if x < acc { x } else { acc });
+                Ok(Value::Scalar(min))
             }
-        }
-        "max" => {
-            match arg {
-                Value::Scalar(s) => Ok(Value::Scalar(s)),
-                Value::Matrix { data, .. } => {
-                    if data.is_empty() {
-                        return Ok(Value::Scalar(Decimal::ZERO));
-                    }
-                    let max = data.iter().fold(data[0], |acc, &x| if x > acc { x } else { acc });
-                    Ok(Value::Scalar(max))
+        },
+        "max" => match arg {
+            Value::Scalar(s) => Ok(Value::Scalar(s)),
+            Value::Matrix { data, .. } => {
+                if data.is_empty() {
+                    return Ok(Value::Scalar(Decimal::ZERO));
                 }
+                let max = data
+                    .iter()
+                    .fold(data[0], |acc, &x| if x > acc { x } else { acc });
+                Ok(Value::Scalar(max))
             }
-        }
-        "count" => {
-            match arg {
-                Value::Scalar(_) => Ok(Value::Scalar(Decimal::ONE)),
-                Value::Matrix { data, .. } => {
-                    let count = Decimal::from(data.len());
-                    Ok(Value::Scalar(count))
-                }
+        },
+        "count" => match arg {
+            Value::Scalar(_) => Ok(Value::Scalar(Decimal::ONE)),
+            Value::Matrix { data, .. } => {
+                let count = Decimal::from(data.len());
+                Ok(Value::Scalar(count))
             }
-        }
-        "prod" => {
-            match arg {
-                Value::Scalar(s) => Ok(Value::Scalar(s)),
-                Value::Matrix { data, .. } => {
-                    let product = data.iter().fold(Decimal::ONE, |acc, &x| acc * x);
-                    Ok(Value::Scalar(product))
-                }
+        },
+        "prod" => match arg {
+            Value::Scalar(s) => Ok(Value::Scalar(s)),
+            Value::Matrix { data, .. } => {
+                let product = data.iter().fold(Decimal::ONE, |acc, &x| acc * x);
+                Ok(Value::Scalar(product))
             }
-        }
-        _ => Err(FormulaError::RuntimeError(
-            format!("unknown function: '{}'", name)
-        ))
+        },
+        _ => Err(FormulaError::RuntimeError(format!(
+            "unknown function: '{}'",
+            name
+        ))),
     }
 }
 
@@ -285,7 +286,11 @@ pub(crate) fn eval_function(name: &str, arg: Value) -> Result<Value, FormulaErro
 ///
 /// * `Ok(Value)` if the operation succeeds
 /// * `Err(String)` with a specific error message if the operation fails
-pub(crate) fn evaluate_operation(op: char, left: Value, right: Value) -> Result<Value, FormulaError> {
+pub(crate) fn evaluate_operation(
+    op: char,
+    left: Value,
+    right: Value,
+) -> Result<Value, FormulaError> {
     // Handle matrix multiplication (@) - uses proper matrix multiplication rules
     if op == '@' {
         return match (&left, &right) {
@@ -339,16 +344,28 @@ pub(crate) fn evaluate_operation(op: char, left: Value, right: Value) -> Result<
     match (left, right) {
         // Scalar op Scalar
         (Value::Scalar(l), Value::Scalar(r)) => {
-            let result = apply_scalar_op(op, l, r)
-                .ok_or_else(|| FormulaError::RuntimeError(
-                    format!("division by zero in scalar operation: {} {} {}", l, op, r)
-                ))?;
+            let result = apply_scalar_op(op, l, r).ok_or_else(|| {
+                FormulaError::RuntimeError(format!(
+                    "division by zero in scalar operation: {} {} {}",
+                    l, op, r
+                ))
+            })?;
             Ok(Value::Scalar(result))
         }
 
         // Matrix op Matrix (element-wise) - must have same dimensions
-        (Value::Matrix { rows: m1, cols: n1, data: data1 },
-         Value::Matrix { rows: m2, cols: n2, data: data2 }) => {
+        (
+            Value::Matrix {
+                rows: m1,
+                cols: n1,
+                data: data1,
+            },
+            Value::Matrix {
+                rows: m2,
+                cols: n2,
+                data: data2,
+            },
+        ) => {
             // For element-wise operations, dimensions must match
             if m1 != m2 || n1 != n2 {
                 return Err(FormulaError::RuntimeError(
@@ -358,10 +375,12 @@ pub(crate) fn evaluate_operation(op: char, left: Value, right: Value) -> Result<
 
             let mut result = Vec::with_capacity(data1.len());
             for (i, (&a, &b)) in data1.iter().zip(data2.iter()).enumerate() {
-                let value = apply_scalar_op(op, a, b)
-                    .ok_or_else(|| FormulaError::RuntimeError(
-                        format!("division by zero in element-wise operation at position {}", i)
-                    ))?;
+                let value = apply_scalar_op(op, a, b).ok_or_else(|| {
+                    FormulaError::RuntimeError(format!(
+                        "division by zero in element-wise operation at position {}",
+                        i
+                    ))
+                })?;
                 result.push(value);
             }
 
@@ -376,28 +395,40 @@ pub(crate) fn evaluate_operation(op: char, left: Value, right: Value) -> Result<
         (Value::Matrix { rows, cols, data }, Value::Scalar(scalar)) => {
             let mut result = Vec::with_capacity(data.len());
             for (i, &v) in data.iter().enumerate() {
-                let value = apply_scalar_op(op, v, scalar)
-                    .ok_or_else(|| FormulaError::RuntimeError(
-                        format!("division by zero when broadcasting scalar to matrix at position {}", i)
-                    ))?;
+                let value = apply_scalar_op(op, v, scalar).ok_or_else(|| {
+                    FormulaError::RuntimeError(format!(
+                        "division by zero when broadcasting scalar to matrix at position {}",
+                        i
+                    ))
+                })?;
                 result.push(value);
             }
 
-            Ok(Value::Matrix { rows, cols, data: result })
+            Ok(Value::Matrix {
+                rows,
+                cols,
+                data: result,
+            })
         }
 
         // Scalar op Matrix (broadcast scalar to all elements)
         (Value::Scalar(scalar), Value::Matrix { rows, cols, data }) => {
             let mut result = Vec::with_capacity(data.len());
             for (i, &v) in data.iter().enumerate() {
-                let value = apply_scalar_op(op, scalar, v)
-                    .ok_or_else(|| FormulaError::RuntimeError(
-                        format!("division by zero when broadcasting scalar to matrix at position {}", i)
-                    ))?;
+                let value = apply_scalar_op(op, scalar, v).ok_or_else(|| {
+                    FormulaError::RuntimeError(format!(
+                        "division by zero when broadcasting scalar to matrix at position {}",
+                        i
+                    ))
+                })?;
                 result.push(value);
             }
 
-            Ok(Value::Matrix { rows, cols, data: result })
+            Ok(Value::Matrix {
+                rows,
+                cols,
+                data: result,
+            })
         }
     }
 }

@@ -1,7 +1,7 @@
+use mdutils::process_code_blocks;
 /// Integration tests for code execution
 /// Tests use fixture files in tests/code/fixtures/ directory
 use std::fs;
-use mdutils::process_code_blocks;
 
 #[test]
 fn test_basic_python_execution() {

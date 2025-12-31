@@ -1,5 +1,7 @@
 use crate::table::error::FormulaError;
-use crate::table::formula::types::{CellReference, Value, FIRST_DATA_ROW_INDEX, formula_row_to_table_index, col_index_to_letter};
+use crate::table::formula::types::{
+    col_index_to_letter, formula_row_to_table_index, CellReference, Value, FIRST_DATA_ROW_INDEX,
+};
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -92,7 +94,10 @@ pub(crate) fn parse_cell_reference(token: &str) -> Option<CellReference> {
     }
 
     let row_idx = formula_row_to_table_index(row_num);
-    Some(CellReference::Scalar { row: row_idx, col: col_idx })
+    Some(CellReference::Scalar {
+        row: row_idx,
+        col: col_idx,
+    })
 }
 
 /// Resolves a cell reference to its actual value(s) from the table.
@@ -123,7 +128,10 @@ pub(crate) fn parse_cell_reference(token: &str) -> Option<CellReference> {
 /// // Given a table with values in column A: [10, "", "text", 30]
 /// // ColumnVector resolves to: Vector([10, 0, 0, 30])
 /// ```
-pub(crate) fn resolve_reference(cell_ref: &CellReference, rows: &[Vec<String>]) -> Result<Value, FormulaError> {
+pub(crate) fn resolve_reference(
+    cell_ref: &CellReference,
+    rows: &[Vec<String>],
+) -> Result<Value, FormulaError> {
     match cell_ref {
         CellReference::Scalar { row, col } => {
             // Get single cell value
@@ -132,7 +140,11 @@ pub(crate) fn resolve_reference(cell_ref: &CellReference, rows: &[Vec<String>]) 
                 let cell = format!("{}{}", col_letter, row + 1);
                 return Err(FormulaError::cell_out_of_bounds(
                     cell,
-                    format!("row {} does not exist (table has {} rows)", row + 1, rows.len()),
+                    format!(
+                        "row {} does not exist (table has {} rows)",
+                        row + 1,
+                        rows.len()
+                    ),
                 ));
             }
             if *col >= rows[*row].len() {
@@ -140,7 +152,11 @@ pub(crate) fn resolve_reference(cell_ref: &CellReference, rows: &[Vec<String>]) 
                 let cell = format!("{}{}", col_letter, row + 1);
                 return Err(FormulaError::cell_out_of_bounds(
                     cell,
-                    format!("column {} does not exist (row has {} columns)", col_letter, rows[*row].len()),
+                    format!(
+                        "column {} does not exist (row has {} columns)",
+                        col_letter,
+                        rows[*row].len()
+                    ),
                 ));
             }
 
@@ -168,7 +184,11 @@ pub(crate) fn resolve_reference(cell_ref: &CellReference, rows: &[Vec<String>]) 
             if *col >= rows[FIRST_DATA_ROW_INDEX].len() {
                 return Err(FormulaError::column_out_of_bounds(
                     col_letter.clone(),
-                    format!("column {} does not exist (table has {} columns)", col_letter, rows[FIRST_DATA_ROW_INDEX].len()),
+                    format!(
+                        "column {} does not exist (table has {} columns)",
+                        col_letter,
+                        rows[FIRST_DATA_ROW_INDEX].len()
+                    ),
                 ));
             }
 
@@ -209,27 +229,57 @@ pub(crate) fn resolve_reference(cell_ref: &CellReference, rows: &[Vec<String>]) 
             }
             Ok(Value::row_vector(data))
         }
-        CellReference::Range { start_row, start_col, end_row, end_col } => {
+        CellReference::Range {
+            start_row,
+            start_col,
+            end_row,
+            end_col,
+        } => {
             // Extract a submatrix from the table
             // Validate bounds
             if *end_row >= rows.len() {
                 let start_col_letter = col_index_to_letter(*start_col);
                 let end_col_letter = col_index_to_letter(*end_col);
                 return Err(FormulaError::cell_out_of_bounds(
-                    format!("{}{}:{}{}", start_col_letter, start_row + 1, end_col_letter, end_row + 1),
-                    format!("end row {} does not exist (table has {} rows)", end_row + 1, rows.len()),
+                    format!(
+                        "{}{}:{}{}",
+                        start_col_letter,
+                        start_row + 1,
+                        end_col_letter,
+                        end_row + 1
+                    ),
+                    format!(
+                        "end row {} does not exist (table has {} rows)",
+                        end_row + 1,
+                        rows.len()
+                    ),
                 ));
             }
 
             // Check if columns exist in all rows of the range
-            for row_idx in *start_row..=*end_row {
-                if *end_col >= rows[row_idx].len() {
+            for (idx, row) in rows
+                .iter()
+                .enumerate()
+                .skip(*start_row)
+                .take(*end_row - *start_row + 1)
+            {
+                if *end_col >= row.len() {
                     let start_col_letter = col_index_to_letter(*start_col);
                     let end_col_letter = col_index_to_letter(*end_col);
                     return Err(FormulaError::cell_out_of_bounds(
-                        format!("{}{}:{}{}", start_col_letter, start_row + 1, end_col_letter, end_row + 1),
-                        format!("column {} does not exist in row {} (row has {} columns)",
-                            end_col_letter, row_idx + 1, rows[row_idx].len()),
+                        format!(
+                            "{}{}:{}{}",
+                            start_col_letter,
+                            start_row + 1,
+                            end_col_letter,
+                            end_row + 1
+                        ),
+                        format!(
+                            "column {} does not exist in row {} (row has {} columns)",
+                            end_col_letter,
+                            idx + 1,
+                            row.len()
+                        ),
                     ));
                 }
             }
@@ -239,9 +289,8 @@ pub(crate) fn resolve_reference(cell_ref: &CellReference, rows: &[Vec<String>]) 
             let num_cols = end_col - start_col + 1;
             let mut data = Vec::with_capacity(num_rows * num_cols);
 
-            for row_idx in *start_row..=*end_row {
-                for col_idx in *start_col..=*end_col {
-                    let cell_value = &rows[row_idx][col_idx];
+            for row in &rows[*start_row..=*end_row] {
+                for cell_value in &row[*start_col..=*end_col] {
                     if let Ok(decimal) = Decimal::from_str(cell_value) {
                         data.push(decimal);
                     } else {
@@ -282,8 +331,11 @@ pub(crate) fn resolve_reference(cell_ref: &CellReference, rows: &[Vec<String>]) 
                 let end_col_letter = col_index_to_letter(*end_col);
                 return Err(FormulaError::column_out_of_bounds(
                     format!("{}_:{}_", start_col_letter, end_col_letter),
-                    format!("column {} does not exist (table has {} columns)",
-                        end_col_letter, rows[FIRST_DATA_ROW_INDEX].len()),
+                    format!(
+                        "column {} does not exist (table has {} columns)",
+                        end_col_letter,
+                        rows[FIRST_DATA_ROW_INDEX].len()
+                    ),
                 ));
             }
 
@@ -329,7 +381,11 @@ pub(crate) fn resolve_reference(cell_ref: &CellReference, rows: &[Vec<String>]) 
             if end_row_idx >= rows.len() {
                 return Err(FormulaError::row_out_of_bounds(
                     *end_row,
-                    format!("row {} does not exist (table has {} rows)", end_row, rows.len()),
+                    format!(
+                        "row {} does not exist (table has {} rows)",
+                        end_row,
+                        rows.len()
+                    ),
                 ));
             }
 
@@ -338,10 +394,10 @@ pub(crate) fn resolve_reference(cell_ref: &CellReference, rows: &[Vec<String>]) 
             let num_rows = end_row_idx - start_row_idx + 1;
             let mut data = Vec::with_capacity(num_rows * num_cols);
 
-            for row_idx in start_row_idx..=end_row_idx {
+            for row in &rows[start_row_idx..=end_row_idx] {
                 for col_idx in 0..num_cols {
-                    if col_idx < rows[row_idx].len() {
-                        let cell_value = &rows[row_idx][col_idx];
+                    if col_idx < row.len() {
+                        let cell_value = &row[col_idx];
                         if let Ok(decimal) = Decimal::from_str(cell_value) {
                             data.push(decimal);
                         } else {
@@ -371,7 +427,7 @@ pub(crate) fn resolve_reference(cell_ref: &CellReference, rows: &[Vec<String>]) 
 pub(crate) fn table_to_matrix(rows: &[Vec<String>]) -> Result<Value, FormulaError> {
     if rows.len() < FIRST_DATA_ROW_INDEX {
         return Err(FormulaError::RuntimeError(
-            "table has no data rows".to_string()
+            "table has no data rows".to_string(),
         ));
     }
 
@@ -387,10 +443,10 @@ pub(crate) fn table_to_matrix(rows: &[Vec<String>]) -> Result<Value, FormulaErro
     let num_cols = rows[FIRST_DATA_ROW_INDEX].len();
     let mut data = Vec::new();
 
-    for row_idx in FIRST_DATA_ROW_INDEX..rows.len() {
+    for row in &rows[FIRST_DATA_ROW_INDEX..] {
         for col_idx in 0..num_cols {
-            if col_idx < rows[row_idx].len() {
-                let cell = &rows[row_idx][col_idx];
+            if col_idx < row.len() {
+                let cell = &row[col_idx];
                 if let Ok(decimal) = Decimal::from_str(cell) {
                     data.push(decimal);
                 } else {

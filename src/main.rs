@@ -1,7 +1,7 @@
 mod code;
+mod common;
 mod table;
 mod toc;
-mod common;
 
 use clap::{Parser, Subcommand};
 use code::process_code_blocks;
@@ -36,7 +36,9 @@ enum Commands {
 fn read_stdin() -> Result<String, String> {
     let stdin = io::stdin();
     let mut input = String::new();
-    stdin.lock().read_to_string(&mut input)
+    stdin
+        .lock()
+        .read_to_string(&mut input)
         .map_err(|e| format!("Error reading input: {}", e))?;
     Ok(input)
 }
@@ -86,17 +88,15 @@ fn main() {
             let output = process_toc(&input);
             print!("{}", output);
         }
-        Commands::New { spec } => {
-            match parse_table_spec(&spec) {
-                Ok((rows, cols)) => {
-                    let table = create_table(rows, cols);
-                    print!("{}", table);
-                }
-                Err(e) => {
-                    eprintln!("Error: {}", e);
-                    std::process::exit(1);
-                }
+        Commands::New { spec } => match parse_table_spec(&spec) {
+            Ok((rows, cols)) => {
+                let table = create_table(rows, cols);
+                print!("{}", table);
             }
-        }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        },
     }
 }

@@ -101,16 +101,18 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
         } else if part.starts_with("timeout=") {
             // Extract timeout value (no quotes)
             let value = part.strip_prefix("timeout=").unwrap().trim();
-            timeout = Some(value.parse::<u64>()
-                .map_err(|_| CodeError::DirectiveParseError(format!("Invalid timeout value: {}", value)))?);
+            timeout = Some(value.parse::<u64>().map_err(|_| {
+                CodeError::DirectiveParseError(format!("Invalid timeout value: {}", value))
+            })?);
         }
     }
 
-    let id = id.ok_or_else(|| CodeError::DirectiveParseError("Missing required id attribute".to_string()))?;
+    let id = id.ok_or_else(|| {
+        CodeError::DirectiveParseError("Missing required id attribute".to_string())
+    })?;
 
     // Validate ID format
-    validate_id(&id)
-        .map_err(|e| CodeError::DirectiveParseError(format!("Invalid ID: {}", e)))?;
+    validate_id(&id).map_err(|e| CodeError::DirectiveParseError(format!("Invalid ID: {}", e)))?;
 
     Ok(CodeBlockDirective {
         id,
@@ -136,7 +138,9 @@ pub fn parse_md_code_output_directive(line: &str) -> Result<String, CodeError> {
     // Remove md-code-output: prefix
     let content = content
         .strip_prefix("md-code-output:")
-        .ok_or_else(|| CodeError::DirectiveParseError("Missing md-code-output: prefix".to_string()))?
+        .ok_or_else(|| {
+            CodeError::DirectiveParseError("Missing md-code-output: prefix".to_string())
+        })?
         .trim();
 
     // Extract id value
@@ -150,21 +154,28 @@ pub fn parse_md_code_output_directive(line: &str) -> Result<String, CodeError> {
 
         Ok(id)
     } else {
-        Err(CodeError::DirectiveParseError("Missing id attribute in md-code-output".to_string()))
+        Err(CodeError::DirectiveParseError(
+            "Missing id attribute in md-code-output".to_string(),
+        ))
     }
 }
 
 /// Extracts a quoted value from a string (removes surrounding quotes)
 fn extract_quoted_value(s: &str) -> Result<String, CodeError> {
     if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
-        Ok(s[1..s.len()-1].to_string())
+        Ok(s[1..s.len() - 1].to_string())
     } else {
-        Err(CodeError::DirectiveParseError(format!("Value must be quoted: {}", s)))
+        Err(CodeError::DirectiveParseError(format!(
+            "Value must be quoted: {}",
+            s
+        )))
     }
 }
 
 /// Parses the entire markdown document to find code blocks and output blocks
-pub fn parse_document(text: &str) -> Result<(Vec<CodeBlock>, HashMap<String, OutputBlock>), CodeError> {
+pub fn parse_document(
+    text: &str,
+) -> Result<(Vec<CodeBlock>, HashMap<String, OutputBlock>), CodeError> {
     let lines: Vec<&str> = text.lines().collect();
     let mut code_blocks = Vec::new();
     let mut output_blocks = HashMap::new();
@@ -185,7 +196,10 @@ pub fn parse_document(text: &str) -> Result<(Vec<CodeBlock>, HashMap<String, Out
             }
 
             if i >= lines.len() {
-                return Err(CodeError::DirectiveParseError(format!("Unclosed code block starting at line {}", start_line + 1)));
+                return Err(CodeError::DirectiveParseError(format!(
+                    "Unclosed code block starting at line {}",
+                    start_line + 1
+                )));
             }
 
             let end_line = i;
@@ -200,16 +214,23 @@ pub fn parse_document(text: &str) -> Result<(Vec<CodeBlock>, HashMap<String, Out
                 let id = parse_md_code_output_directive(lines[i])?;
 
                 if let Some(&prev_line) = output_block_lines.get(&id) {
-                    return Err(CodeError::duplicate_output_id(&id, start_line + 1, prev_line + 1));
+                    return Err(CodeError::duplicate_output_id(
+                        &id,
+                        start_line + 1,
+                        prev_line + 1,
+                    ));
                 }
 
                 output_block_lines.insert(id.clone(), start_line);
-                output_blocks.insert(id.clone(), OutputBlock {
-                    start_line,
-                    end_line,
-                    id,
-                    content: content.clone(),
-                });
+                output_blocks.insert(
+                    id.clone(),
+                    OutputBlock {
+                        start_line,
+                        end_line,
+                        id,
+                        content: content.clone(),
+                    },
+                );
 
                 None
             } else {
@@ -243,7 +264,7 @@ pub fn validate_unique_ids(code_blocks: &[CodeBlock]) -> Result<(), CodeError> {
                 return Err(CodeError::duplicate_id(
                     &directive.id,
                     block.start_line + 1,
-                    prev_line + 1
+                    prev_line + 1,
                 ));
             }
             seen_ids.insert(directive.id.clone(), block.start_line);
@@ -276,7 +297,8 @@ mod tests {
 
     #[test]
     fn test_parse_md_code_directive() {
-        let result = parse_md_code_directive(r#"<!-- md-code: id="test"; execute; bin="python3" -->"#);
+        let result =
+            parse_md_code_directive(r#"<!-- md-code: id="test"; execute; bin="python3" -->"#);
         assert!(result.is_ok());
         let directive = result.unwrap();
         assert_eq!(directive.id, "test");
@@ -305,7 +327,10 @@ mod tests {
     #[test]
     fn test_extract_quoted_value() {
         assert_eq!(extract_quoted_value(r#""hello""#).unwrap(), "hello");
-        assert_eq!(extract_quoted_value(r#""python3 -u""#).unwrap(), "python3 -u");
+        assert_eq!(
+            extract_quoted_value(r#""python3 -u""#).unwrap(),
+            "python3 -u"
+        );
         assert!(extract_quoted_value("hello").is_err());
     }
 }

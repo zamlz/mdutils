@@ -2,7 +2,6 @@
 ///
 /// This module provides functionality to parse markdown headers and generate
 /// GitHub-style anchor slugs for table of contents links.
-
 use std::collections::HashMap;
 
 /// Represents a markdown header
@@ -235,7 +234,7 @@ mod tests {
             "Some text",
             "## Section 1",
             "More text",
-            "## Section 1",  // Duplicate
+            "## Section 1", // Duplicate
             "### Subsection",
         ];
 
@@ -255,13 +254,13 @@ mod tests {
     #[test]
     fn test_parse_headers_with_start_from() {
         let lines = vec![
-            "# TOC Header",  // Should be skipped
+            "# TOC Header", // Should be skipped
             "<!-- md-toc: -->",
             "## Actual Content",
             "### Subsection",
         ];
 
-        let headers = parse_headers(&lines, 2);  // Start from line 2
+        let headers = parse_headers(&lines, 2); // Start from line 2
 
         assert_eq!(headers.len(), 2);
         assert_eq!(headers[0].text, "Actual Content");

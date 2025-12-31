@@ -1,5 +1,4 @@
 /// Common utilities shared across modules
-
 /// Validates that an ID is not empty.
 ///
 /// Valid IDs must:

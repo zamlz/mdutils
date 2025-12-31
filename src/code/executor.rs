@@ -1,7 +1,7 @@
 use crate::code::error::CodeError;
+use std::io::Write;
 use std::process::{Command, Stdio};
 use std::time::Duration;
-use std::io::Write;
 
 const DEFAULT_TIMEOUT_SECONDS: u64 = 30;
 
@@ -22,7 +22,9 @@ pub fn execute_code(
     // Parse the bin string into command and args
     let parts: Vec<&str> = bin.split_whitespace().collect();
     if parts.is_empty() {
-        return Err(CodeError::DirectiveParseError("Empty bin specification".to_string()));
+        return Err(CodeError::DirectiveParseError(
+            "Empty bin specification".to_string(),
+        ));
     }
 
     let command = parts[0];
@@ -55,8 +57,8 @@ fn wait_with_timeout(
     child: std::process::Child,
     timeout: Duration,
 ) -> Result<ExecutionResult, CodeError> {
-    use std::thread;
     use std::sync::mpsc;
+    use std::thread;
 
     let (tx, rx) = mpsc::channel();
 
@@ -83,8 +85,13 @@ fn wait_with_timeout(
                 output: output_str,
             })
         }
-        Ok(Err(e)) => Err(CodeError::ProcessError(format!("Process execution failed: {}", e))),
-        Err(_) => Err(CodeError::Timeout { seconds: timeout.as_secs() }),
+        Ok(Err(e)) => Err(CodeError::ProcessError(format!(
+            "Process execution failed: {}",
+            e
+        ))),
+        Err(_) => Err(CodeError::Timeout {
+            seconds: timeout.as_secs(),
+        }),
     }
 }
 
@@ -97,8 +104,7 @@ mod tests {
         let code = "print('hello world')";
         let result = execute_code(code, "python3", Some(5));
 
-        if result.is_ok() {
-            let exec_result = result.unwrap();
+        if let Ok(exec_result) = result {
             assert!(exec_result.success);
             assert!(exec_result.output.contains("hello world"));
         }
@@ -112,7 +118,7 @@ mod tests {
 
         // This test might fail if node is not installed, which is okay
         // We're just testing the parsing logic
-        if let Ok(_) = result {
+        if result.is_ok() {
             // Test passed
         }
     }
@@ -122,8 +128,7 @@ mod tests {
         let code = "import sys; sys.exit(1)";
         let result = execute_code(code, "python3", Some(5));
 
-        if result.is_ok() {
-            let exec_result = result.unwrap();
+        if let Ok(exec_result) = result {
             assert!(!exec_result.success);
         }
     }

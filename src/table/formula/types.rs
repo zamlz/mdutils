@@ -13,7 +13,10 @@ impl Span {
     }
 
     pub fn single(pos: usize) -> Self {
-        Span { start: pos, end: pos + 1 }
+        Span {
+            start: pos,
+            end: pos + 1,
+        }
     }
 
     pub(crate) fn merge(&self, other: &Span) -> Span {
@@ -56,13 +59,21 @@ impl Value {
     /// Creates a row vector (1×n matrix)
     pub(crate) fn row_vector(data: Vec<Decimal>) -> Self {
         let cols = data.len();
-        Value::Matrix { rows: 1, cols, data }
+        Value::Matrix {
+            rows: 1,
+            cols,
+            data,
+        }
     }
 
     /// Creates a column vector (n×1 matrix)
     pub(crate) fn column_vector(data: Vec<Decimal>) -> Self {
         let rows = data.len();
-        Value::Matrix { rows, cols: 1, data }
+        Value::Matrix {
+            rows,
+            cols: 1,
+            data,
+        }
     }
 
     /// Transposes a matrix (swaps rows and cols)
@@ -90,7 +101,11 @@ impl Value {
     pub(crate) fn as_scalar(&self) -> Option<Decimal> {
         match self {
             Value::Scalar(d) => Some(*d),
-            Value::Matrix { rows: 1, cols: 1, data } => data.first().copied(),
+            Value::Matrix {
+                rows: 1,
+                cols: 1,
+                data,
+            } => data.first().copied(),
             _ => None,
         }
     }
@@ -104,55 +119,66 @@ impl Value {
 /// Represents different types of cell references
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum CellReference {
-    Scalar { row: usize, col: usize },  // A1, B2, etc.
-    ColumnVector { col: usize },         // A_, B_, etc.
-    RowVector { row: usize },            // _1, _2, etc.
+    Scalar {
+        row: usize,
+        col: usize,
+    }, // A1, B2, etc.
+    ColumnVector {
+        col: usize,
+    }, // A_, B_, etc.
+    RowVector {
+        row: usize,
+    }, // _1, _2, etc.
     Range {
         start_row: usize,
         start_col: usize,
         end_row: usize,
-        end_col: usize
-    },  // A1:C5, B2:B10, etc.
+        end_col: usize,
+    }, // A1:C5, B2:B10, etc.
     ColumnRange {
         start_col: usize,
-        end_col: usize
-    },  // A_:C_ (all rows, columns A through C)
+        end_col: usize,
+    }, // A_:C_ (all rows, columns A through C)
     RowRange {
         start_row: usize,
-        end_row: usize
-    },  // _1:_5 (all columns, rows 1 through 5)
+        end_row: usize,
+    }, // _1:_5 (all columns, rows 1 through 5)
 }
 
 /// Represents the left side of a formula assignment
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Assignment {
-    Scalar { row: usize, col: usize },   // D2 = ...
-    ColumnVector { col: usize },         // D_ = ...
-    RowVector { row: usize },            // _1 = ...
+    Scalar {
+        row: usize,
+        col: usize,
+    }, // D2 = ...
+    ColumnVector {
+        col: usize,
+    }, // D_ = ...
+    RowVector {
+        row: usize,
+    }, // _1 = ...
     Range {
         start_row: usize,
         start_col: usize,
         end_row: usize,
-        end_col: usize
-    },  // A1:C3 = ...
+        end_col: usize,
+    }, // A1:C3 = ...
     ColumnRange {
         start_col: usize,
-        end_col: usize
-    },  // A_:C_ = ...
+        end_col: usize,
+    }, // A_:C_ = ...
     RowRange {
         start_row: usize,
-        end_row: usize
-    },  // _1:_5 = ...
+        end_row: usize,
+    }, // _1:_5 = ...
 }
 
 /// Represents a statement in a formula - either a variable definition or an assignment
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Statement {
     /// Variable definition: let x = expression
-    Let {
-        name: String,
-        span: Span,
-    },
+    Let { name: String, span: Span },
     /// Cell assignment: A1 = expression
     Assignment(Assignment),
 }

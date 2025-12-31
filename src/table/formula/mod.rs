@@ -54,27 +54,32 @@
 //! ```
 
 // Internal modules
-mod types;
 mod ast;
 mod evaluator;
 mod reference;
 mod tokenizer;
+mod types;
 
 // Re-export Span for use in error messages and public API
 pub use types::Span;
 
 // Internal imports
-use types::{Value, Assignment, Statement};
 use crate::table::error::FormulaError;
-use types::{FIRST_DATA_ROW_INDEX, formula_row_to_table_index};
-use std::collections::HashMap;
 use ast::Parser;
+use std::collections::HashMap;
 use tokenizer::tokenize_expression;
+use types::{formula_row_to_table_index, FIRST_DATA_ROW_INDEX};
+use types::{Assignment, Statement, Value};
 
 /// Applies a column vector of values to a table column
 /// Starts at first data row (after header and separator)
 fn apply_column_vector_assignment(rows: &mut [Vec<String>], col: usize, value: &Value) {
-    if let Value::Matrix { rows: _n_rows, cols: 1, data } = value {
+    if let Value::Matrix {
+        rows: _n_rows,
+        cols: 1,
+        data,
+    } = value
+    {
         for (i, &val) in data.iter().enumerate() {
             let row_idx = FIRST_DATA_ROW_INDEX + i;
             if row_idx < rows.len() && col < rows[row_idx].len() {
@@ -86,7 +91,12 @@ fn apply_column_vector_assignment(rows: &mut [Vec<String>], col: usize, value: &
 
 /// Applies a row vector of values to a table row
 fn apply_row_vector_assignment(rows: &mut [Vec<String>], row: usize, value: &Value) {
-    if let Value::Matrix { rows: 1, cols: _n_cols, data } = value {
+    if let Value::Matrix {
+        rows: 1,
+        cols: _n_cols,
+        data,
+    } = value
+    {
         for (i, &val) in data.iter().enumerate() {
             if row < rows.len() && i < rows[row].len() {
                 rows[row][i] = val.to_string();
@@ -102,9 +112,14 @@ fn apply_range_assignment(
     start_col: usize,
     end_row: usize,
     end_col: usize,
-    value: &Value
+    value: &Value,
 ) {
-    if let Value::Matrix { rows: num_rows, cols: num_cols, data } = value {
+    if let Value::Matrix {
+        rows: num_rows,
+        cols: num_cols,
+        data,
+    } = value
+    {
         let expected_rows = end_row - start_row + 1;
         let expected_cols = end_col - start_col + 1;
 
@@ -132,9 +147,14 @@ fn apply_column_range_assignment(
     rows: &mut [Vec<String>],
     start_col: usize,
     end_col: usize,
-    value: &Value
+    value: &Value,
 ) {
-    if let Value::Matrix { rows: num_rows, cols: num_cols, data } = value {
+    if let Value::Matrix {
+        rows: num_rows,
+        cols: num_cols,
+        data,
+    } = value
+    {
         let expected_cols = end_col - start_col + 1;
 
         // Check column dimension match
@@ -161,9 +181,14 @@ fn apply_row_range_assignment(
     rows: &mut [Vec<String>],
     start_row: usize,
     end_row: usize,
-    value: &Value
+    value: &Value,
 ) {
-    if let Value::Matrix { rows: num_rows, cols: num_cols, data } = value {
+    if let Value::Matrix {
+        rows: num_rows,
+        cols: num_cols,
+        data,
+    } = value
+    {
         let expected_rows = end_row - start_row + 1;
 
         // Check row dimension match
@@ -201,7 +226,7 @@ fn apply_row_range_assignment(
 pub fn apply_formulas_with_tables(
     rows: &mut Vec<Vec<String>>,
     formulas: &[String],
-    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>
+    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>,
 ) -> Vec<Option<String>> {
     let mut errors = Vec::new();
     let mut variable_map: HashMap<String, Value> = HashMap::new();
@@ -221,16 +246,28 @@ pub fn apply_formulas_with_tables(
         // Handle let statements - evaluate and store in variable map
         if let Statement::Let { name, span: _ } = &statement {
             // Try to evaluate the expression
-            let value = match evaluate_expression_value_with_tables(&expr, rows, table_map, &variable_map) {
+            let value = match evaluate_expression_value_with_tables(
+                &expr,
+                rows,
+                table_map,
+                &variable_map,
+            ) {
                 Ok(v) => v,
                 Err(error) => {
                     // Try to extract span information for better error messages
                     let error_msg = match extract_error_span(&expr, &error) {
                         Some(span) => {
-                            format!("Failed to evaluate expression for variable '{}': \n{}", name, error.with_context(&expr, span))
+                            format!(
+                                "Failed to evaluate expression for variable '{}': \n{}",
+                                name,
+                                error.with_context(&expr, span)
+                            )
                         }
                         None => {
-                            format!("Failed to evaluate expression for variable '{}': {}", name, error)
+                            format!(
+                                "Failed to evaluate expression for variable '{}': {}",
+                                name, error
+                            )
                         }
                     };
                     errors.push(Some(error_msg));
@@ -251,24 +288,28 @@ pub fn apply_formulas_with_tables(
         };
 
         // Try to evaluate the expression (with table_map and variable_map)
-        let value = match evaluate_expression_value_with_tables(&expr, rows, table_map, &variable_map) {
-            Ok(v) => v,
-            Err(error) => {
-                // Try to extract span information by re-parsing for better error messages
-                let error_msg = match extract_error_span(&expr, &error) {
-                    Some(span) => {
-                        // Use with_context to show visual position indicator
-                        format!("Failed to evaluate expression:\n{}", error.with_context(&expr, span))
-                    }
-                    None => {
-                        // Fallback to simple error message
-                        format!("Failed to evaluate expression '{}': {}", expr, error)
-                    }
-                };
-                errors.push(Some(error_msg));
-                continue;
-            }
-        };
+        let value =
+            match evaluate_expression_value_with_tables(&expr, rows, table_map, &variable_map) {
+                Ok(v) => v,
+                Err(error) => {
+                    // Try to extract span information by re-parsing for better error messages
+                    let error_msg = match extract_error_span(&expr, &error) {
+                        Some(span) => {
+                            // Use with_context to show visual position indicator
+                            format!(
+                                "Failed to evaluate expression:\n{}",
+                                error.with_context(&expr, span)
+                            )
+                        }
+                        None => {
+                            // Fallback to simple error message
+                            format!("Failed to evaluate expression '{}': {}", expr, error)
+                        }
+                    };
+                    errors.push(Some(error_msg));
+                    continue;
+                }
+            };
 
         // Try to apply the assignment
         let error = match assignment {
@@ -291,11 +332,16 @@ pub fn apply_formulas_with_tables(
             Assignment::ColumnVector { col } => {
                 // Column vector assignment: update entire column
                 if !value.is_column_vector() {
-                    Some(format!("Assignment failed for '{}': expected column vector but got {} result",
+                    Some(format!(
+                        "Assignment failed for '{}': expected column vector but got {} result",
                         formula_trimmed,
                         match value {
                             Value::Scalar(_) => "scalar",
-                            Value::Matrix { rows: num_rows, cols: _, .. } => {
+                            Value::Matrix {
+                                rows: num_rows,
+                                cols: _,
+                                ..
+                            } => {
                                 if num_rows == 1 {
                                     "row vector"
                                 } else {
@@ -305,10 +351,13 @@ pub fn apply_formulas_with_tables(
                         }
                     ))
                 } else if col >= rows.first().map(|r| r.len()).unwrap_or(0) {
-                    Some(format!("Assignment failed for '{}': column index out of bounds", formula_trimmed))
+                    Some(format!(
+                        "Assignment failed for '{}': column index out of bounds",
+                        formula_trimmed
+                    ))
                 } else {
                     apply_column_vector_assignment(rows, col, &value);
-                    None  // Success
+                    None // Success
                 }
             }
             Assignment::RowVector { row } => {
@@ -331,7 +380,12 @@ pub fn apply_formulas_with_tables(
                     }
                 }
             }
-            Assignment::Range { start_row, start_col, end_row, end_col } => {
+            Assignment::Range {
+                start_row,
+                start_col,
+                end_row,
+                end_col,
+            } => {
                 // Range assignment: update rectangular region
                 match value {
                     Value::Matrix { rows: num_rows, cols: num_cols, .. } => {
@@ -426,18 +480,29 @@ fn parse_assignment(target: &str) -> Option<Assignment> {
 
         // Match the type of range based on start and end references
         match (start_ref, end_ref) {
-            (CellReference::Scalar { row: start_row, col: start_col },
-             CellReference::Scalar { row: end_row, col: end_col }) => {
-                Some(Assignment::Range { start_row, start_col, end_row, end_col })
-            }
-            (CellReference::ColumnVector { col: start_col },
-             CellReference::ColumnVector { col: end_col }) => {
-                Some(Assignment::ColumnRange { start_col, end_col })
-            }
-            (CellReference::RowVector { row: start_row },
-             CellReference::RowVector { row: end_row }) => {
-                Some(Assignment::RowRange { start_row, end_row })
-            }
+            (
+                CellReference::Scalar {
+                    row: start_row,
+                    col: start_col,
+                },
+                CellReference::Scalar {
+                    row: end_row,
+                    col: end_col,
+                },
+            ) => Some(Assignment::Range {
+                start_row,
+                start_col,
+                end_row,
+                end_col,
+            }),
+            (
+                CellReference::ColumnVector { col: start_col },
+                CellReference::ColumnVector { col: end_col },
+            ) => Some(Assignment::ColumnRange { start_col, end_col }),
+            (
+                CellReference::RowVector { row: start_row },
+                CellReference::RowVector { row: end_row },
+            ) => Some(Assignment::RowRange { start_row, end_row }),
             _ => None, // Mixed types not allowed
         }
     } else {
@@ -446,20 +511,13 @@ fn parse_assignment(target: &str) -> Option<Assignment> {
 
         // Convert CellReference to Assignment
         match cell_ref {
-            CellReference::Scalar { row, col } => {
-                Some(Assignment::Scalar { row, col })
-            }
-            CellReference::ColumnVector { col } => {
-                Some(Assignment::ColumnVector { col })
-            }
-            CellReference::RowVector { row } => {
-                Some(Assignment::RowVector { row })
-            }
+            CellReference::Scalar { row, col } => Some(Assignment::Scalar { row, col }),
+            CellReference::ColumnVector { col } => Some(Assignment::ColumnVector { col }),
+            CellReference::RowVector { row } => Some(Assignment::RowVector { row }),
             _ => None, // Ranges should have been caught above
         }
     }
 }
-
 
 /// Parses a formula like "A1 = B1 + C1" into (assignment, expression) - test helper
 #[cfg(test)]
@@ -486,10 +544,9 @@ fn parse_statement(formula: &str) -> Option<(Statement, String)> {
     let formula = formula.trim();
 
     // Check if this is a let statement
-    if formula.starts_with("let ") {
+    if let Some(rest) = formula.strip_prefix("let ") {
         // Parse: let variable = expression
-        let rest = formula[4..].trim(); // Skip "let "
-        let parts: Vec<&str> = rest.splitn(2, '=').collect();
+        let parts: Vec<&str> = rest.trim().splitn(2, '=').collect();
 
         if parts.len() != 2 {
             return None; // Invalid let syntax
@@ -516,7 +573,10 @@ fn parse_statement(formula: &str) -> Option<(Statement, String)> {
         let parts: Vec<&str> = formula.split('=').collect();
         if parts.len() == 2 {
             let assignment = parse_assignment(parts[0])?;
-            Some((Statement::assignment(assignment), parts[1].trim().to_string()))
+            Some((
+                Statement::assignment(assignment),
+                parts[1].trim().to_string(),
+            ))
         } else {
             None
         }
@@ -539,37 +599,25 @@ fn extract_error_span(expr: &str, error: &FormulaError) -> Option<Span> {
         }
         FormulaError::InvalidToken { token, .. } => {
             // Try to find the token in the expression
-            if let Some(pos) = expr.find(token.as_str()) {
-                Some(Span::new(pos, pos + token.len()))
-            } else {
-                None
-            }
+            expr.find(token.as_str())
+                .map(|pos| Span::new(pos, pos + token.len()))
         }
-        FormulaError::CellOutOfBounds { cell, .. } |
-        FormulaError::ColumnOutOfBounds { column: cell, .. } => {
+        FormulaError::CellOutOfBounds { cell, .. }
+        | FormulaError::ColumnOutOfBounds { column: cell, .. } => {
             // Try to find the cell reference in the expression
-            if let Some(pos) = expr.find(cell.as_str()) {
-                Some(Span::new(pos, pos + cell.len()))
-            } else {
-                None
-            }
+            expr.find(cell.as_str())
+                .map(|pos| Span::new(pos, pos + cell.len()))
         }
         FormulaError::RowOutOfBounds { row, .. } => {
             // Try to find the row reference pattern (e.g., "_1", "_2")
             let row_ref = format!("_{}", row);
-            if let Some(pos) = expr.find(&row_ref) {
-                Some(Span::new(pos, pos + row_ref.len()))
-            } else {
-                None
-            }
+            expr.find(&row_ref)
+                .map(|pos| Span::new(pos, pos + row_ref.len()))
         }
         FormulaError::UnknownFunction { name, .. } => {
             // Try to find the function name in the expression
-            if let Some(pos) = expr.find(name.as_str()) {
-                Some(Span::new(pos, pos + name.len()))
-            } else {
-                None
-            }
+            expr.find(name.as_str())
+                .map(|pos| Span::new(pos, pos + name.len()))
         }
         FormulaError::RuntimeError(msg) => {
             // For runtime errors, try to extract span from common patterns
@@ -626,12 +674,11 @@ fn extract_error_span(expr: &str, error: &FormulaError) -> Option<Span> {
 /// * `Ok(Value::Scalar)` for scalar results
 /// * `Ok(Value::Matrix)` for matrix/vector results
 /// * `Err(String)` with specific error message if evaluation fails
-/// Evaluate an expression with access to other tables
 fn evaluate_expression_value_with_tables(
     expr: &str,
     rows: &Vec<Vec<String>>,
     table_map: &std::collections::HashMap<String, Vec<Vec<String>>>,
-    variable_map: &HashMap<String, Value>
+    variable_map: &HashMap<String, Value>,
 ) -> Result<Value, FormulaError> {
     // Step 1: Tokenize the expression
     let tokens = tokenize_expression(expr);
@@ -643,7 +690,6 @@ fn evaluate_expression_value_with_tables(
     // Step 3: Evaluate the AST with table_map and variable_map support
     evaluator::eval_ast_with_tables(&ast, rows, table_map, variable_map)
 }
-
 
 /// Evaluate an expression - test helper (no cross-table refs or variables)
 #[cfg(test)]
@@ -699,7 +745,10 @@ mod tests {
             parse_cell_reference("Z_"),
             Some(CellReference::ColumnVector { col: 25 })
         );
-        assert_eq!(parse_cell_reference("a_"), Some(CellReference::ColumnVector { col: 0 })); // lowercase
+        assert_eq!(
+            parse_cell_reference("a_"),
+            Some(CellReference::ColumnVector { col: 0 })
+        ); // lowercase
     }
 
     #[test]
@@ -772,7 +821,7 @@ mod tests {
         assert_eq!(
             result,
             Ok(Value::row_vector(vec![
-                Decimal::ZERO,  // "Values" is non-numeric, treated as 0
+                Decimal::ZERO, // "Values" is non-numeric, treated as 0
                 Decimal::from(10),
                 Decimal::from(20)
             ]))
@@ -786,8 +835,8 @@ mod tests {
             vec!["Col".to_string()],
             vec!["---".to_string()],
             vec!["10".to_string()],
-            vec!["".to_string()],  // empty
-            vec!["text".to_string()],  // non-numeric
+            vec!["".to_string()],     // empty
+            vec!["text".to_string()], // non-numeric
             vec!["30".to_string()],
         ];
 
@@ -798,8 +847,8 @@ mod tests {
             result,
             Ok(Value::column_vector(vec![
                 Decimal::from(10),
-                Decimal::ZERO,  // empty treated as 0
-                Decimal::ZERO,  // non-numeric treated as 0
+                Decimal::ZERO, // empty treated as 0
+                Decimal::ZERO, // non-numeric treated as 0
                 Decimal::from(30)
             ]))
         );
@@ -810,7 +859,8 @@ mod tests {
         use evaluator::evaluate_operation;
         // Column vector + Column vector
         let left = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
-        let right = Value::column_vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
+        let right =
+            Value::column_vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
 
         let result = evaluate_operation('+', left, right);
 
@@ -916,10 +966,7 @@ mod tests {
     #[test]
     fn test_power_precedence() {
         // Test: 2 * 3^2 = 2 * 9 = 18
-        let rows = vec![
-            vec!["A".to_string()],
-            vec!["---".to_string()],
-        ];
+        let rows = vec![vec!["A".to_string()], vec!["---".to_string()]];
 
         let result = evaluate_expression_value("2 * 3 ^ 2", &rows);
 
@@ -929,10 +976,7 @@ mod tests {
     #[test]
     fn test_power_in_expression() {
         // Test: (2+3)^2 = 5^2 = 25
-        let rows = vec![
-            vec!["A".to_string()],
-            vec!["---".to_string()],
-        ];
+        let rows = vec![vec!["A".to_string()], vec!["---".to_string()]];
 
         let result = evaluate_expression_value("( 2 + 3 ) ^ 2", &rows);
 
@@ -951,8 +995,8 @@ mod tests {
         let formulas = vec!["C_ = A_ + B_".to_string()];
         apply_formulas(&mut rows, &formulas);
 
-        assert_eq!(rows[2][2], "3");  // 1 + 2
-        assert_eq!(rows[3][2], "7");  // 3 + 4
+        assert_eq!(rows[2][2], "3"); // 1 + 2
+        assert_eq!(rows[3][2], "7"); // 3 + 4
     }
 
     #[test]
@@ -967,8 +1011,8 @@ mod tests {
         let formulas = vec!["B_ = A_ * 0.5".to_string()];
         apply_formulas(&mut rows, &formulas);
 
-        assert_eq!(rows[2][1], "5.0");   // 10 * 0.5
-        assert_eq!(rows[3][1], "10.0");  // 20 * 0.5
+        assert_eq!(rows[2][1], "5.0"); // 10 * 0.5
+        assert_eq!(rows[3][1], "10.0"); // 20 * 0.5
     }
 
     #[test]
@@ -984,7 +1028,7 @@ mod tests {
         let formulas = vec!["B1 = sum(A_)".to_string()];
         apply_formulas(&mut rows, &formulas);
 
-        assert_eq!(rows[2][1], "60");  // 10 + 20 + 30
+        assert_eq!(rows[2][1], "60"); // 10 + 20 + 30
     }
 
     #[test]
@@ -1001,7 +1045,7 @@ mod tests {
         let formulas = vec!["B1 = sum(A_ * 2)".to_string()];
         apply_formulas(&mut rows, &formulas);
 
-        assert_eq!(rows[2][1], "12");  // (1+2+3) * 2 = 6 * 2 = 12
+        assert_eq!(rows[2][1], "12"); // (1+2+3) * 2 = 6 * 2 = 12
     }
 
     #[test]
@@ -1016,7 +1060,7 @@ mod tests {
         let formulas = vec!["C1 = A1 + B1".to_string()];
         apply_formulas(&mut rows, &formulas);
 
-        assert_eq!(rows[2][2], "15");  // 5 + 10
+        assert_eq!(rows[2][2], "15"); // 5 + 10
     }
 
     // Matrix multiplication tests
@@ -1085,7 +1129,8 @@ mod tests {
         use evaluator::evaluate_operation;
         // Column @ Column is invalid: (3×1) @ (3×1) - inner dimensions don't match
         let left = Value::column_vector(vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)]);
-        let right = Value::column_vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
+        let right =
+            Value::column_vector(vec![Decimal::from(4), Decimal::from(5), Decimal::from(6)]);
 
         let result = evaluate_operation('@', left, right);
 
@@ -1153,10 +1198,7 @@ mod tests {
     fn test_matrix_mult_precedence() {
         // Test that @ has same precedence as *
         // 2 + 3 @ 4 should fail because 3 and 4 are scalars, not vectors
-        let rows = vec![
-            vec!["A".to_string()],
-            vec!["---".to_string()],
-        ];
+        let rows = vec![vec!["A".to_string()], vec!["---".to_string()]];
 
         let result = evaluate_expression_value("2 + 3 @ 4", &rows);
 
@@ -1190,7 +1232,10 @@ mod tests {
 
         assert_eq!(
             result,
-            Some(Value::column_vector(vec![Decimal::from(4), Decimal::from(5)]))
+            Some(Value::column_vector(vec![
+                Decimal::from(4),
+                Decimal::from(5)
+            ]))
         );
     }
 
@@ -1240,17 +1285,14 @@ mod tests {
         // Then: C1 = _1 @ A_ (row dot column = 30)
         // _1 = [1, 2, 3] after first formula, A_ = [1, 4, 7]
         // _1 @ A_ = 1*1 + 2*4 + 3*7 = 1 + 8 + 21 = 30
-        let formulas = vec![
-            "C_ = A_ + B_".to_string(),
-            "C1 = _1 @ A_".to_string(),
-        ];
+        let formulas = vec!["C_ = A_ + B_".to_string(), "C1 = _1 @ A_".to_string()];
         apply_formulas(&mut rows, &formulas);
 
         // After C_ = A_ + B_: C1=3, C2=9, C3=15
         // After C1 = _1 @ A_: C1=30 (overwrites 3)
-        assert_eq!(rows[2][2], "30");  // C1
-        assert_eq!(rows[3][2], "9");   // C2
-        assert_eq!(rows[4][2], "15");  // C3
+        assert_eq!(rows[2][2], "30"); // C1
+        assert_eq!(rows[3][2], "9"); // C2
+        assert_eq!(rows[4][2], "15"); // C3
     }
 
     #[test]
@@ -1264,7 +1306,11 @@ mod tests {
         let result = evaluate_operation('@', row, col);
 
         match result {
-            Ok(Value::Matrix { rows: 1, cols: 1, data }) => {
+            Ok(Value::Matrix {
+                rows: 1,
+                cols: 1,
+                data,
+            }) => {
                 assert_eq!(data.len(), 1);
                 assert_eq!(data[0], Decimal::from(32));
             }
@@ -1293,7 +1339,11 @@ mod tests {
     #[test]
     fn test_avg_vector() {
         use evaluator::eval_function;
-        let vec = Value::column_vector(vec![Decimal::from(10), Decimal::from(20), Decimal::from(30)]);
+        let vec = Value::column_vector(vec![
+            Decimal::from(10),
+            Decimal::from(20),
+            Decimal::from(30),
+        ]);
         let result = eval_function("avg", vec);
 
         assert_eq!(result, Ok(Value::Scalar(Decimal::from(20))));
@@ -1324,7 +1374,12 @@ mod tests {
         let matrix = Value::Matrix {
             rows: 2,
             cols: 2,
-            data: vec![Decimal::from(1), Decimal::from(2), Decimal::from(3), Decimal::from(4)],
+            data: vec![
+                Decimal::from(1),
+                Decimal::from(2),
+                Decimal::from(3),
+                Decimal::from(4),
+            ],
         };
         let result = eval_function("avg", matrix);
 
@@ -1337,7 +1392,11 @@ mod tests {
     #[test]
     fn test_min_vector() {
         use evaluator::eval_function;
-        let vec = Value::column_vector(vec![Decimal::from(30), Decimal::from(10), Decimal::from(20)]);
+        let vec = Value::column_vector(vec![
+            Decimal::from(30),
+            Decimal::from(10),
+            Decimal::from(20),
+        ]);
         let result = eval_function("min", vec);
 
         assert_eq!(result, Ok(Value::Scalar(Decimal::from(10))));
@@ -1364,7 +1423,8 @@ mod tests {
     #[test]
     fn test_min_with_negatives() {
         use evaluator::eval_function;
-        let vec = Value::column_vector(vec![Decimal::from(5), Decimal::from(-3), Decimal::from(10)]);
+        let vec =
+            Value::column_vector(vec![Decimal::from(5), Decimal::from(-3), Decimal::from(10)]);
         let result = eval_function("min", vec);
 
         assert_eq!(result, Ok(Value::Scalar(Decimal::from(-3))));
@@ -1375,7 +1435,11 @@ mod tests {
     #[test]
     fn test_max_vector() {
         use evaluator::eval_function;
-        let vec = Value::column_vector(vec![Decimal::from(30), Decimal::from(10), Decimal::from(20)]);
+        let vec = Value::column_vector(vec![
+            Decimal::from(30),
+            Decimal::from(10),
+            Decimal::from(20),
+        ]);
         let result = eval_function("max", vec);
 
         assert_eq!(result, Ok(Value::Scalar(Decimal::from(30))));
@@ -1402,7 +1466,11 @@ mod tests {
     #[test]
     fn test_max_with_negatives() {
         use evaluator::eval_function;
-        let vec = Value::column_vector(vec![Decimal::from(-5), Decimal::from(-3), Decimal::from(-10)]);
+        let vec = Value::column_vector(vec![
+            Decimal::from(-5),
+            Decimal::from(-3),
+            Decimal::from(-10),
+        ]);
         let result = eval_function("max", vec);
 
         assert_eq!(result, Ok(Value::Scalar(Decimal::from(-3))));
@@ -1413,7 +1481,11 @@ mod tests {
     #[test]
     fn test_count_vector() {
         use evaluator::eval_function;
-        let vec = Value::column_vector(vec![Decimal::from(10), Decimal::from(20), Decimal::from(30)]);
+        let vec = Value::column_vector(vec![
+            Decimal::from(10),
+            Decimal::from(20),
+            Decimal::from(30),
+        ]);
         let result = eval_function("count", vec);
 
         assert_eq!(result, Ok(Value::Scalar(Decimal::from(3))));
@@ -1445,8 +1517,12 @@ mod tests {
             rows: 2,
             cols: 3,
             data: vec![
-                Decimal::from(1), Decimal::from(2), Decimal::from(3),
-                Decimal::from(4), Decimal::from(5), Decimal::from(6),
+                Decimal::from(1),
+                Decimal::from(2),
+                Decimal::from(3),
+                Decimal::from(4),
+                Decimal::from(5),
+                Decimal::from(6),
             ],
         };
         let result = eval_function("count", matrix);
@@ -1499,29 +1575,64 @@ mod tests {
     #[test]
     fn test_functions_in_formulas() {
         let mut rows = vec![
-            vec!["A".to_string(), "B".to_string(), "C".to_string(), "D".to_string(), "E".to_string(), "F".to_string()],
-            vec!["---".to_string(), "---".to_string(), "---".to_string(), "---".to_string(), "---".to_string(), "---".to_string()],
-            vec!["10".to_string(), "20".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
-            vec!["30".to_string(), "40".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
-            vec!["50".to_string(), "60".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
+            vec![
+                "A".to_string(),
+                "B".to_string(),
+                "C".to_string(),
+                "D".to_string(),
+                "E".to_string(),
+                "F".to_string(),
+            ],
+            vec![
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+            ],
+            vec![
+                "10".to_string(),
+                "20".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+            ],
+            vec![
+                "30".to_string(),
+                "40".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+            ],
+            vec![
+                "50".to_string(),
+                "60".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+            ],
         ];
 
         let formulas = vec![
-            "C1 = avg(A_)".to_string(),      // avg([10, 30, 50]) = 30
-            "D1 = min(A_)".to_string(),      // min([10, 30, 50]) = 10
-            "E1 = max(B_)".to_string(),      // max([20, 40, 60]) = 60
-            "F1 = count(A_)".to_string(),    // count([10, 30, 50]) = 3
-            "C2 = prod(A_)".to_string(),     // prod([10, 30, 50]) = 15000
+            "C1 = avg(A_)".to_string(),   // avg([10, 30, 50]) = 30
+            "D1 = min(A_)".to_string(),   // min([10, 30, 50]) = 10
+            "E1 = max(B_)".to_string(),   // max([20, 40, 60]) = 60
+            "F1 = count(A_)".to_string(), // count([10, 30, 50]) = 3
+            "C2 = prod(A_)".to_string(),  // prod([10, 30, 50]) = 15000
         ];
 
         let errors = apply_formulas(&mut rows, &formulas);
         assert!(errors.iter().all(|e| e.is_none()));
 
-        assert_eq!(rows[2][2], "30");     // avg
-        assert_eq!(rows[2][3], "10");     // min
-        assert_eq!(rows[2][4], "60");     // max
-        assert_eq!(rows[2][5], "3");      // count
-        assert_eq!(rows[3][2], "15000");  // prod
+        assert_eq!(rows[2][2], "30"); // avg
+        assert_eq!(rows[2][3], "10"); // min
+        assert_eq!(rows[2][4], "60"); // max
+        assert_eq!(rows[2][5], "3"); // count
+        assert_eq!(rows[3][2], "15000"); // prod
     }
 
     // ========== Cell Range Tests ==========
@@ -1541,40 +1652,75 @@ mod tests {
         let errors = apply_formulas(&mut rows, &formulas);
         assert!(errors.iter().all(|e| e.is_none()));
 
-        assert_eq!(rows[2][1], "6");  // 1 + 2 + 3 = 6
+        assert_eq!(rows[2][1], "6"); // 1 + 2 + 3 = 6
     }
 
     #[test]
     fn test_range_single_row() {
         // A1:C1 should create a 1x3 row vector
         let mut rows = vec![
-            vec!["A".to_string(), "B".to_string(), "C".to_string(), "Result".to_string()],
-            vec!["---".to_string(), "---".to_string(), "---".to_string(), "---".to_string()],
-            vec!["5".to_string(), "10".to_string(), "15".to_string(), "0".to_string()],
+            vec![
+                "A".to_string(),
+                "B".to_string(),
+                "C".to_string(),
+                "Result".to_string(),
+            ],
+            vec![
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+            ],
+            vec![
+                "5".to_string(),
+                "10".to_string(),
+                "15".to_string(),
+                "0".to_string(),
+            ],
         ];
 
         let formulas = vec!["D1 = sum(A1:C1)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
         assert!(errors.iter().all(|e| e.is_none()));
 
-        assert_eq!(rows[2][3], "30");  // 5 + 10 + 15 = 30
+        assert_eq!(rows[2][3], "30"); // 5 + 10 + 15 = 30
     }
 
     #[test]
     fn test_range_matrix() {
         // A1:C2 should create a 2x3 matrix
         let mut rows = vec![
-            vec!["A".to_string(), "B".to_string(), "C".to_string(), "Result".to_string()],
-            vec!["---".to_string(), "---".to_string(), "---".to_string(), "---".to_string()],
-            vec!["1".to_string(), "2".to_string(), "3".to_string(), "0".to_string()],
-            vec!["4".to_string(), "5".to_string(), "6".to_string(), "0".to_string()],
+            vec![
+                "A".to_string(),
+                "B".to_string(),
+                "C".to_string(),
+                "Result".to_string(),
+            ],
+            vec![
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+            ],
+            vec![
+                "1".to_string(),
+                "2".to_string(),
+                "3".to_string(),
+                "0".to_string(),
+            ],
+            vec![
+                "4".to_string(),
+                "5".to_string(),
+                "6".to_string(),
+                "0".to_string(),
+            ],
         ];
 
         let formulas = vec!["D1 = sum(A1:C2)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
         assert!(errors.iter().all(|e| e.is_none()));
 
-        assert_eq!(rows[2][3], "21");  // 1+2+3+4+5+6 = 21
+        assert_eq!(rows[2][3], "21"); // 1+2+3+4+5+6 = 21
     }
 
     #[test]
@@ -1627,36 +1773,71 @@ mod tests {
         let errors = apply_formulas(&mut rows, &formulas);
         assert!(errors.iter().all(|e| e.is_none()));
 
-        assert_eq!(rows[2][1], "12");  // (1+2+3) * 2 = 12
+        assert_eq!(rows[2][1], "12"); // (1+2+3) * 2 = 12
     }
 
     #[test]
     fn test_range_all_functions() {
         // Test all functions with ranges
         let mut rows = vec![
-            vec!["A".to_string(), "B".to_string(), "C".to_string(), "D".to_string(), "E".to_string(), "F".to_string()],
-            vec!["---".to_string(), "---".to_string(), "---".to_string(), "---".to_string(), "---".to_string(), "---".to_string()],
-            vec!["10".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
-            vec!["20".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
-            vec!["30".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
+            vec![
+                "A".to_string(),
+                "B".to_string(),
+                "C".to_string(),
+                "D".to_string(),
+                "E".to_string(),
+                "F".to_string(),
+            ],
+            vec![
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+            ],
+            vec![
+                "10".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+            ],
+            vec![
+                "20".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+            ],
+            vec![
+                "30".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+            ],
         ];
 
         let formulas = vec![
-            "B1 = sum(A1:A3)".to_string(),    // 10+20+30 = 60
-            "C1 = avg(A1:A3)".to_string(),    // 60/3 = 20
-            "D1 = min(A1:A3)".to_string(),    // 10
-            "E1 = max(A1:A3)".to_string(),    // 30
-            "F1 = count(A1:A3)".to_string(),  // 3
+            "B1 = sum(A1:A3)".to_string(),   // 10+20+30 = 60
+            "C1 = avg(A1:A3)".to_string(),   // 60/3 = 20
+            "D1 = min(A1:A3)".to_string(),   // 10
+            "E1 = max(A1:A3)".to_string(),   // 30
+            "F1 = count(A1:A3)".to_string(), // 3
         ];
 
         let errors = apply_formulas(&mut rows, &formulas);
         assert!(errors.iter().all(|e| e.is_none()));
 
-        assert_eq!(rows[2][1], "60");  // sum
-        assert_eq!(rows[2][2], "20");  // avg
-        assert_eq!(rows[2][3], "10");  // min
-        assert_eq!(rows[2][4], "30");  // max
-        assert_eq!(rows[2][5], "3");   // count
+        assert_eq!(rows[2][1], "60"); // sum
+        assert_eq!(rows[2][2], "20"); // avg
+        assert_eq!(rows[2][3], "10"); // min
+        assert_eq!(rows[2][4], "30"); // max
+        assert_eq!(rows[2][5], "3"); // count
     }
 
     #[test]
@@ -1694,7 +1875,7 @@ mod tests {
         let errors = apply_formulas(&mut rows, &formulas);
         assert!(errors.iter().all(|e| e.is_none()));
 
-        assert_eq!(rows[2][1], "24");  // 2 * 3 * 4 = 24
+        assert_eq!(rows[2][1], "24"); // 2 * 3 * 4 = 24
     }
 
     #[test]
@@ -1723,7 +1904,7 @@ mod tests {
             vec!["A".to_string(), "B".to_string()],
             vec!["---".to_string(), "---".to_string()],
             vec!["1".to_string(), "0".to_string()],
-            vec!["".to_string(), "0".to_string()],  // empty
+            vec!["".to_string(), "0".to_string()], // empty
             vec!["3".to_string(), "0".to_string()],
         ];
 
@@ -1731,7 +1912,7 @@ mod tests {
         let errors = apply_formulas(&mut rows, &formulas);
         assert!(errors.iter().all(|e| e.is_none()));
 
-        assert_eq!(rows[2][1], "4");  // 1 + 0 + 3 = 4
+        assert_eq!(rows[2][1], "4"); // 1 + 0 + 3 = 4
     }
 
     // ========== Vector Range Tests (A_:C_, _1:_5) ==========
@@ -1740,11 +1921,36 @@ mod tests {
     fn test_column_range_basic() {
         // A_:C_ should extract all rows for columns A through C
         let mut rows = vec![
-            vec!["A".to_string(), "B".to_string(), "C".to_string(), "Sum".to_string()],
-            vec!["---".to_string(), "---".to_string(), "---".to_string(), "---".to_string()],
-            vec!["1".to_string(), "2".to_string(), "3".to_string(), "0".to_string()],
-            vec!["4".to_string(), "5".to_string(), "6".to_string(), "0".to_string()],
-            vec!["7".to_string(), "8".to_string(), "9".to_string(), "0".to_string()],
+            vec![
+                "A".to_string(),
+                "B".to_string(),
+                "C".to_string(),
+                "Sum".to_string(),
+            ],
+            vec![
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+            ],
+            vec![
+                "1".to_string(),
+                "2".to_string(),
+                "3".to_string(),
+                "0".to_string(),
+            ],
+            vec![
+                "4".to_string(),
+                "5".to_string(),
+                "6".to_string(),
+                "0".to_string(),
+            ],
+            vec![
+                "7".to_string(),
+                "8".to_string(),
+                "9".to_string(),
+                "0".to_string(),
+            ],
         ];
 
         // Sum of A_:C_ should be 1+2+3+4+5+6+7+8+9 = 45
@@ -1770,7 +1976,7 @@ mod tests {
         let errors = apply_formulas(&mut rows, &formulas);
         assert!(errors.iter().all(|e| e.is_none()));
 
-        assert_eq!(rows[2][1], "60");  // 10+20+30
+        assert_eq!(rows[2][1], "60"); // 10+20+30
     }
 
     #[test]
@@ -1795,28 +2001,60 @@ mod tests {
     #[test]
     fn test_column_range_all_functions() {
         let mut rows = vec![
-            vec!["A".to_string(), "B".to_string(), "S".to_string(), "Av".to_string(), "Mn".to_string(), "Mx".to_string(), "C".to_string()],
-            vec!["---".to_string(), "---".to_string(), "---".to_string(), "---".to_string(), "---".to_string(), "---".to_string(), "---".to_string()],
-            vec!["10".to_string(), "20".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
-            vec!["30".to_string(), "40".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string(), "0".to_string()],
+            vec![
+                "A".to_string(),
+                "B".to_string(),
+                "S".to_string(),
+                "Av".to_string(),
+                "Mn".to_string(),
+                "Mx".to_string(),
+                "C".to_string(),
+            ],
+            vec![
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+            ],
+            vec![
+                "10".to_string(),
+                "20".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+            ],
+            vec![
+                "30".to_string(),
+                "40".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+            ],
         ];
 
         let formulas = vec![
-            "C1 = sum(A_:B_)".to_string(),    // 10+20+30+40 = 100
-            "D1 = avg(A_:B_)".to_string(),    // 100/4 = 25
-            "E1 = min(A_:B_)".to_string(),    // 10
-            "F1 = max(A_:B_)".to_string(),    // 40
-            "G1 = count(A_:B_)".to_string(),  // 4
+            "C1 = sum(A_:B_)".to_string(),   // 10+20+30+40 = 100
+            "D1 = avg(A_:B_)".to_string(),   // 100/4 = 25
+            "E1 = min(A_:B_)".to_string(),   // 10
+            "F1 = max(A_:B_)".to_string(),   // 40
+            "G1 = count(A_:B_)".to_string(), // 4
         ];
 
         let errors = apply_formulas(&mut rows, &formulas);
         assert!(errors.iter().all(|e| e.is_none()));
 
-        assert_eq!(rows[2][2], "100");  // sum
-        assert_eq!(rows[2][3], "25");   // avg
-        assert_eq!(rows[2][4], "10");   // min
-        assert_eq!(rows[2][5], "40");   // max
-        assert_eq!(rows[2][6], "4");    // count
+        assert_eq!(rows[2][2], "100"); // sum
+        assert_eq!(rows[2][3], "25"); // avg
+        assert_eq!(rows[2][4], "10"); // min
+        assert_eq!(rows[2][5], "40"); // max
+        assert_eq!(rows[2][6], "4"); // count
     }
 
     #[test]
@@ -1853,7 +2091,7 @@ mod tests {
         let errors = apply_formulas(&mut rows, &formulas);
         assert!(errors.iter().all(|e| e.is_none()));
 
-        assert_eq!(rows[3][0], "30");  // 5+10+15
+        assert_eq!(rows[3][0], "30"); // 5+10+15
     }
 
     #[test]
@@ -1888,21 +2126,21 @@ mod tests {
         ];
 
         let formulas = vec![
-            "A3 = sum(_1:_2)".to_string(),    // 10+20+30+40 = 100
-            "B3 = avg(_1:_2)".to_string(),    // 100/4 = 25
-            "A4 = min(_1:_2)".to_string(),    // 10
-            "B4 = max(_1:_2)".to_string(),    // 40
-            "A5 = count(_1:_2)".to_string(),  // 4
+            "A3 = sum(_1:_2)".to_string(),   // 10+20+30+40 = 100
+            "B3 = avg(_1:_2)".to_string(),   // 100/4 = 25
+            "A4 = min(_1:_2)".to_string(),   // 10
+            "B4 = max(_1:_2)".to_string(),   // 40
+            "A5 = count(_1:_2)".to_string(), // 4
         ];
 
         let errors = apply_formulas(&mut rows, &formulas);
         assert!(errors.iter().all(|e| e.is_none()));
 
-        assert_eq!(rows[4][0], "100");  // sum
-        assert_eq!(rows[4][1], "25");   // avg
-        assert_eq!(rows[5][0], "10");   // min
-        assert_eq!(rows[5][1], "40");   // max
-        assert_eq!(rows[6][0], "4");    // count
+        assert_eq!(rows[4][0], "100"); // sum
+        assert_eq!(rows[4][1], "25"); // avg
+        assert_eq!(rows[5][0], "10"); // min
+        assert_eq!(rows[5][1], "40"); // max
+        assert_eq!(rows[6][0], "4"); // count
     }
 
     #[test]
@@ -1925,11 +2163,36 @@ mod tests {
     fn test_column_range_equivalence_to_individual_columns() {
         // A_:B_ should give same result as combining A_ and B_
         let mut rows = vec![
-            vec!["A".to_string(), "B".to_string(), "R1".to_string(), "R2".to_string()],
-            vec!["---".to_string(), "---".to_string(), "---".to_string(), "---".to_string()],
-            vec!["1".to_string(), "2".to_string(), "0".to_string(), "0".to_string()],
-            vec!["3".to_string(), "4".to_string(), "0".to_string(), "0".to_string()],
-            vec!["5".to_string(), "6".to_string(), "0".to_string(), "0".to_string()],
+            vec![
+                "A".to_string(),
+                "B".to_string(),
+                "R1".to_string(),
+                "R2".to_string(),
+            ],
+            vec![
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+                "---".to_string(),
+            ],
+            vec![
+                "1".to_string(),
+                "2".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+            ],
+            vec![
+                "3".to_string(),
+                "4".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+            ],
+            vec![
+                "5".to_string(),
+                "6".to_string(),
+                "0".to_string(),
+                "0".to_string(),
+            ],
         ];
 
         let formulas = vec![
@@ -1942,7 +2205,7 @@ mod tests {
 
         // Both should give the same result
         assert_eq!(rows[2][2], rows[2][3]);
-        assert_eq!(rows[2][2], "21");  // 1+2+3+4+5+6
+        assert_eq!(rows[2][2], "21"); // 1+2+3+4+5+6
     }
 
     #[test]
@@ -1967,14 +2230,14 @@ mod tests {
 
         // Both should give the same result
         assert_eq!(rows[4][0], rows[4][1]);
-        assert_eq!(rows[4][0], "21");  // 1+2+3+4+5+6
+        assert_eq!(rows[4][0], "21"); // 1+2+3+4+5+6
     }
 
     #[test]
     fn test_column_range_matrix_shape() {
         // Verify that A_:C_ creates the correct matrix dimensions
-        use evaluator::eval_ast;
         use ast::Parser;
+        use evaluator::eval_ast;
         use tokenizer::tokenize_expression;
 
         let rows = vec![
@@ -1991,7 +2254,11 @@ mod tests {
 
         // Should be a 2x3 matrix (2 data rows, 3 columns)
         match result {
-            Value::Matrix { rows: r, cols: c, data } => {
+            Value::Matrix {
+                rows: r,
+                cols: c,
+                data,
+            } => {
                 assert_eq!(r, 2);
                 assert_eq!(c, 3);
                 assert_eq!(data.len(), 6);
@@ -2003,8 +2270,8 @@ mod tests {
     #[test]
     fn test_row_range_matrix_shape() {
         // Verify that _1:_2 creates the correct matrix dimensions
-        use evaluator::eval_ast;
         use ast::Parser;
+        use evaluator::eval_ast;
         use tokenizer::tokenize_expression;
 
         let rows = vec![
@@ -2021,7 +2288,11 @@ mod tests {
 
         // Should be a 2x3 matrix (2 rows, 3 columns)
         match result {
-            Value::Matrix { rows: r, cols: c, data } => {
+            Value::Matrix {
+                rows: r,
+                cols: c,
+                data,
+            } => {
                 assert_eq!(r, 2);
                 assert_eq!(c, 3);
                 assert_eq!(data.len(), 6);
@@ -2037,19 +2308,37 @@ mod tests {
         // Valid let statement with scalar
         assert_eq!(
             parse_statement("let x = 5"),
-            Some((Statement::Let { name: "x".to_string(), span: Span::new(0, 9) }, "5".to_string()))
+            Some((
+                Statement::Let {
+                    name: "x".to_string(),
+                    span: Span::new(0, 9)
+                },
+                "5".to_string()
+            ))
         );
 
         // Valid let statement with expression
         assert_eq!(
             parse_statement("let result = A1 + B1"),
-            Some((Statement::Let { name: "result".to_string(), span: Span::new(0, 20) }, "A1 + B1".to_string()))
+            Some((
+                Statement::Let {
+                    name: "result".to_string(),
+                    span: Span::new(0, 20)
+                },
+                "A1 + B1".to_string()
+            ))
         );
 
         // Valid let statement with vector
         assert_eq!(
             parse_statement("let col = A_"),
-            Some((Statement::Let { name: "col".to_string(), span: Span::new(0, 12) }, "A_".to_string()))
+            Some((
+                Statement::Let {
+                    name: "col".to_string(),
+                    span: Span::new(0, 12)
+                },
+                "A_".to_string()
+            ))
         );
     }
 
@@ -2075,10 +2364,7 @@ mod tests {
             vec!["5".to_string(), "10".to_string(), "0".to_string()],
         ];
 
-        let formulas = vec![
-            "let x = 15".to_string(),
-            "C1 = x".to_string(),
-        ];
+        let formulas = vec!["let x = 15".to_string(), "C1 = x".to_string()];
 
         let errors = apply_formulas(&mut rows, &formulas);
         assert_eq!(errors, vec![None, None]);
@@ -2093,10 +2379,7 @@ mod tests {
             vec!["5".to_string(), "10".to_string(), "0".to_string()],
         ];
 
-        let formulas = vec![
-            "let sum = A1 + B1".to_string(),
-            "C1 = sum".to_string(),
-        ];
+        let formulas = vec!["let sum = A1 + B1".to_string(), "C1 = sum".to_string()];
 
         let errors = apply_formulas(&mut rows, &formulas);
         assert_eq!(errors, vec![None, None]);
@@ -2112,10 +2395,7 @@ mod tests {
             vec!["3".to_string(), "4".to_string(), "0".to_string()],
         ];
 
-        let formulas = vec![
-            "let col_a = A_".to_string(),
-            "C_ = col_a".to_string(),
-        ];
+        let formulas = vec!["let col_a = A_".to_string(), "C_ = col_a".to_string()];
 
         let errors = apply_formulas(&mut rows, &formulas);
         assert_eq!(errors, vec![None, None]);
@@ -2151,9 +2431,7 @@ mod tests {
             vec!["5".to_string(), "10".to_string(), "0".to_string()],
         ];
 
-        let formulas = vec![
-            "C1 = undefined_var".to_string(),
-        ];
+        let formulas = vec!["C1 = undefined_var".to_string()];
 
         let errors = apply_formulas(&mut rows, &formulas);
         assert_eq!(errors.len(), 1);
@@ -2169,14 +2447,15 @@ mod tests {
             vec!["5".to_string(), "10".to_string()],
         ];
 
-        let formulas = vec![
-            "let A1 = 5".to_string(),
-        ];
+        let formulas = vec!["let A1 = 5".to_string()];
 
         let errors = apply_formulas(&mut rows, &formulas);
         assert_eq!(errors.len(), 1);
         assert!(errors[0].is_some());
-        assert!(errors[0].as_ref().unwrap().contains("Failed to parse statement"));
+        assert!(errors[0]
+            .as_ref()
+            .unwrap()
+            .contains("Failed to parse statement"));
     }
 
     #[test]
@@ -2197,4 +2476,3 @@ mod tests {
         assert_eq!(rows[2][2], "20"); // (5 * 2) + 10 = 20
     }
 }
-

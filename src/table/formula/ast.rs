@@ -1,6 +1,6 @@
 use crate::table::error::FormulaError;
-use crate::table::formula::types::{CellReference, Span};
 use crate::table::formula::reference::parse_cell_reference;
+use crate::table::formula::types::{CellReference, Span};
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -56,12 +56,12 @@ impl Expr {
 /// Binary operators supported in expressions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BinaryOperator {
-    Add,     // +
-    Sub,     // -
-    Mul,     // *
-    Div,     // /
-    Pow,     // ^
-    MatMul,  // @
+    Add,    // +
+    Sub,    // -
+    Mul,    // *
+    Div,    // /
+    Pow,    // ^
+    MatMul, // @
 }
 
 impl BinaryOperator {
@@ -179,7 +179,8 @@ impl Parser {
         // Check for transpose operator .T
         if self.pos + 1 < self.tokens.len()
             && self.tokens[self.pos].value == "."
-            && self.tokens[self.pos + 1].value == "T" {
+            && self.tokens[self.pos + 1].value == "T"
+        {
             let t_span = self.tokens[self.pos + 1].span;
             self.pos += 2;
             let span = expr.span().merge(&t_span);
@@ -203,7 +204,7 @@ impl Parser {
             let expr = self.parse_expression()?;
             if self.pos >= self.tokens.len() || self.tokens[self.pos].value != ")" {
                 return Err(FormulaError::RuntimeError(
-                    "unmatched opening parenthesis '(' - missing closing ')'".to_string()
+                    "unmatched opening parenthesis '(' - missing closing ')'".to_string(),
                 ));
             }
             self.pos += 1;
@@ -231,9 +232,10 @@ impl Parser {
             }
 
             if self.pos >= self.tokens.len() || self.tokens[self.pos].value != ")" {
-                return Err(FormulaError::RuntimeError(
-                    format!("unmatched '(' in function call '{}'", func_name)
-                ));
+                return Err(FormulaError::RuntimeError(format!(
+                    "unmatched '(' in function call '{}'",
+                    func_name
+                )));
             }
             let close_span = self.tokens[self.pos].span;
             self.pos += 1; // Skip ')'
@@ -257,7 +259,7 @@ impl Parser {
                 // Parse the end of the range
                 if self.pos >= self.tokens.len() {
                     return Err(FormulaError::RuntimeError(
-                        "expected cell reference after ':' in range".to_string()
+                        "expected cell reference after ':' in range".to_string(),
                     ));
                 }
 
@@ -269,12 +271,21 @@ impl Parser {
                     // Handle different range types based on start and end reference types
                     match (&cell_ref, &end_ref) {
                         // Scalar range: A1:C5
-                        (CellReference::Scalar { row: start_row, col: start_col },
-                         CellReference::Scalar { row: end_row, col: end_col }) => {
+                        (
+                            CellReference::Scalar {
+                                row: start_row,
+                                col: start_col,
+                            },
+                            CellReference::Scalar {
+                                row: end_row,
+                                col: end_col,
+                            },
+                        ) => {
                             // Validate that start is before or equal to end
                             if start_row > end_row || start_col > end_col {
                                 return Err(FormulaError::RuntimeError(
-                                    "invalid range: start cell must be before or equal to end cell".to_string()
+                                    "invalid range: start cell must be before or equal to end cell"
+                                        .to_string(),
                                 ));
                             }
 
@@ -282,14 +293,16 @@ impl Parser {
                                 start_row: *start_row,
                                 start_col: *start_col,
                                 end_row: *end_row,
-                                end_col: *end_col
+                                end_col: *end_col,
                             };
                             return Ok(Expr::CellRef(range_ref, span));
                         }
 
                         // Column range: A_:C_
-                        (CellReference::ColumnVector { col: start_col },
-                         CellReference::ColumnVector { col: end_col }) => {
+                        (
+                            CellReference::ColumnVector { col: start_col },
+                            CellReference::ColumnVector { col: end_col },
+                        ) => {
                             if start_col > end_col {
                                 return Err(FormulaError::RuntimeError(
                                     "invalid column range: start column must be before or equal to end column".to_string()
@@ -298,14 +311,16 @@ impl Parser {
 
                             let range_ref = CellReference::ColumnRange {
                                 start_col: *start_col,
-                                end_col: *end_col
+                                end_col: *end_col,
                             };
                             return Ok(Expr::CellRef(range_ref, span));
                         }
 
                         // Row range: _1:_5
-                        (CellReference::RowVector { row: start_row },
-                         CellReference::RowVector { row: end_row }) => {
+                        (
+                            CellReference::RowVector { row: start_row },
+                            CellReference::RowVector { row: end_row },
+                        ) => {
                             if start_row > end_row {
                                 return Err(FormulaError::RuntimeError(
                                     "invalid row range: start row must be before or equal to end row".to_string()
@@ -314,7 +329,7 @@ impl Parser {
 
                             let range_ref = CellReference::RowRange {
                                 start_row: *start_row,
-                                end_row: *end_row
+                                end_row: *end_row,
                             };
                             return Ok(Expr::CellRef(range_ref, span));
                         }
@@ -327,9 +342,10 @@ impl Parser {
                         }
                     }
                 } else {
-                    return Err(FormulaError::RuntimeError(
-                        format!("invalid range end: '{}' is not a valid cell reference", end_token.value)
-                    ));
+                    return Err(FormulaError::RuntimeError(format!(
+                        "invalid range end: '{}' is not a valid cell reference",
+                        end_token.value
+                    )));
                 }
             }
 
@@ -340,7 +356,7 @@ impl Parser {
         if token.value.starts_with('"') && token.value.ends_with('"') {
             let span = token.span;
             // Remove surrounding quotes
-            let string_content = token.value[1..token.value.len()-1].to_string();
+            let string_content = token.value[1..token.value.len() - 1].to_string();
             self.pos += 1;
             return Ok(Expr::String(string_content, span));
         }

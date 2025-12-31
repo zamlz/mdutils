@@ -139,9 +139,7 @@ mod tests {
 
     #[test]
     fn test_error_with_context_single_char() {
-        let error = FormulaError::RuntimeError(
-            "invalid operator".to_string()
-        );
+        let error = FormulaError::RuntimeError("invalid operator".to_string());
         let expression = "A1 + B2 @ C3";
         let span = crate::table::formula::Span::new(8, 9); // Points to '@'
 
@@ -154,9 +152,7 @@ mod tests {
 
     #[test]
     fn test_error_with_context_multi_char() {
-        let error = FormulaError::RuntimeError(
-            "invalid cell reference".to_string()
-        );
+        let error = FormulaError::RuntimeError("invalid cell reference".to_string());
         let expression = "A1 + ZZ99 * C3";
         let span = crate::table::formula::Span::new(5, 9); // Points to "ZZ99"
 
@@ -169,9 +165,7 @@ mod tests {
 
     #[test]
     fn test_error_with_context_at_start() {
-        let error = FormulaError::RuntimeError(
-            "invalid token".to_string()
-        );
+        let error = FormulaError::RuntimeError("invalid token".to_string());
         let expression = "@ + B2";
         let span = crate::table::formula::Span::new(0, 1); // Points to first char
 

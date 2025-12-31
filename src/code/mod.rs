@@ -29,9 +29,7 @@ pub fn process_code_blocks(text: &str) -> Result<String, CodeError> {
                 let bin = directive
                     .bin
                     .as_ref()
-                    .ok_or_else(|| {
-                        CodeError::missing_field(block.start_line + 1, "bin")
-                    })?;
+                    .ok_or_else(|| CodeError::missing_field(block.start_line + 1, "bin"))?;
 
                 // Execute the code
                 let result = execute_code(&block.content, bin, directive.timeout)?;
@@ -94,7 +92,8 @@ fn reconstruct_document(
                             output_lines.push("```".to_string());
                             output_lines.push(output.clone());
                             output_lines.push("```".to_string());
-                            output_lines.push(format!(r#"<!-- md-code-output: id="{}" -->"#, directive.id));
+                            output_lines
+                                .push(format!(r#"<!-- md-code-output: id="{}" -->"#, directive.id));
                         }
                     }
                 }
@@ -200,8 +199,7 @@ print("hello world")
         let result = process_code_blocks(input);
 
         // This test requires python3 to be installed
-        if result.is_ok() {
-            let output = result.unwrap();
+        if let Ok(output) = result {
             // Should contain output block
             assert!(output.contains("Output:"));
             assert!(output.contains("md-code-output:"));
@@ -222,7 +220,10 @@ print("world")
 
         let result = process_code_blocks(input);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Duplicate code block ID"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Duplicate code block ID"));
     }
 
     #[test]
@@ -234,7 +235,10 @@ print("hello")
 
         let result = process_code_blocks(input);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("missing required field: bin"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("missing required field: bin"));
     }
 
     #[test]
@@ -255,8 +259,7 @@ old output
 More text."#;
 
         let result = process_code_blocks(input);
-        if result.is_ok() {
-            let output = result.unwrap();
+        if let Ok(output) = result {
             // Old output should be replaced
             assert!(!output.contains("old output"));
             // New output should be present
@@ -277,8 +280,7 @@ x = 1 + 1
 End."#;
 
         let result = process_code_blocks(input);
-        if result.is_ok() {
-            let output = result.unwrap();
+        if let Ok(output) = result {
             // No output block should be created
             assert!(!output.contains("Output:"));
             assert!(!output.contains("md-code-output:"));
@@ -297,8 +299,7 @@ sys.exit(1)
 
         let result = process_code_blocks(input);
         // Should succeed (not error out), but capture stderr in output
-        if result.is_ok() {
-            let output = result.unwrap();
+        if let Ok(output) = result {
             // Output block should be created (stderr is not empty)
             assert!(output.contains("md-code-output:"));
             assert!(output.contains("Error message"));
@@ -330,7 +331,10 @@ second
 
         let result = process_code_blocks(input);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Duplicate output block ID"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Duplicate output block ID"));
     }
 
     #[test]
@@ -341,8 +345,7 @@ print("test")
 <!-- md-code: id="test"; execute; bin="python3 -u" -->"#;
 
         let result = process_code_blocks(input);
-        if result.is_ok() {
-            let output = result.unwrap();
+        if let Ok(output) = result {
             assert!(output.contains("test"));
         }
     }
@@ -357,8 +360,7 @@ print("done")
 <!-- md-code: id="test"; execute; bin="python3"; timeout=5 -->"#;
 
         let result = process_code_blocks(input);
-        if result.is_ok() {
-            let output = result.unwrap();
+        if let Ok(output) = result {
             assert!(output.contains("done"));
         }
     }

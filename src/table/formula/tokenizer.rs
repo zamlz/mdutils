@@ -82,10 +82,7 @@ pub(crate) fn tokenize_expression(expr: &str) -> Vec<Token> {
                 if !current_token.is_empty() {
                     let trimmed = current_token.trim();
                     if !trimmed.is_empty() {
-                        tokens.push(Token::new(
-                            trimmed.to_string(),
-                            Span::new(token_start, i),
-                        ));
+                        tokens.push(Token::new(trimmed.to_string(), Span::new(token_start, i)));
                     }
                     current_token.clear();
                 }
@@ -115,10 +112,7 @@ pub(crate) fn tokenize_expression(expr: &str) -> Vec<Token> {
                 if !current_token.is_empty() {
                     let trimmed = current_token.trim();
                     if !trimmed.is_empty() {
-                        tokens.push(Token::new(
-                            trimmed.to_string(),
-                            Span::new(token_start, i),
-                        ));
+                        tokens.push(Token::new(trimmed.to_string(), Span::new(token_start, i)));
                     }
                     current_token.clear();
                 }
@@ -145,10 +139,7 @@ pub(crate) fn tokenize_expression(expr: &str) -> Vec<Token> {
                     if !current_token.is_empty() {
                         let trimmed = current_token.trim();
                         if !trimmed.is_empty() {
-                            tokens.push(Token::new(
-                                trimmed.to_string(),
-                                Span::new(token_start, i),
-                            ));
+                            tokens.push(Token::new(trimmed.to_string(), Span::new(token_start, i)));
                         }
                         current_token.clear();
                     }
@@ -161,10 +152,7 @@ pub(crate) fn tokenize_expression(expr: &str) -> Vec<Token> {
                 if !current_token.is_empty() {
                     let trimmed = current_token.trim();
                     if !trimmed.is_empty() {
-                        tokens.push(Token::new(
-                            trimmed.to_string(),
-                            Span::new(token_start, i),
-                        ));
+                        tokens.push(Token::new(trimmed.to_string(), Span::new(token_start, i)));
                     }
                     current_token.clear();
                 }
@@ -210,13 +198,13 @@ mod tests {
 
         // Check spans are tracked correctly
         assert_eq!(tokens[0].span.start, 0);
-        assert_eq!(tokens[0].span.end, 2);  // "A1"
+        assert_eq!(tokens[0].span.end, 2); // "A1"
 
         assert_eq!(tokens[1].span.start, 3);
-        assert_eq!(tokens[1].span.end, 4);  // "+"
+        assert_eq!(tokens[1].span.end, 4); // "+"
 
         assert_eq!(tokens[2].span.start, 5);
-        assert_eq!(tokens[2].span.end, 7);  // "B2"
+        assert_eq!(tokens[2].span.end, 7); // "B2"
     }
 
     #[test]
@@ -246,7 +234,7 @@ mod tests {
 
         // Check decimal spans
         assert_eq!(tokens[0].span.start, 0);
-        assert_eq!(tokens[0].span.end, 4);  // "3.14"
+        assert_eq!(tokens[0].span.end, 4); // "3.14"
 
         assert_eq!(tokens[2].span.start, 7);
         assert_eq!(tokens[2].span.end, 10); // "2.5"

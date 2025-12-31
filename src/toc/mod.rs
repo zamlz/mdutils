@@ -42,7 +42,6 @@
 /// ### Subsection 1.1
 /// ## Section 2
 /// ```
-
 mod parser;
 
 use parser::{parse_headers, Header};
@@ -63,7 +62,9 @@ pub fn process_toc(input: &str) -> String {
     let lines: Vec<&str> = input.lines().collect();
 
     // Find TOC marker
-    let toc_start_line = lines.iter().position(|line| line.trim() == TOC_START_MARKER);
+    let toc_start_line = lines
+        .iter()
+        .position(|line| line.trim() == TOC_START_MARKER);
 
     // If no TOC marker, return input unchanged
     let Some(toc_start_line) = toc_start_line else {

@@ -6,8 +6,8 @@ mod parser;
 use formatter::format_table_row;
 use formula::apply_formulas_with_tables;
 use parser::{
-    extract_formulas_from_comment, is_formula_comment, is_md_table_comment,
-    is_table_row, parse_table_row,
+    extract_formulas_from_comment, is_formula_comment, is_md_table_comment, is_table_row,
+    parse_table_row,
 };
 
 /// Creates a new empty markdown table with the specified dimensions
@@ -84,12 +84,17 @@ pub fn parse_table_spec(spec: &str) -> Result<(usize, usize), String> {
     let parts: Vec<&str> = spec.split(':').collect();
 
     if parts.len() != 3 || parts[0] != "table" {
-        return Err(format!("Invalid spec format '{}'. Expected format: table:R:C (e.g., table:2:3)", spec));
+        return Err(format!(
+            "Invalid spec format '{}'. Expected format: table:R:C (e.g., table:2:3)",
+            spec
+        ));
     }
 
-    let rows = parts[1].parse::<usize>()
+    let rows = parts[1]
+        .parse::<usize>()
         .map_err(|_| format!("Invalid row count '{}'", parts[1]))?;
-    let cols = parts[2].parse::<usize>()
+    let cols = parts[2]
+        .parse::<usize>()
         .map_err(|_| format!("Invalid column count '{}'", parts[2]))?;
 
     if rows == 0 || cols == 0 {
@@ -142,7 +147,8 @@ pub fn format_tables(text: &str) -> String {
 
             // If this table has an ID, parse and store it
             if let Some(id) = table_id {
-                let rows: Vec<Vec<String>> = table_lines.iter()
+                let rows: Vec<Vec<String>> = table_lines
+                    .iter()
                     .map(|line| parse_table_row(line))
                     .collect();
                 table_map.insert(id, rows);
@@ -211,10 +217,15 @@ pub fn format_tables(text: &str) -> String {
             }
 
             // Format the table with all formulas applied (now with table_map)
-            let all_formulas: Vec<String> = formula_comments.iter()
+            let all_formulas: Vec<String> = formula_comments
+                .iter()
                 .flat_map(|(_, formulas, _)| formulas.clone())
                 .collect();
-            let (formatted, all_errors) = format_table_with_formulas_and_tables(&current_table_lines, &all_formulas, &table_map);
+            let (formatted, all_errors) = format_table_with_formulas_and_tables(
+                &current_table_lines,
+                &all_formulas,
+                &table_map,
+            );
             output.push(formatted);
 
             // Add the formula comments back with their respective errors
@@ -262,17 +273,14 @@ pub fn format_tables(text: &str) -> String {
 fn format_table_with_formulas_and_tables(
     lines: &[&str],
     formulas: &[String],
-    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>
+    table_map: &std::collections::HashMap<String, Vec<Vec<String>>>,
 ) -> (String, Vec<Option<String>>) {
     if lines.is_empty() {
         return (String::new(), Vec::new());
     }
 
     // Parse all rows into cells
-    let mut rows: Vec<Vec<String>> = lines
-        .iter()
-        .map(|line| parse_table_row(line))
-        .collect();
+    let mut rows: Vec<Vec<String>> = lines.iter().map(|line| parse_table_row(line)).collect();
 
     if rows.is_empty() {
         return (lines.join("\n"), Vec::new());
@@ -303,7 +311,6 @@ fn format_table_with_formulas_and_tables(
 
     (formatted_rows.join("\n"), errors)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -407,7 +414,9 @@ With some text but no tables.
         assert!(output.contains("Header"));
         assert!(output.contains("Data"));
         // Verify it's formatted as a table
-        assert!(output.lines().any(|line| line.trim().starts_with("| Header")));
+        assert!(output
+            .lines()
+            .any(|line| line.trim().starts_with("| Header")));
     }
 
     #[test]
@@ -448,12 +457,12 @@ With some text but no tables.
         let output = format_tables(input);
 
         // Check vector formula results
-        assert!(output.contains("80"));   // 1000 * 0.08 (tax on laptop)
+        assert!(output.contains("80")); // 1000 * 0.08 (tax on laptop)
         assert!(output.contains("1080")); // 1000 + 80 (total for laptop)
-        assert!(output.contains("4"));    // 50 * 0.08 (tax on mouse)
-        assert!(output.contains("54"));   // 50 + 4 (total for mouse)
-        assert!(output.contains("12"));   // 150 * 0.08 (tax on keyboard)
-        assert!(output.contains("162"));  // 150 + 12 (total for keyboard)
+        assert!(output.contains("4")); // 50 * 0.08 (tax on mouse)
+        assert!(output.contains("54")); // 50 + 4 (total for mouse)
+        assert!(output.contains("12")); // 150 * 0.08 (tax on keyboard)
+        assert!(output.contains("162")); // 150 + 12 (total for keyboard)
     }
 
     #[test]
@@ -469,10 +478,10 @@ With some text but no tables.
         let output = format_tables(input);
 
         // Check that sum formulas were evaluated
-        assert!(output.contains("| A    | 10    | 5        | 50"));   // First row calculated
-        assert!(output.contains("| B    | 20    | 3        | 60"));   // Second row calculated
-        assert!(output.contains("| C    | 15    | 2        | 30"));   // Third row calculated
-        assert!(output.contains("| 45   | 10    | 0        | 140"));  // Sum row (A4=45, B4=10, C4=0, D4=140)
+        assert!(output.contains("| A    | 10    | 5        | 50")); // First row calculated
+        assert!(output.contains("| B    | 20    | 3        | 60")); // Second row calculated
+        assert!(output.contains("| C    | 15    | 2        | 30")); // Third row calculated
+        assert!(output.contains("| 45   | 10    | 0        | 140")); // Sum row (A4=45, B4=10, C4=0, D4=140)
     }
 
     #[test]
@@ -487,8 +496,8 @@ With some text but no tables.
         let output = format_tables(input);
 
         // Check exponentiation results
-        assert!(output.contains("| 2    | 4"));  // 2^2 = 4
-        assert!(output.contains("| 3    | 9"));  // 3^2 = 9
+        assert!(output.contains("| 2    | 4")); // 2^2 = 4
+        assert!(output.contains("| 3    | 9")); // 3^2 = 9
         assert!(output.contains("| 4    | 16")); // 4^2 = 16
     }
 
