@@ -67,7 +67,7 @@ dimensions and outputs it to STDOUT.
 
 **Create a table with specified rows and columns:**
 ```bash
-./result/bin/md new table:3:2
+md new table:3:2
 ```
 
 This creates a table with 3 rows and 2 columns. The format is `table:R:C`
@@ -76,7 +76,7 @@ where R is the number of rows and C is the number of columns.
 **Example:**
 
 ```bash
-./result/bin/md new table:2:3
+md new table:2:3
 ```
 
 Output:
@@ -95,7 +95,7 @@ The `toc` subcommand automatically generates or updates a table of contents from
 
 **Basic usage:**
 ```bash
-./result/bin/md toc < document.md
+md toc < document.md
 ```
 
 **How it works:**
@@ -190,17 +190,17 @@ nicely formatted tables.
 
 **Format tables in a markdown file:**
 ```bash
-./result/bin/md table < document.md
+md table < document.md
 ```
 
 **Format tables from piped input:**
 ```bash
-cat document.md | ./result/bin/md table
+cat document.md | md table
 ```
 
 **View available commands:**
 ```bash
-./result/bin/md --help
+md --help
 ```
 
 **Example:**
@@ -1302,7 +1302,7 @@ executable documentation, tutorials, or notebooks.
 
 **Basic usage:**
 ```bash
-./result/bin/md code < document.md
+md code < document.md
 ```
 
 **How it works:**
@@ -1425,13 +1425,13 @@ Build the project using Nix:
 nix build
 ```
 
-The binary will be available at `./result/bin/md`.
+The binary will be available at `md`.
 
 ### Run
 
 Run the built binary:
 ```bash
-./result/bin/md table < input.md
+md table < input.md
 ```
 
 Or run directly through the development shell:
