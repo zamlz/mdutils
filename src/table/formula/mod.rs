@@ -460,7 +460,9 @@ fn parse_assignment(target: &str) -> Option<Assignment> {
     }
 }
 
-/// Parses a formula like "A1 = B1 + C1" into (assignment, expression)
+
+/// Parses a formula like "A1 = B1 + C1" into (assignment, expression) - test helper
+#[cfg(test)]
 fn parse_formula(formula: &str) -> Option<(Assignment, String)> {
     let parts: Vec<&str> = formula.split('=').collect();
     if parts.len() == 2 {
@@ -642,13 +644,16 @@ fn evaluate_expression_value_with_tables(
     evaluator::eval_ast_with_tables(&ast, rows, table_map, variable_map)
 }
 
-/// Evaluate an expression (backwards compatibility, no cross-table refs)
+
+/// Evaluate an expression - test helper (no cross-table refs or variables)
+#[cfg(test)]
 fn evaluate_expression_value(expr: &str, rows: &Vec<Vec<String>>) -> Result<Value, FormulaError> {
     use std::collections::HashMap;
     evaluate_expression_value_with_tables(expr, rows, &HashMap::new(), &HashMap::new())
 }
 
 /// Backwards-compatible apply_formulas (no cross-table refs)
+#[allow(dead_code)]
 pub fn apply_formulas(rows: &mut Vec<Vec<String>>, formulas: &[String]) -> Vec<Option<String>> {
     use std::collections::HashMap;
     apply_formulas_with_tables(rows, formulas, &HashMap::new())

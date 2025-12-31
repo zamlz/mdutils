@@ -304,13 +304,6 @@ fn format_table_with_formulas_and_tables(
     (formatted_rows.join("\n"), errors)
 }
 
-/// Formats a table with formula evaluation (backwards compatibility, no cross-table refs)
-/// Returns a tuple of (formatted_table, per_formula_errors)
-/// where per_formula_errors[i] is None if formula i succeeded, or Some(error) if it failed
-fn format_table_with_formulas(lines: &[&str], formulas: &[String]) -> (String, Vec<Option<String>>) {
-    use std::collections::HashMap;
-    format_table_with_formulas_and_tables(lines, formulas, &HashMap::new())
-}
 
 #[cfg(test)]
 mod tests {

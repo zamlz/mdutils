@@ -59,7 +59,8 @@ pub(crate) fn eval_ast_with_tables(
     }
 }
 
-/// Evaluates an AST expression node to a Value (backwards compatibility)
+/// Evaluates an AST expression node - test helper (no cross-table refs or variables)
+#[cfg(test)]
 pub(crate) fn eval_ast(expr: &Expr, rows: &Vec<Vec<String>>) -> Result<Value, FormulaError> {
     use std::collections::HashMap;
     eval_ast_with_tables(expr, rows, &HashMap::new(), &HashMap::new())
@@ -176,11 +177,6 @@ fn eval_function_call_with_tables(
     }
 }
 
-/// Evaluate a function call from AST (backwards compatibility)
-fn eval_function_call(name: &str, args: &[Expr], rows: &Vec<Vec<String>>) -> Result<Value, FormulaError> {
-    use std::collections::HashMap;
-    eval_function_call_with_tables(name, args, rows, &HashMap::new(), &HashMap::new())
-}
 
 /// Evaluate a function with a Value argument (for single-arg functions)
 pub(crate) fn eval_function(name: &str, arg: Value) -> Result<Value, FormulaError> {
