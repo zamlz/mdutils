@@ -219,5 +219,7 @@ fn test_skip_code_blocks() {
     // Verify the fake directives appear as plain text inside code blocks
     // by checking the context - they should be surrounded by markdown fence markers
     assert!(output.contains("```markdown\n# Fake Header in Code Block"));
-    assert!(output.contains("<!-- md-toc: -->\n\n## This TOC directive should NOT be processed\n```"));
+    assert!(
+        output.contains("<!-- md-toc: -->\n\n## This TOC directive should NOT be processed\n```")
+    );
 }
