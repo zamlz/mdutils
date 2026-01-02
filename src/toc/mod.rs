@@ -49,6 +49,12 @@ use parser::{parse_headers, Header};
 const TOC_START_MARKER: &str = "<!-- md-toc: -->";
 const TOC_END_MARKER: &str = "<!-- md-toc: end -->";
 
+/// Checks if a line is a code fence (``` or ~~~)
+fn is_code_fence(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed.starts_with("```") || trimmed.starts_with("~~~")
+}
+
 /// Process a markdown document and generate/update table of contents
 ///
 /// # Arguments
@@ -61,18 +67,34 @@ const TOC_END_MARKER: &str = "<!-- md-toc: end -->";
 pub fn process_toc(input: &str) -> String {
     let lines: Vec<&str> = input.lines().collect();
 
-    // Find TOC marker
-    let toc_start_line = lines
-        .iter()
-        .position(|line| line.trim() == TOC_START_MARKER);
+    // Find TOC marker (skip those inside code fences)
+    let mut toc_start_line = None;
+    let mut inside_code_fence = false;
+    for (i, line) in lines.iter().enumerate() {
+        if is_code_fence(line) {
+            inside_code_fence = !inside_code_fence;
+        } else if !inside_code_fence && line.trim() == TOC_START_MARKER {
+            toc_start_line = Some(i);
+            break;
+        }
+    }
 
     // If no TOC marker, return input unchanged
     let Some(toc_start_line) = toc_start_line else {
         return input.to_string();
     };
 
-    // Find end marker (if it exists)
-    let toc_end_line = lines.iter().position(|line| line.trim() == TOC_END_MARKER);
+    // Find end marker (if it exists) - also skip those inside code fences
+    let mut toc_end_line = None;
+    let mut inside_code_fence = false;
+    for (i, line) in lines.iter().enumerate() {
+        if is_code_fence(line) {
+            inside_code_fence = !inside_code_fence;
+        } else if !inside_code_fence && line.trim() == TOC_END_MARKER {
+            toc_end_line = Some(i);
+            break;
+        }
+    }
 
     // Parse all headers in the document (after TOC marker to avoid self-reference)
     let headers = parse_headers(&lines, toc_start_line + 1);

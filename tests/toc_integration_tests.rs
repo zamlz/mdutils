@@ -184,3 +184,40 @@ fn test_multiple_code_blocks() {
     assert!(!output.contains("[Not real]"));
     assert!(!output.contains("[Also fake]"));
 }
+
+#[test]
+fn test_skip_code_blocks() {
+    let input = fs::read_to_string("tests/toc/fixtures/skip_code_blocks_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/toc/fixtures/skip_code_blocks_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = process_toc(&input);
+    assert_eq!(output.trim(), expected.trim());
+
+    // Verify only real headers are in TOC
+    assert!(output.contains("[Real Section 1]"));
+    assert!(output.contains("[Real Section 2]"));
+    assert!(output.contains("[Real Subsection]"));
+
+    // Verify fake headers in code blocks are NOT in TOC
+    assert!(!output.contains("[Fake Header in Code Block]"));
+    assert!(!output.contains("[Another Fake Header]"));
+    assert!(!output.contains("[Nested Fake Header]"));
+    assert!(!output.contains("[This should also be ignored]"));
+    assert!(!output.contains("[This TOC directive should NOT be processed]"));
+
+    // Verify the md-toc directive inside code blocks was NOT processed
+    // (it should still appear as plain text, not generate a TOC)
+    // Count total "<!-- md-toc:" occurrences: 1 real start + 1 real end + 2 fake ones in code blocks = 4
+    assert_eq!(output.matches("<!-- md-toc:").count(), 4);
+
+    // Verify only ONE TOC was actually generated (the real one at top)
+    // by checking there's only one end marker
+    assert_eq!(output.matches("<!-- md-toc: end -->").count(), 1);
+
+    // Verify the fake directives appear as plain text inside code blocks
+    // by checking the context - they should be surrounded by markdown fence markers
+    assert!(output.contains("```markdown\n# Fake Header in Code Block"));
+    assert!(output.contains("<!-- md-toc: -->\n\n## This TOC directive should NOT be processed\n```"));
+}

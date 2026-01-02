@@ -533,3 +533,21 @@ fn test_variables_error_invalid_name() {
     assert!(output.contains("md-error:"));
     assert!(output.contains("Failed to parse statement"));
 }
+
+#[test]
+fn test_skip_code_blocks() {
+    let input = fs::read_to_string("tests/table/fixtures/skip_code_blocks_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/table/fixtures/skip_code_blocks_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = format_tables(&input);
+    assert_eq!(output.trim(), expected.trim());
+    // Verify real tables outside code blocks were formatted with formulas applied
+    assert!(output.contains("| 5   | 10  | 15  |"));
+    assert!(output.contains("| 1   | 2   | 2   |"));
+    // Verify table inside code block was NOT processed (still has 0 in column C)
+    assert!(output.contains("| 3   | 2   | 0   |"));
+    // No errors should be present
+    assert!(!output.contains("md-error:"));
+}

@@ -119,3 +119,28 @@ fn test_stderr_capture() {
     // Verify stdout was captured
     assert!(output.contains("stdout output"));
 }
+
+#[test]
+fn test_skip_nested_code_blocks() {
+    let input = fs::read_to_string("tests/code/fixtures/skip_nested_code_blocks_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/code/fixtures/skip_nested_code_blocks_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = process_code_blocks(&input).expect("Failed to process code blocks");
+    assert_eq!(output.trim(), expected.trim());
+
+    // Verify real code blocks executed
+    assert!(output.contains("This should execute"));
+    assert!(output.contains("Real output"));
+
+    // Verify we have exactly 2 output blocks (for the 2 real code blocks)
+    // NOT 3 - the "example" directive inside the markdown fence should be ignored
+    assert_eq!(output.matches("<!-- md-code-output:").count(), 2);
+
+    // Verify "Example code" appears in the document (as part of the markdown example)
+    // but NOT as an output block (it was not executed)
+    assert!(output.contains("Example code"));
+    // Verify there's no output block for the "example" id
+    assert!(!output.contains("<!-- md-code-output: id=\"example\" -->"));
+}

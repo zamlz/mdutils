@@ -35,7 +35,19 @@ pub struct OutputBlock {
 /// Checks if a line is the start of a code block (opening fence)
 pub fn is_code_fence(line: &str) -> bool {
     let trimmed = line.trim();
-    trimmed.starts_with("```")
+    trimmed.starts_with("```") || trimmed.starts_with("~~~")
+}
+
+/// Gets the fence type (backtick or tilde) from a fence line
+fn get_fence_type(line: &str) -> Option<char> {
+    let trimmed = line.trim();
+    if trimmed.starts_with("```") {
+        Some('`')
+    } else if trimmed.starts_with("~~~") {
+        Some('~')
+    } else {
+        None
+    }
 }
 
 /// Extracts the language from a code fence line
@@ -173,6 +185,7 @@ fn extract_quoted_value(s: &str) -> Result<String, CodeError> {
 }
 
 /// Parses the entire markdown document to find code blocks and output blocks
+/// Skips code blocks that are nested inside other code fences
 pub fn parse_document(
     text: &str,
 ) -> Result<(Vec<CodeBlock>, HashMap<String, OutputBlock>), CodeError> {
@@ -181,70 +194,85 @@ pub fn parse_document(
     let mut output_blocks = HashMap::new();
     let mut output_block_lines = HashMap::new(); // Track line numbers for duplicate detection
     let mut i = 0;
+    let mut active_fence_type: Option<char> = None; // Track fence type (` or ~)
 
     while i < lines.len() {
         if is_code_fence(lines[i]) {
-            let start_line = i;
-            let language = extract_language(lines[i]);
-            i += 1;
+            let fence_type = get_fence_type(lines[i]);
 
-            // Collect code block content
-            let mut content_lines = Vec::new();
-            while i < lines.len() && !is_code_fence(lines[i]) {
-                content_lines.push(lines[i]);
+            // Only process as a real code block if we're not already inside another fence
+            if active_fence_type.is_none() {
+                active_fence_type = fence_type;
+                let start_line = i;
+                let language = extract_language(lines[i]);
                 i += 1;
-            }
 
-            if i >= lines.len() {
-                return Err(CodeError::DirectiveParseError(format!(
-                    "Unclosed code block starting at line {}",
-                    start_line + 1
-                )));
-            }
-
-            let end_line = i;
-            let content = content_lines.join("\n");
-            i += 1; // Move past closing fence
-
-            // Check for md-code directive on the next line
-            let directive = if i < lines.len() && is_md_code_comment(lines[i]) {
-                Some(parse_md_code_directive(lines[i])?)
-            } else if i < lines.len() && is_md_code_output_comment(lines[i]) {
-                // This is an output block
-                let id = parse_md_code_output_directive(lines[i])?;
-
-                if let Some(&prev_line) = output_block_lines.get(&id) {
-                    return Err(CodeError::duplicate_output_id(
-                        &id,
-                        start_line + 1,
-                        prev_line + 1,
-                    ));
+                // Collect code block content until we find a matching closing fence
+                let mut content_lines = Vec::new();
+                while i < lines.len() {
+                    // Check if this line closes the fence (must be same type)
+                    if is_code_fence(lines[i]) && get_fence_type(lines[i]) == active_fence_type {
+                        break;
+                    }
+                    content_lines.push(lines[i]);
+                    i += 1;
                 }
 
-                output_block_lines.insert(id.clone(), start_line);
-                output_blocks.insert(
-                    id.clone(),
-                    OutputBlock {
+                if i >= lines.len() {
+                    return Err(CodeError::DirectiveParseError(format!(
+                        "Unclosed code block starting at line {}",
+                        start_line + 1
+                    )));
+                }
+
+                let end_line = i;
+                let content = content_lines.join("\n");
+                active_fence_type = None;
+                i += 1; // Move past closing fence
+
+                // Check for md-code directive on the next line
+                let directive = if i < lines.len() && is_md_code_comment(lines[i]) {
+                    Some(parse_md_code_directive(lines[i])?)
+                } else if i < lines.len() && is_md_code_output_comment(lines[i]) {
+                    // This is an output block
+                    let id = parse_md_code_output_directive(lines[i])?;
+
+                    if let Some(&prev_line) = output_block_lines.get(&id) {
+                        return Err(CodeError::duplicate_output_id(
+                            &id,
+                            start_line + 1,
+                            prev_line + 1,
+                        ));
+                    }
+
+                    output_block_lines.insert(id.clone(), start_line);
+                    output_blocks.insert(
+                        id.clone(),
+                        OutputBlock {
+                            start_line,
+                            end_line,
+                            id,
+                            content: content.clone(),
+                        },
+                    );
+
+                    None
+                } else {
+                    None
+                };
+
+                if directive.is_some() {
+                    code_blocks.push(CodeBlock {
                         start_line,
                         end_line,
-                        id,
-                        content: content.clone(),
-                    },
-                );
-
-                None
+                        language,
+                        content,
+                        directive,
+                    });
+                }
             } else {
-                None
-            };
-
-            if directive.is_some() {
-                code_blocks.push(CodeBlock {
-                    start_line,
-                    end_line,
-                    language,
-                    content,
-                    directive,
-                });
+                // We're inside a fence, just skip this line
+                i += 1;
             }
         } else {
             i += 1;

@@ -104,18 +104,32 @@ pub fn parse_table_spec(spec: &str) -> Result<(usize, usize), String> {
     Ok((rows, cols))
 }
 
+/// Checks if a line is a code fence (``` or ~~~)
+fn is_code_fence(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed.starts_with("```") || trimmed.starts_with("~~~")
+}
+
 /// Formats markdown tables in the input text and returns the full text with aligned tables
 pub fn format_tables(text: &str) -> String {
     use std::collections::HashMap;
 
     let lines: Vec<&str> = text.lines().collect();
 
-    // First pass: collect all tables with IDs
+    // First pass: collect all tables with IDs (skip tables inside code fences)
     let mut table_map: HashMap<String, Vec<Vec<String>>> = HashMap::new();
     let mut i = 0;
+    let mut inside_code_fence = false;
 
     while i < lines.len() {
-        if is_table_row(lines[i]) {
+        // Check for code fence
+        if is_code_fence(lines[i]) {
+            inside_code_fence = !inside_code_fence;
+            i += 1;
+            continue;
+        }
+
+        if !inside_code_fence && is_table_row(lines[i]) {
             let mut table_lines = Vec::new();
             table_lines.push(lines[i]);
             i += 1;
@@ -162,9 +176,18 @@ pub fn format_tables(text: &str) -> String {
     let mut output = Vec::new();
     let mut current_table_lines = Vec::new();
     let mut i = 0;
+    let mut inside_code_fence = false;
 
     while i < lines.len() {
-        if is_table_row(lines[i]) {
+        // Check for code fence
+        if is_code_fence(lines[i]) {
+            inside_code_fence = !inside_code_fence;
+            output.push(lines[i].to_string());
+            i += 1;
+            continue;
+        }
+
+        if !inside_code_fence && is_table_row(lines[i]) {
             // Start collecting table lines
             current_table_lines.push(lines[i]);
             i += 1;
