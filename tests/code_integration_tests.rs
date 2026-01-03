@@ -144,3 +144,28 @@ fn test_skip_nested_code_blocks() {
     // Verify there's no output block for the "example" id
     assert!(!output.contains("<!-- md-code-output: id=\"example\" -->"));
 }
+
+#[test]
+fn test_meta_programming() {
+    let input = fs::read_to_string("tests/code/fixtures/meta_programming_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/code/fixtures/meta_programming_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = process_code_blocks(&input).expect("Failed to process code blocks");
+    assert_eq!(output.trim(), expected.trim());
+
+    // Verify md table was executed and computed the formula
+    assert!(output.contains("| 5   | 10  | 15  |"));
+    assert!(output.contains("| 3   | 7   | 10  |"));
+
+    // Verify md toc was executed and generated the TOC
+    assert!(output.contains("- [Section One](#section-one)"));
+    assert!(output.contains("  - [Subsection A](#subsection-a)"));
+    assert!(output.contains("  - [Subsection B](#subsection-b)"));
+    assert!(output.contains("- [Section Two](#section-two)"));
+
+    // Verify both output blocks were created
+    assert!(output.contains("<!-- md-code-output: id=\"table_demo\" -->"));
+    assert!(output.contains("<!-- md-code-output: id=\"toc_demo\" -->"));
+}
