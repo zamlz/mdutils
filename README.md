@@ -66,18 +66,16 @@ The `new` subcommand creates a new empty markdown table with the specified
 dimensions and outputs it to STDOUT.
 
 **Create a table with specified rows and columns:**
-```bash
-md new table:3:2
-```
 
-This creates a table with 3 rows and 2 columns. The format is `table:R:C`
-where R is the number of rows and C is the number of columns.
+Here is how to create a table with 3 rows and 2 columns. The format is
+`table:R:C` where R is the number of rows and C is the number of columns.
 
 **Example:**
 
 ```bash
 md new table:2:3
 ```
+<!-- md-code: id="new-table-example"; bin="bash"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -86,17 +84,13 @@ Output:
 |     |     |     |
 |     |     |     |
 ```
+<!-- md-code-output: id="new-table-example" -->
 
 All cells are empty and ready to be filled in.
 
 ### Command: `toc` (Table-of-Contents Generation)
 
 The `toc` subcommand automatically generates or updates a table of contents from markdown headers.
-
-**Basic usage:**
-```bash
-md toc < document.md
-```
 
 **How it works:**
 - Add a `<!-- md-toc: -->` marker where you want the TOC
@@ -122,6 +116,7 @@ Input:
 
 ## Conclusion
 ```
+<!-- md-code: id="toc-example"; bin="md toc"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -145,7 +140,9 @@ Output:
 ### Testing
 
 ## Conclusion
+
 ```
+<!-- md-code-output: id="toc-example" -->
 
 **Features:**
 - **GitHub-style slugs**: Links use the same anchor format as GitHub
@@ -165,6 +162,7 @@ Output:
 ## New Section 1
 ## New Section 2
 ```
+<!-- md-code: id="toc-update-example"; bin="md toc"; syntax="markdown" -->
 
 After running `md toc`:
 ```markdown
@@ -176,7 +174,9 @@ After running `md toc`:
 
 ## New Section 1
 ## New Section 2
+
 ```
+<!-- md-code-output: id="toc-update-example" -->
 
 **Note:** If no `<!-- md-toc: -->` marker is found, the document is returned unchanged.
 
@@ -187,21 +187,6 @@ After running `md toc`:
 The `table` subcommand reads markdown from STDIN, formats and aligns any
 markdown tables it finds, and outputs the entire document to STDOUT with
 nicely formatted tables.
-
-**Format tables in a markdown file:**
-```bash
-md table < document.md
-```
-
-**Format tables from piped input:**
-```bash
-cat document.md | md table
-```
-
-**View available commands:**
-```bash
-md --help
-```
 
 **Example:**
 
@@ -218,6 +203,7 @@ Some introductory text.
 
 More text here.
 ```
+<!-- md-code: id="table-format"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -232,6 +218,7 @@ Some introductory text.
 
 More text here.
 ```
+<!-- md-code-output: id="table-format" -->
 
 All content is preserved, but tables are properly aligned based on
 column widths.
@@ -265,15 +252,17 @@ Input:
 | Banana | 0.75 | 20 | 0 |
 <!-- md-table: D1 = B1 * C1; D2 = B2 * C2 -->
 ```
+<!-- md-code: id="simple-formula"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
 | Item   | Price | Quantity | Total |
 | ------ | ----- | -------- | ----- |
-| Apple  | 1.50  | 10       | 15    |
-| Banana | 0.75  | 20       | 15    |
+| Apple  | 1.50  | 10       | 15.00 |
+| Banana | 0.75  | 20       | 15.00 |
 <!-- md-table: D1 = B1 * C1; D2 = B2 * C2 -->
 ```
+<!-- md-code-output: id="simple-formula" -->
 
 **Multiple comment lines example:**
 ```markdown
@@ -283,6 +272,17 @@ Output:
 <!-- md-table: C1 = B1 * 0.08 -->
 <!-- D1 = B1 + C1 -->
 ```
+<!-- md-code: id="multi-formula"; bin="md table"; syntax="markdown" -->
+
+Output:
+```markdown
+| Product | Price | Tax   | Total   |
+| ------- | ----- | ----- | ------- |
+| Laptop  | 1000  | 80.00 | 1080.00 |
+<!-- md-table: C1 = B1 * 0.08 -->
+<!-- D1 = B1 + C1 -->
+```
+<!-- md-code-output: id="multi-formula" -->
 
 Formulas are evaluated in order, so later formulas can reference cells
 updated by earlier formulas.
@@ -307,16 +307,18 @@ apply formulas to entire columns or rows at once.
 | Keyboard | 150  | 0   | 0     |
 <!-- md-table: C_ = B_ * 0.08; D_ = B_ + C_ -->
 ```
+<!-- md-code: id="vector-assignment"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
-| Product  | Base | Tax  | Total  |
-| -------- | ---- | ---- | ------ |
-| Laptop   | 1000 | 80   | 1080   |
-| Mouse    | 50   | 4    | 54     |
-| Keyboard | 150  | 12   | 162    |
+| Product    | Base   | Tax   | Total   |
+| ---------- | ------ | ----- | ------- |
+| Laptop     | 1000   | 80.00 | 1080.00 |
+| Mouse      | 50     | 4.00  | 54.00   |
+| Keyboard   | 150    | 12.00 | 162.00  |
 <!-- md-table: C_ = B_ * 0.08; D_ = B_ + C_ -->
 ```
+<!-- md-code-output: id="vector-assignment" -->
 
 **Broadcasting:**
 
@@ -335,16 +337,18 @@ Use `^` for exponentiation (Excel-style):
 | 4    | 0       |
 <!-- md-table: B_ = A_ ^ 2 -->
 ```
+<!-- md-code: id="exponents"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
-| Base | Squared |
-| ---- | ------- |
-| 2    | 4       |
-| 3    | 9       |
-| 4    | 16      |
+| Base   | Squared   |
+| ------ | --------- |
+| 2      | 4         |
+| 3      | 9         |
+| 4      | 16        |
 <!-- md-table: B_ = A_ ^ 2 -->
 ```
+<!-- md-code-output: id="exponents" -->
 
 **Operator Precedence:**
 1. Parentheses `()` (highest)
@@ -411,17 +415,19 @@ Input:
 | 40     | 0   | 0   | 0   | 0   | 0     | 0      |
 <!-- md-table: B1 = sum(A_); C1 = avg(A_); D1 = min(A_); E1 = max(A_); F1 = count(A_); G1 = prod(A_) -->
 ```
+<!-- md-code: id="multi-func"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
-| Values | Sum | Avg  | Min | Max | Count | Prod   |
-| ------ | --- | ---- | --- | --- | ----- | ------ |
-| 10     | 100 | 25   | 10  | 40  | 4     | 240000 |
-| 20     | 0   | 0    | 0   | 0   | 0     | 0      |
-| 30     | 0   | 0    | 0   | 0   | 0     | 0      |
-| 40     | 0   | 0    | 0   | 0   | 0     | 0      |
+| Values | Sum | Avg | Min | Max | Count | Prod   |
+| ------ | --- | --- | --- | --- | ----- | ------ |
+| 10     | 100 | 25  | 10  | 40  | 4     | 240000 |
+| 20     | 0   | 0   | 0   | 0   | 0     | 0      |
+| 30     | 0   | 0   | 0   | 0   | 0     | 0      |
+| 40     | 0   | 0   | 0   | 0   | 0     | 0      |
 <!-- md-table: B1 = sum(A_); C1 = avg(A_); D1 = min(A_); E1 = max(A_); F1 = count(A_); G1 = prod(A_) -->
 ```
+<!-- md-code-output: id="multi-func" -->
 
 **Complex Function Expressions:**
 
@@ -443,7 +449,20 @@ Empty or non-numeric cells in vectors are treated as zero:
 | 30     |
 <!-- md-table: A1 = sum(A_) -->
 ```
+<!-- md-code: id="non-numeric"; bin="md table"; syntax="markdown" -->
+
 Result: A1 = 40 (only 10 and 30 are counted)
+```markdown
+| Values   |
+| -------- |
+| 40       |
+|          |
+| text     |
+| 30       |
+<!-- md-table: A1 = sum(A_) -->
+```
+<!-- md-code-output: id="non-numeric" -->
+
 
 **Vector Operations:**
 - `C_ = A_ + B_` - Element-wise addition
@@ -474,6 +493,7 @@ Input:
 | 5   | 10  | 0   |
 <!-- md-table: let x = 15; C1 = x -->
 ```
+<!-- md-code: id="simple-variable"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -482,6 +502,7 @@ Output:
 | 5   | 10  | 15  |
 <!-- md-table: let x = 15; C1 = x -->
 ```
+<!-- md-code-output: id="simple-variable" -->
 
 **Example 2: Vector Variable**
 
@@ -496,6 +517,7 @@ Input:
 | 5   | 6   | 0   |
 <!-- md-table: let sum_col = A_ + B_; C_ = sum_col -->
 ```
+<!-- md-code: id="vector-variable"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -506,6 +528,7 @@ Output:
 | 5   | 6   | 11  |
 <!-- md-table: let sum_col = A_ + B_; C_ = sum_col -->
 ```
+<!-- md-code-output: id="vector-variable" -->
 
 **Example 3: Multiple Variables with Expressions**
 
@@ -518,6 +541,7 @@ Input:
 | 5   | 10  | 0   | 0   |
 <!-- md-table: let x = A1; let y = B1; let product = x * y; C1 = product; D1 = x + y -->
 ```
+<!-- md-code: id="multi-variable"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -526,6 +550,7 @@ Output:
 | 5   | 10  | 50  | 15  |
 <!-- md-table: let x = A1; let y = B1; let product = x * y; C1 = product; D1 = x + y -->
 ```
+<!-- md-code-output: id="multi-variable" -->
 
 **Example 4: Variables with Functions**
 
@@ -540,6 +565,7 @@ Input:
 | 3   | 30  | 0   | 0   |
 <!-- md-table: let col_a = A_; let col_b = B_; let total_a = sum(col_a); let total_b = sum(col_b); C1 = total_a; D1 = total_b -->
 ```
+<!-- md-code: id="multi-variable-func"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -550,6 +576,7 @@ Output:
 | 3   | 30  | 0   | 0   |
 <!-- md-table: let col_a = A_; let col_b = B_; let total_a = sum(col_a); let total_b = sum(col_b); C1 = total_a; D1 = total_b -->
 ```
+<!-- md-code-output: id="multi-variable-func" -->
 
 **Example 5: Variables with Complex Expressions**
 
@@ -563,6 +590,7 @@ Input:
 | 4   | 5   | 0   |
 <!-- md-table: let factor = 2; C_ = (A_ + B_) * factor -->
 ```
+<!-- md-code: id="variable-complex-expr"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -572,6 +600,7 @@ Output:
 | 4   | 5   | 18  |
 <!-- md-table: let factor = 2; C_ = (A_ + B_) * factor -->
 ```
+<!-- md-code-output: id="variable-complex-expr" -->
 
 **Variable Naming Rules:**
 
@@ -595,8 +624,18 @@ Undefined variable usage produces clear error messages:
 | --- | --- |
 | 5   | 0   |
 <!-- md-table: B1 = undefined_var + 10 -->
+```
+<!-- md-code: id="undefined-variable"; bin="md table"; syntax="markdown" -->
+
+Output:
+```markdown
+| A   | B   |
+| --- | --- |
+| 5   | 0   |
+<!-- md-table: B1 = undefined_var + 10 -->
 <!-- md-error: Failed to evaluate expression 'undefined_var + 10': undefined variable: 'undefined_var' -->
 ```
+<!-- md-code-output: id="undefined-variable" -->
 
 Invalid variable names are caught during parsing:
 
@@ -605,8 +644,18 @@ Invalid variable names are caught during parsing:
 | --- | --- |
 | 5   | 0   |
 <!-- md-table: let A1 = 10 -->
+```
+<!-- md-code: id="invalid-variable"; bin="md table"; syntax="markdown" -->
+
+Output:
+```markdown
+| A   | B   |
+| --- | --- |
+| 5   | 0   |
+<!-- md-table: let A1 = 10 -->
 <!-- md-error: Failed to parse statement 'let A1 = 10': invalid syntax (expected format: 'let VAR = EXPRESSION' or 'TARGET = EXPRESSION') -->
 ```
+<!-- md-code-output: id="invalid-variable" -->
 
 **Use Cases:**
 
@@ -657,18 +706,18 @@ Creates a 3×3 matrix:
 | 7 | 8 | 9 | 0   |
 <!-- md-table: D1 = sum(A1:C3) -->
 ```
+<!-- md-code: id="range-sum"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
-| A | B | C | Sum |
-|---|---|---|-----|
-| 1 | 2 | 3 | 45  |
-| 4 | 5 | 6 | 0   |
-| 7 | 8 | 9 | 0   |
+| A   | B   | C   | Sum   |
+| --- | --- | --- | ----- |
+| 1   | 2   | 3   | 45    |
+| 4   | 5   | 6   | 0     |
+| 7   | 8   | 9   | 0     |
 <!-- md-table: D1 = sum(A1:C3) -->
 ```
-
-Result: 1+2+3+4+5+6+7+8+9 = 45
+<!-- md-code-output: id="range-sum" -->
 
 **Example 2 - Column Range (A_:C_):**
 
@@ -682,16 +731,18 @@ Selects all data rows for columns A through C:
 | 70 | 80 | 90 | 0     |
 <!-- md-table: D1 = sum(A_:C_); D2 = avg(A_:C_); D3 = max(A_:C_) -->
 ```
+<!-- md-code: id="column-range"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
-| A  | B  | C  | Total |
-|----|----|----|-------|
-| 10 | 20 | 30 | 450   |
-| 40 | 50 | 60 | 50    |
-| 70 | 80 | 90 | 90    |
+| A    | B    | C    | Total   |
+| ---- | ---- | ---- | ------- |
+| 10   | 20   | 30   | 450     |
+| 40   | 50   | 60   | 50      |
+| 70   | 80   | 90   | 90      |
 <!-- md-table: D1 = sum(A_:C_); D2 = avg(A_:C_); D3 = max(A_:C_) -->
 ```
+<!-- md-code-output: id="column-range" -->
 
 **Example 3 - Row Range (_1:_3):**
 
@@ -706,19 +757,19 @@ Selects all columns for rows 1 through 3:
 | 0 | 0 | 0 |
 <!-- md-table: A4 = sum(_1:_3) -->
 ```
+<!-- md-code: id="row-range"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
-| A  | B | C |
-|----|---|---|
-| 1  | 2 | 3 |
-| 4  | 5 | 6 |
-| 7  | 8 | 9 |
-| 45 | 0 | 0 |
+| A   | B   | C   |
+| --- | --- | --- |
+| 1   | 2   | 3   |
+| 4   | 5   | 6   |
+| 7   | 8   | 9   |
+| 45  | 0   | 0   |
 <!-- md-table: A4 = sum(_1:_3) -->
 ```
-
-Result: 1+2+3+4+5+6+7+8+9 = 45
+<!-- md-code-output: id="row-range" -->
 
 **Example 4 - Range in Complex Expression:**
 
@@ -732,16 +783,18 @@ Ranges work seamlessly with all operators and functions:
 | 0  | 0  | 0  | 0  | 0     |
 <!-- md-table: E1 = sum(A1:D1); E2 = sum(A2:D2); E3 = sum(A_:D_) -->
 ```
+<!-- md-code: id="range-complex-expr"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
-| Q1  | Q2  | Q3  | Q4  | Total |
-|-----|-----|-----|-----|-------|
-| 100 | 150 | 200 | 250 | 700   |
-| 80  | 120 | 160 | 200 | 560   |
-| 0   | 0   | 0   | 0   | 1260  |
+| Q1   | Q2   | Q3   | Q4   | Total   |
+| ---- | ---- | ---- | ---- | ------- |
+| 100  | 150  | 200  | 250  | 700     |
+| 80   | 120  | 160  | 200  | 560     |
+| 0    | 0    | 0    | 0    | 1260    |
 <!-- md-table: E1 = sum(A1:D1); E2 = sum(A2:D2); E3 = sum(A_:D_) -->
 ```
+<!-- md-code-output: id="range-complex-expr" -->
 
 **Range Equivalences:**
 
@@ -797,6 +850,7 @@ Input:
 | 0   | 0   | 0   |
 <!-- md-table: _2 = _1 * 2 -->
 ```
+<!-- md-code: id="row-assignment"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -806,6 +860,7 @@ Output:
 | 2   | 4   | 6   |
 <!-- md-table: _2 = _1 * 2 -->
 ```
+<!-- md-code-output: id="row-assignment" -->
 
 **Example 2: Range Assignment**
 
@@ -819,6 +874,7 @@ Input:
 | 3   | 4   | 0   | 0   |
 <!-- md-table: C1:D2 = A1:B2 + 10 -->
 ```
+<!-- md-code: id="range-assignment"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -828,6 +884,7 @@ Output:
 | 3   | 4   | 13  | 14  |
 <!-- md-table: C1:D2 = A1:B2 + 10 -->
 ```
+<!-- md-code-output: id="range-assignment" -->
 
 **Example 3: Column Range Assignment**
 
@@ -842,6 +899,7 @@ Input:
 | 5   | 6   | 0   | 0   |
 <!-- md-table: C_:D_ = A_:B_ * 10 -->
 ```
+<!-- md-code: id="matrix-assignment"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -852,6 +910,7 @@ Output:
 | 5   | 6   | 50  | 60  |
 <!-- md-table: C_:D_ = A_:B_ * 10 -->
 ```
+<!-- md-code-output: id="matrix-assignment" -->
 
 **Example 4: Row Range Assignment**
 
@@ -867,6 +926,7 @@ Input:
 | 0   | 0   | 0   |
 <!-- md-table: _3:_4 = _1:_2 * 10 -->
 ```
+<!-- md-code: id="multi-row-formula"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -878,10 +938,12 @@ Output:
 | 40  | 50  | 60  |
 <!-- md-table: _3:_4 = _1:_2 * 10 -->
 ```
+<!-- md-code-output: id="multi-row-formula" -->
 
 **Dimension Validation:**
 
-Matrix assignments require exact dimension matches. If the dimensions don't match, you'll get a descriptive error:
+Matrix assignments require exact dimension matches. If the dimensions
+don't match, you'll get a descriptive error:
 
 ```markdown
 | A   | B   | C   |
@@ -889,8 +951,19 @@ Matrix assignments require exact dimension matches. If the dimensions don't matc
 | 1   | 2   | 0   |
 | 3   | 4   | 0   |
 <!-- md-table: C_ = A1:B2 -->
-<!-- md-error: Assignment failed: expected column vector but got matrix result -->
 ```
+<!-- md-code: id="dimension-error"; bin="md table"; syntax="markdown" -->
+
+Output:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 1   | 2   | 0   |
+| 3   | 4   | 0   |
+<!-- md-table: C_ = A1:B2 -->
+<!-- md-error: Assignment failed for 'C_ = A1:B2': expected column vector but got matrix result -->
+```
+<!-- md-code-output: id="dimension-error" -->
 
 **Practical Use Cases:**
 
@@ -934,16 +1007,18 @@ Computing a dot product using transpose and matrix multiplication:
 | 7 | 8 | 0      |
 <!-- md-table: C1 = A_.T @ B_ -->
 ```
+<!-- md-code: id="dot-product"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
-| A | B | Result |
-|---|---|--------|
-| 1 | 2 | 78     |
-| 4 | 5 | 0      |
-| 7 | 8 | 0      |
+| A   | B   | Result   |
+| --- | --- | -------- |
+| 1   | 2   | 78       |
+| 4   | 5   | 0        |
+| 7   | 8   | 0        |
 <!-- md-table: C1 = A_.T @ B_ -->
 ```
+<!-- md-code-output: id="dot-product" -->
 
 **Calculation:** A_.T @ B_ = [1, 4, 7] @ [2; 5; 8] = 1×2 + 4×5 + 7×8 = 2 + 20 + 56 = 78
 
@@ -957,8 +1032,18 @@ Output:
 | 5 | 6 | 0 |
 <!-- md-table: C1 = _1 @ A_ -->
 ```
+<!-- md-code: id="dot-product-2"; bin="md table"; syntax="markdown" -->
 
-Result: C1 = _1 @ A_ = [1, 2, 0] @ [1; 3; 5] = 1×1 + 2×3 + 0×5 = 7
+Output:
+```markdown
+| A   | B   | C   |
+| --- | --- | --- |
+| 1   | 2   | 7   |
+| 3   | 4   | 0   |
+| 5   | 6   | 0   |
+<!-- md-table: C1 = _1 @ A_ -->
+```
+<!-- md-code-output: id="dot-product-2" -->
 
 **Complex Matrix Expressions:**
 
@@ -972,8 +1057,18 @@ Matrix operations can be combined with other operators:
 | 5 | 6 | 0      |
 <!-- md-table: C1 = (A_.T @ B_) + 10 -->
 ```
+<!-- md-code: id="complex-matmul"; bin="md table"; syntax="markdown" -->
 
-Result: C1 = (1×2 + 3×4 + 5×6) + 10 = 44 + 10 = 54
+Output:
+```markdown
+| A   | B   | Result   |
+| --- | --- | -------- |
+| 1   | 2   | 54       |
+| 3   | 4   | 0        |
+| 5   | 6   | 0        |
+<!-- md-table: C1 = (A_.T @ B_) + 10 -->
+```
+<!-- md-code-output: id="complex-matmul" -->
 
 **Operator Precedence (Updated):**
 1. Parentheses `()` and Transpose `.T` (highest)
@@ -1015,6 +1110,7 @@ Input:
 | 2 | 0 |
 <!-- md-table: B1 = foo(A_) -->
 ```
+<!-- md-code: id="unknown-func"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -1024,10 +1120,11 @@ Output:
 | 2   | 0   |
 <!-- md-table: B1 = foo(A_) -->
 <!-- md-error: Failed to evaluate expression:
-unknown function: 'foo' (supported functions: sum, avg, min, max, count, prod)
+unknown function: 'foo' (supported functions: sum, avg, min, max, count, prod, from)
 foo(A_)
 ^^^ -->
 ```
+<!-- md-code-output: id="unknown-func" -->
 
 Notice the `^^^` indicator pointing to the exact location of the unknown function.
 
@@ -1041,6 +1138,7 @@ Input:
 | 3 | 4 | 0 |
 <!-- md-table: C_ = A_ + B_; D_ = X_ + Y_ -->
 ```
+<!-- md-code: id="column-out-of-bounds"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -1054,6 +1152,7 @@ column vector X_ is out of bounds: column X does not exist (table has 3 columns)
 X_ + Y_
 ^ -->
 ```
+<!-- md-code-output: id="column-out-of-bounds" -->
 
 Note: The first formula (`C_ = A_ + B_`) succeeded and updated column C,
 while the second formula (`D_ = X_ + Y_`) failed with a precise error message
@@ -1069,6 +1168,7 @@ Input:
 | 3 | 4 | 0 |
 <!-- md-table: this is invalid -->
 ```
+<!-- md-code: id="parse-error"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -1079,6 +1179,7 @@ Output:
 <!-- md-table: this is invalid -->
 <!-- md-error: Failed to parse statement 'this is invalid': invalid syntax (expected format: 'let VAR = EXPRESSION' or 'TARGET = EXPRESSION') -->
 ```
+<!-- md-code-output: id="parse-error" -->
 
 **Error Behavior:**
 - Errors don't stop processing of subsequent formulas
@@ -1148,6 +1249,7 @@ Input:
 | 1 | 2 |
 <!-- md-table: id="" -->
 ```
+<!-- md-code: id="empty-id"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -1157,6 +1259,7 @@ Output:
 <!-- md-table: id="" -->
 <!-- md-error: Invalid table ID: ID cannot be empty -->
 ```
+<!-- md-code-output: id="empty-id" -->
 
 **Notes:**
 - Table IDs are optional (unlike code blocks where IDs are required for execution)
@@ -1201,6 +1304,7 @@ Input:
 | 0     |
 <!-- md-table: A1 = sum(from("source", A_)) -->
 ```
+<!-- md-code: id="sum-remote-table"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -1216,6 +1320,7 @@ Output:
 | 60    |
 <!-- md-table: A1 = sum(from("source", A_)) -->
 ```
+<!-- md-code-output: id="sum-remote-table" -->
 
 **Example 2: Reference entire table**
 
@@ -1232,6 +1337,7 @@ Input:
 | 0   |
 <!-- md-table: A1 = sum(from("data")) -->
 ```
+<!-- md-code: id="sum-remote-full-table"; bin="md table"; syntax="markdown" -->
 
 Output:
 ```markdown
@@ -1246,6 +1352,7 @@ Output:
 | 10  |
 <!-- md-table: A1 = sum(from("data")) -->
 ```
+<!-- md-code-output: id="sum-remote-full-table" -->
 
 **Example 3: Multiple aggregations**
 
@@ -1264,6 +1371,25 @@ Output:
 | Maximum | 0     |
 <!-- md-table: id="summary"; B1 = sum(from("sales", A_)); B2 = avg(from("sales", A_)); B3 = max(from("sales", A_)) -->
 ```
+<!-- md-code: id="sum-remote-multi-agg"; bin="md table"; syntax="markdown" -->
+
+Output:
+```markdown
+| Sales |
+| ----- |
+| 100   |
+| 200   |
+| 150   |
+<!-- md-table: id="sales" -->
+
+| Metric  | Value |
+| ------- | ----- |
+| Total   | 450   |
+| Average | 150   |
+| Maximum | 200   |
+<!-- md-table: id="summary"; B1 = sum(from("sales", A_)); B2 = avg(from("sales", A_)); B3 = max(from("sales", A_)) -->
+```
+<!-- md-code-output: id="sum-remote-multi-agg" -->
 
 **Error handling:**
 
@@ -1274,8 +1400,18 @@ If you reference a table that doesn't exist, an error is displayed:
 | ------ |
 | 0      |
 <!-- md-table: A1 = from("missing") -->
+```
+<!-- md-code: id="unknown-table"; bin="md table"; syntax="markdown" -->
+
+Output:
+```markdown
+| Result |
+| ------ |
+| 0      |
+<!-- md-table: A1 = from("missing") -->
 <!-- md-error: Failed to evaluate expression 'from("missing")': table 'missing' not found (tables must have an id attribute) -->
 ```
+<!-- md-code-output: id="unknown-table" -->
 
 **Supported functions with `from()`:**
 
@@ -1340,6 +1476,7 @@ print(f"The sum is {x + y}")
 ```
 <!-- md-code: id="sum"; bin="python3" -->
 ~~~
+<!-- md-code: id="simple-python"; bin="md code"; syntax="markdown" -->
 
 Output:
 ~~~markdown
@@ -1353,9 +1490,12 @@ print(f"The sum is {x + y}")
 Output:
 ```
 The sum is 30
+
 ```
 <!-- md-code-output: id="sum" -->
 ~~~
+<!-- md-code-output: id="simple-python" -->
+
 
 **Example - With custom timeout:**
 
@@ -1365,8 +1505,16 @@ import time
 time.sleep(2)
 print("Done!")
 ```
-<!-- md-code: id="slow"; bin="python3"; timeout=5 -->
+<!-- md-code: id="slow"; bin="python3"; timeout=1 -->
 ~~~
+<!-- md-code: id="code-timeout"; bin="md code"; syntax="markdown" -->
+
+Output:
+~~~markdown
+Error: Code execution timed out after 1 seconds
+
+~~~
+<!-- md-code-output: id="code-timeout" -->
 
 **Example - Bash script:**
 
@@ -1377,6 +1525,29 @@ ls -la | head -5
 ```
 <!-- md-code: id="pwd"; bin="bash" -->
 ~~~
+<!-- md-code: id="bash-example"; bin="md code"; syntax="markdown" -->
+
+Output:
+~~~markdown
+```bash
+echo "Current directory: $(pwd)"
+ls -la | head -5
+```
+<!-- md-code: id="pwd"; bin="bash" -->
+
+Output:
+```
+Current directory: /home/amlesh/src/mdutils
+total 132
+drwxr-xr-x 7 amlesh users  4096 Jan  2 17:16 .
+drwxr-xr-x 5 amlesh users  4096 Dec 24 19:11 ..
+-rw-r--r-- 1 amlesh users 19710 Jan  2 12:27 Cargo.lock
+-rw-r--r-- 1 amlesh users   210 Jan  2 12:27 Cargo.toml
+
+```
+<!-- md-code-output: id="pwd" -->
+~~~
+<!-- md-code-output: id="bash-example" -->
 
 **Example - Command with arguments:**
 
@@ -1386,6 +1557,23 @@ print("unbuffered output")
 ```
 <!-- md-code: id="unbuf"; bin="python3 -u" -->
 ~~~
+<!-- md-code: id="command-with-args"; bin="md code"; syntax="markdown" -->
+
+Output:
+~~~markdown
+```python
+print("unbuffered output")
+```
+<!-- md-code: id="unbuf"; bin="python3 -u" -->
+
+Output:
+```
+unbuffered output
+
+```
+<!-- md-code-output: id="unbuf" -->
+~~~
+<!-- md-code-output: id="command-with-args" -->
 
 **Example - Custom fence for output:**
 
@@ -1393,22 +1581,26 @@ print("unbuffered output")
 ```python
 print("Using tildes for output")
 ```
-<!-- md-code: id="custom"; bin="python3"; fence="~~~" -->
+<!-- md-code: id="custom"; bin="python3"; fence="~~~~" -->
 ~~~
+<!-- md-code-disabled: id="custom-fence"; bin="md code"; syntax="markdown" -->
+<!-- meta programming custom fence is currently broken :( -->
 
 Output:
 ~~~markdown
 ```python
 print("Using tildes for output")
 ```
-<!-- md-code: id="custom"; bin="python3"; fence="~~~" -->
+<!-- md-code: id="custom"; bin="python3"; fence="~~~~" -->
 
 Output:
-~~~
+~~~~
 Using tildes for output
-~~~
+
+~~~~
 <!-- md-code-output: id="custom" -->
 ~~~
+<!-- md-code-output: id="custom-fence" -->
 
 **Example - Custom syntax highlighting:**
 
@@ -1419,6 +1611,7 @@ print(json.dumps({"status": "success", "value": 42}))
 ```
 <!-- md-code: id="json"; bin="python3"; syntax="json" -->
 ~~~
+<!-- md-code: id="custom-syntax"; bin="md code"; syntax="markdown" -->
 
 Output:
 ~~~markdown
@@ -1431,9 +1624,11 @@ print(json.dumps({"status": "success", "value": 42}))
 Output:
 ```json
 {"status": "success", "value": 42}
+
 ```
 <!-- md-code-output: id="json" -->
 ~~~
+<!-- md-code-output: id="custom-syntax" -->
 
 **Output block management:**
 - Output blocks are automatically created after code blocks when they produce output
@@ -1456,6 +1651,35 @@ print("Second block")
 ```
 <!-- md-code: id="second"; bin="python3" -->
 ~~~
+<!-- md-code: id="multi-code-blocks"; bin="md code"; syntax="markdown" -->
+
+Output:
+~~~markdown
+```python
+print("First block")
+```
+<!-- md-code: id="first"; bin="python3" -->
+
+Output:
+```
+First block
+
+```
+<!-- md-code-output: id="first" -->
+
+```python
+print("Second block")
+```
+<!-- md-code: id="second"; bin="python3" -->
+
+Output:
+```
+Second block
+
+```
+<!-- md-code-output: id="second" -->
+~~~
+<!-- md-code-output: id="multi-code-blocks" -->
 
 **Important notes:**
 - Each code block must have a unique `id`
