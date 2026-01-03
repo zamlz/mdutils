@@ -16,9 +16,17 @@ def fibonacci(n):
     return fib
 
 result = fibonacci(15)
-sys.stderr.write(f"First 15 Fibonacci numbers:\n{result}\n")
+print(f"First 15 Fibonacci numbers:\n\t{result}")
 ```
 <!-- md-code: id="fibonacci"; bin="python3" -->
+
+Output:
+```
+First 15 Fibonacci numbers:
+	[0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377]
+
+```
+<!-- md-code-output: id="fibonacci" -->
 
 ## Prime Number Detection
 
@@ -36,10 +44,18 @@ def is_prime(n):
     return True
 
 primes = [n for n in range(1, 51) if is_prime(n)]
-sys.stderr.write(f"Prime numbers from 1 to 50:\n{primes}\n")
-sys.stderr.write(f"\nTotal count: {len(primes)}\n")
+print(f"Prime numbers from 1 to 50:{primes}")
+print(f"Total count: {len(primes)}")
 ```
 <!-- md-code: id="primes"; bin="python3" -->
+
+Output:
+```
+Prime numbers from 1 to 50:[2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]
+Total count: 15
+
+```
+<!-- md-code-output: id="primes" -->
 
 ## Matrix Operations
 
@@ -73,19 +89,35 @@ B = [[7, 8],
 
 C = matrix_multiply(A, B)
 
-sys.stderr.write("Matrix A (2x3):\n")
+print("Matrix A (2x3):")
 for row in A:
-    sys.stderr.write(f"  {row}\n")
+    print(f"  {row}")
 
-sys.stderr.write("\nMatrix B (3x2):\n")
+print("Matrix B (3x2):")
 for row in B:
-    sys.stderr.write(f"  {row}\n")
+    print(f"  {row}")
 
-sys.stderr.write("\nResult C = A × B (2x2):\n")
+print("Result C = A × B (2x2):")
 for row in C:
-    sys.stderr.write(f"  {row}\n")
+    print(f"  {row}")
 ```
 <!-- md-code: id="matrix"; bin="python3" -->
+
+Output:
+```
+Matrix A (2x3):
+  [1, 2, 3]
+  [4, 5, 6]
+Matrix B (3x2):
+  [7, 8]
+  [9, 10]
+  [11, 12]
+Result C = A × B (2x2):
+  [58, 64]
+  [139, 154]
+
+```
+<!-- md-code-output: id="matrix" -->
 
 ## Numerical Integration
 
@@ -110,11 +142,20 @@ def f(x):
 approximate = trapezoidal_rule(f, 0, 10, 1000)
 exact = 1000 / 3
 
-sys.stderr.write(f"Approximate integral: {approximate:.4f}\n")
-sys.stderr.write(f"Exact value: {exact:.4f}\n")
-sys.stderr.write(f"Error: {abs(approximate - exact):.6f}\n")
+print(f"Approximate integral: {approximate:.4f}")
+print(f"Exact value: {exact:.4f}")
+print(f"Error: {abs(approximate - exact):.6f}")
 ```
 <!-- md-code: id="integration"; bin="python3" -->
+
+Output:
+```
+Approximate integral: 333.3335
+Exact value: 333.3333
+Error: 0.000167
+
+```
+<!-- md-code-output: id="integration" -->
 
 ## Usage
 

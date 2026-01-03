@@ -3,6 +3,10 @@
 This example demonstrates using code execution for data analysis tasks.
 
 <!-- md-toc: -->
+- [Dataset Summary](#dataset-summary)
+- [Data Transformation](#data-transformation)
+- [Statistical Tests](#statistical-tests)
+- [Usage](#usage)
 <!-- md-toc: end -->
 
 ## Dataset Summary
@@ -14,13 +18,24 @@ import sys
 
 data = [23, 45, 67, 89, 34, 56, 78, 90, 12, 43]
 
-sys.stderr.write(f"Count: {len(data)}\n")
-sys.stderr.write(f"Mean: {sum(data)/len(data):.2f}\n")
-sys.stderr.write(f"Min: {min(data)}\n")
-sys.stderr.write(f"Max: {max(data)}\n")
-sys.stderr.write(f"Range: {max(data) - min(data)}\n")
+print(f"Count: {len(data)}")
+print(f"Mean: {sum(data)/len(data):.2f}")
+print(f"Min: {min(data)}")
+print(f"Max: {max(data)}")
+print(f"Range: {max(data) - min(data)}")
 ```
 <!-- md-code: id="summary_stats"; bin="python3" -->
+
+Output:
+```
+Count: 10
+Mean: 53.70
+Min: 12
+Max: 90
+Range: 78
+
+```
+<!-- md-code-output: id="summary_stats" -->
 
 ## Data Transformation
 
@@ -35,11 +50,28 @@ max_val = max(data)
 
 normalized = [(x - min_val) / (max_val - min_val) * 100 for x in data]
 
-sys.stderr.write("Normalized values:\n")
+print("Normalized values:")
 for i, (orig, norm) in enumerate(zip(data, normalized)):
-    sys.stderr.write(f"  {orig} -> {norm:.1f}\n")
+    print(f"  {orig} -> {norm:.1f}")
 ```
 <!-- md-code: id="normalize"; bin="python3" -->
+
+Output:
+```
+Normalized values:
+  23 -> 14.1
+  45 -> 42.3
+  67 -> 70.5
+  89 -> 98.7
+  34 -> 28.2
+  56 -> 56.4
+  78 -> 84.6
+  90 -> 100.0
+  12 -> 0.0
+  43 -> 39.7
+
+```
+<!-- md-code-output: id="normalize" -->
 
 ## Statistical Tests
 
@@ -55,11 +87,20 @@ mean = sum(data) / len(data)
 variance = sum((x - mean) ** 2 for x in data) / len(data)
 std_dev = math.sqrt(variance)
 
-sys.stderr.write(f"Mean: {mean:.2f}\n")
-sys.stderr.write(f"Variance: {variance:.2f}\n")
-sys.stderr.write(f"Standard Deviation: {std_dev:.2f}\n")
+print(f"Mean: {mean:.2f}")
+print(f"Variance: {variance:.2f}")
+print(f"Standard Deviation: {std_dev:.2f}")
 ```
 <!-- md-code: id="stats"; bin="python3" -->
+
+Output:
+```
+Mean: 53.70
+Variance: 659.61
+Standard Deviation: 25.68
+
+```
+<!-- md-code-output: id="stats" -->
 
 ## Usage
 

@@ -3,6 +3,34 @@
 A comprehensive guide to the XYZ Project.
 
 <!-- md-toc: -->
+- [Introduction](#introduction)
+- [Architecture](#architecture)
+  - [Frontend](#frontend)
+    - [Components](#components)
+  - [Backend](#backend)
+    - [Database](#database)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+  - [Running the Application](#running-the-application)
+- [API Reference](#api-reference)
+  - [Authentication](#authentication)
+    - [POST /api/auth/login](#post-apiauthlogin)
+    - [POST /api/auth/register](#post-apiauthregister)
+  - [Tasks](#tasks)
+    - [GET /api/tasks](#get-apitasks)
+    - [POST /api/tasks](#post-apitasks)
+    - [PUT /api/tasks/:id](#put-apitasksid)
+    - [DELETE /api/tasks/:id](#delete-apitasksid)
+- [Testing](#testing)
+  - [Unit Tests](#unit-tests)
+  - [Integration Tests](#integration-tests)
+- [Deployment](#deployment)
+  - [Docker](#docker)
+  - [Cloud Platforms](#cloud-platforms)
+- [Contributing](#contributing)
+- [License](#license)
 <!-- md-toc: end -->
 
 # Introduction
