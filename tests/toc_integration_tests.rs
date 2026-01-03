@@ -12,6 +12,14 @@ fn test_basic_toc_generation() {
 
     let output = process_toc(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = process_toc(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -23,6 +31,14 @@ fn test_nested_headers() {
 
     let output = process_toc(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = process_toc(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -34,6 +50,14 @@ fn test_toc_update() {
 
     let output = process_toc(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = process_toc(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -45,6 +69,14 @@ fn test_duplicate_headers() {
 
     let output = process_toc(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = process_toc(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -56,6 +88,14 @@ fn test_special_characters() {
 
     let output = process_toc(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = process_toc(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -67,6 +107,14 @@ fn test_no_toc_marker() {
 
     let output = process_toc(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = process_toc(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -78,6 +126,14 @@ fn test_no_end_marker() {
 
     let output = process_toc(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = process_toc(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -89,6 +145,14 @@ fn test_headers_before_marker() {
 
     let output = process_toc(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = process_toc(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -100,6 +164,14 @@ fn test_empty_document() {
 
     let output = process_toc(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = process_toc(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -111,6 +183,14 @@ fn test_complex_document() {
 
     let output = process_toc(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = process_toc(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -122,6 +202,14 @@ fn test_mixed_header_levels() {
 
     let output = process_toc(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = process_toc(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -133,6 +221,14 @@ fn test_only_h1_headers() {
 
     let output = process_toc(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = process_toc(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -144,6 +240,14 @@ fn test_deep_nesting() {
 
     let output = process_toc(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = process_toc(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]

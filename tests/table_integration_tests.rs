@@ -12,6 +12,14 @@ fn test_vector_addition() {
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = format_tables(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -23,6 +31,14 @@ fn test_vector_scalar_multiplication() {
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = format_tables(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -34,6 +50,14 @@ fn test_matrix_multiplication() {
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = format_tables(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -45,6 +69,14 @@ fn test_transpose_operator() {
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = format_tables(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -56,6 +88,14 @@ fn test_multiple_formulas() {
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = format_tables(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -67,6 +107,14 @@ fn test_sum_function() {
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = format_tables(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -78,6 +126,14 @@ fn test_complex_expression() {
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = format_tables(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
@@ -89,6 +145,14 @@ fn test_real_world_tax_calculation() {
 
     let output = format_tables(&input);
     assert_eq!(output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let output2 = format_tables(&expected);
+    assert_eq!(
+        output2.trim(),
+        expected.trim(),
+        "Not idempotent: running on expected output produced different result"
+    );
 }
 
 #[test]
