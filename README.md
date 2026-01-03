@@ -1520,32 +1520,25 @@ Error: Code execution timed out after 1 seconds
 
 ~~~markdown
 ```bash
-echo "Current directory: $(pwd)"
-ls -la | head -5
+echo "hello world"
 ```
-<!-- md-code: id="pwd"; bin="bash" -->
+<!-- md-code: id="bash-hello"; bin="bash" -->
 ~~~
 <!-- md-code: id="bash-example"; bin="md code"; syntax="markdown" -->
 
 Output:
 ~~~markdown
 ```bash
-echo "Current directory: $(pwd)"
-ls -la | head -5
+echo "hello world"
 ```
-<!-- md-code: id="pwd"; bin="bash" -->
+<!-- md-code: id="bash-hello"; bin="bash" -->
 
 Output:
 ```
-Current directory: /home/amlesh/src/mdutils
-total 132
-drwxr-xr-x 7 amlesh users  4096 Jan  2 17:16 .
-drwxr-xr-x 5 amlesh users  4096 Dec 24 19:11 ..
--rw-r--r-- 1 amlesh users 19710 Jan  2 12:27 Cargo.lock
--rw-r--r-- 1 amlesh users   210 Jan  2 12:27 Cargo.toml
+hello world
 
 ```
-<!-- md-code-output: id="pwd" -->
+<!-- md-code-output: id="bash-hello" -->
 ~~~
 <!-- md-code-output: id="bash-example" -->
 
