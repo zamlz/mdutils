@@ -81,17 +81,23 @@ fn reconstruct_document(
                 // Check if we need to add/update output block
                 if let Some(ref directive) = block.directive {
                     if let Some(output) = execution_results.get(&directive.id) {
+                        // Determine which fence to use: directive override or code block's fence
+                        let output_fence = directive.fence.as_ref().unwrap_or(&block.fence);
+
                         // Check if output block already exists
                         if output_blocks.contains_key(&directive.id) {
                             // Mark it as updated (we'll replace it when we encounter it)
-                            updated_output_blocks.insert(directive.id.clone(), output.clone());
+                            updated_output_blocks.insert(
+                                directive.id.clone(),
+                                (output.clone(), output_fence.clone()),
+                            );
                         } else {
                             // Create new output block immediately after code block
                             output_lines.push(String::new());
                             output_lines.push("Output:".to_string());
-                            output_lines.push("```".to_string());
+                            output_lines.push(output_fence.clone());
                             output_lines.push(output.clone());
-                            output_lines.push("```".to_string());
+                            output_lines.push(output_fence.clone());
                             output_lines
                                 .push(format!(r#"<!-- md-code-output: id="{}" -->"#, directive.id));
                         }
@@ -125,7 +131,7 @@ fn reconstruct_document(
                     let id = parse_md_code_output_directive(lines[i])?;
 
                     // If we have an updated output for this ID, use it
-                    if let Some(new_output) = updated_output_blocks.get(&id) {
+                    if let Some((new_output, new_fence)) = updated_output_blocks.get(&id) {
                         // Replace the content with new output
                         output_lines.pop(); // Remove closing fence we just added
                         for _ in content_lines.iter() {
@@ -133,10 +139,10 @@ fn reconstruct_document(
                         }
                         output_lines.pop(); // Remove opening fence
 
-                        // Add new output block
-                        output_lines.push("```".to_string());
+                        // Add new output block with the correct fence
+                        output_lines.push(new_fence.clone());
                         output_lines.push(new_output.clone());
-                        output_lines.push("```".to_string());
+                        output_lines.push(new_fence.clone());
                     }
 
                     // Output the directive comment

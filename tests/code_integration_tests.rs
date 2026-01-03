@@ -169,3 +169,43 @@ fn test_meta_programming() {
     assert!(output.contains("<!-- md-code-output: id=\"table_demo\" -->"));
     assert!(output.contains("<!-- md-code-output: id=\"toc_demo\" -->"));
 }
+
+#[test]
+fn test_custom_fence() {
+    let input = fs::read_to_string("tests/code/fixtures/custom_fence_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/code/fixtures/custom_fence_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = process_code_blocks(&input).expect("Failed to process code blocks");
+    assert_eq!(output.trim(), expected.trim());
+
+    // Verify default fence behavior (uses same fence as input)
+    let default_section = output
+        .split("## Test 1:")
+        .nth(1)
+        .unwrap()
+        .split("## Test 2:")
+        .next()
+        .unwrap();
+    assert!(default_section.contains("Output:\n```\n"));
+    assert!(default_section.contains("\n```\n<!-- md-code-output: id=\"default_fence\""));
+
+    // Verify custom tilde fence
+    let tilde_section = output
+        .split("## Test 2:")
+        .nth(1)
+        .unwrap()
+        .split("## Test 3:")
+        .next()
+        .unwrap();
+    assert!(tilde_section.contains("Output:\n~~~\n"));
+    assert!(tilde_section.contains("\n~~~\n<!-- md-code-output: id=\"custom_tilde\""));
+
+    // Verify custom four-backtick fence
+    let four_backtick_section = output.split("## Test 3:").nth(1).unwrap();
+    assert!(four_backtick_section.contains("Output:\n````\n"));
+    assert!(
+        four_backtick_section.contains("\n````\n<!-- md-code-output: id=\"custom_four_backticks\"")
+    );
+}

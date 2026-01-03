@@ -8,6 +8,7 @@ pub struct CodeBlockDirective {
     pub execute: bool,
     pub bin: Option<String>,
     pub timeout: Option<u64>,
+    pub fence: Option<String>, // Optional fence override for output block (e.g., "```", "~~~", "````")
 }
 
 #[derive(Debug)]
@@ -18,6 +19,7 @@ pub struct CodeBlock {
     pub language: String,
     pub content: String,
     pub directive: Option<CodeBlockDirective>,
+    pub fence: String, // The fence used for this code block (e.g., "```", "~~~")
 }
 
 #[derive(Debug)]
@@ -48,6 +50,13 @@ fn get_fence_type(line: &str) -> Option<char> {
     } else {
         None
     }
+}
+
+/// Extracts the fence string from a fence line (e.g., "```", "~~~", "````")
+fn extract_fence(line: &str) -> String {
+    let trimmed = line.trim();
+    let fence_char = if trimmed.starts_with('`') { '`' } else { '~' };
+    trimmed.chars().take_while(|&c| c == fence_char).collect()
 }
 
 /// Extracts the language from a code fence line
@@ -95,6 +104,7 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
     let mut execute = false;
     let mut bin = None;
     let mut timeout = None;
+    let mut fence = None;
 
     // Split by semicolons
     for part in content.split(';') {
@@ -116,6 +126,10 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
             timeout = Some(value.parse::<u64>().map_err(|_| {
                 CodeError::DirectiveParseError(format!("Invalid timeout value: {}", value))
             })?);
+        } else if part.starts_with("fence=") {
+            // Extract fence value from quotes
+            let value = part.strip_prefix("fence=").unwrap().trim();
+            fence = Some(extract_quoted_value(value)?);
         }
     }
 
@@ -126,11 +140,22 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
     // Validate ID format
     validate_id(&id).map_err(|e| CodeError::DirectiveParseError(format!("Invalid ID: {}", e)))?;
 
+    // Validate fence if specified (must be ``` or ~~~ with optional repetitions)
+    if let Some(ref f) = fence {
+        if !f.chars().all(|c| c == '`' || c == '~') || f.len() < 3 {
+            return Err(CodeError::DirectiveParseError(format!(
+                "Invalid fence: '{}'. Must be at least 3 backticks (`) or tildes (~)",
+                f
+            )));
+        }
+    }
+
     Ok(CodeBlockDirective {
         id,
         execute,
         bin,
         timeout,
+        fence,
     })
 }
 
@@ -205,6 +230,7 @@ pub fn parse_document(
                 active_fence_type = fence_type;
                 let start_line = i;
                 let language = extract_language(lines[i]);
+                let fence = extract_fence(lines[start_line]);
                 i += 1;
 
                 // Collect code block content until we find a matching closing fence
@@ -268,6 +294,7 @@ pub fn parse_document(
                         language,
                         content,
                         directive,
+                        fence,
                     });
                 }
             } else {
