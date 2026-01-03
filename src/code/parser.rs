@@ -9,6 +9,7 @@ pub struct CodeBlockDirective {
     pub bin: Option<String>,
     pub timeout: Option<u64>,
     pub fence: Option<String>, // Optional fence override for output block (e.g., "```", "~~~", "````")
+    pub syntax: Option<String>, // Optional syntax language for output block (e.g., "json", "text")
 }
 
 #[derive(Debug)]
@@ -105,6 +106,7 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
     let mut bin = None;
     let mut timeout = None;
     let mut fence = None;
+    let mut syntax = None;
 
     // Split by semicolons
     for part in content.split(';') {
@@ -130,6 +132,10 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
             // Extract fence value from quotes
             let value = part.strip_prefix("fence=").unwrap().trim();
             fence = Some(extract_quoted_value(value)?);
+        } else if part.starts_with("syntax=") {
+            // Extract syntax value from quotes
+            let value = part.strip_prefix("syntax=").unwrap().trim();
+            syntax = Some(extract_quoted_value(value)?);
         }
     }
 
@@ -156,6 +162,7 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
         bin,
         timeout,
         fence,
+        syntax,
     })
 }
 

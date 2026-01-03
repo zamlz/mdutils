@@ -209,3 +209,51 @@ fn test_custom_fence() {
         four_backtick_section.contains("\n````\n<!-- md-code-output: id=\"custom_four_backticks\"")
     );
 }
+
+#[test]
+fn test_custom_syntax() {
+    let input = fs::read_to_string("tests/code/fixtures/custom_syntax_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/code/fixtures/custom_syntax_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let output = process_code_blocks(&input).expect("Failed to process code blocks");
+    assert_eq!(output.trim(), expected.trim());
+
+    // Verify default syntax (no language specified)
+    let default_section = output
+        .split("## Test 1:")
+        .nth(1)
+        .unwrap()
+        .split("## Test 2:")
+        .next()
+        .unwrap();
+    assert!(default_section.contains("Output:\n```\n"));
+    assert!(!default_section.contains("```json"));
+    assert!(!default_section.contains("```text"));
+
+    // Verify JSON syntax
+    let json_section = output
+        .split("## Test 2:")
+        .nth(1)
+        .unwrap()
+        .split("## Test 3:")
+        .next()
+        .unwrap();
+    assert!(json_section.contains("Output:\n```json\n"));
+
+    // Verify text syntax
+    let text_section = output
+        .split("## Test 3:")
+        .nth(1)
+        .unwrap()
+        .split("## Test 4:")
+        .next()
+        .unwrap();
+    assert!(text_section.contains("Output:\n```text\n"));
+
+    // Verify combined fence and syntax
+    let combined_section = output.split("## Test 4:").nth(1).unwrap();
+    assert!(combined_section.contains("Output:\n~~~python\n"));
+    assert!(combined_section.contains("\n~~~\n<!-- md-code-output: id=\"combined\""));
+}
