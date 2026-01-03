@@ -4,4 +4,4 @@
 echo "Testing bash execution"
 echo "Line 2"
 ```
-<!-- md-code: id="bash_test"; execute; bin="bash" -->
+<!-- md-code: id="bash_test"; bin="bash" -->

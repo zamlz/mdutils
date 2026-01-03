@@ -24,20 +24,18 @@ pub fn process_code_blocks(text: &str) -> Result<String, CodeError> {
 
     for block in &code_blocks {
         if let Some(ref directive) = block.directive {
-            if directive.execute {
-                // Validate that bin is specified
-                let bin = directive
-                    .bin
-                    .as_ref()
-                    .ok_or_else(|| CodeError::missing_field(block.start_line + 1, "bin"))?;
+            // Validate that bin is specified
+            let bin = directive
+                .bin
+                .as_ref()
+                .ok_or_else(|| CodeError::missing_field(block.start_line + 1, "bin"))?;
 
-                // Execute the code
-                let result = execute_code(&block.content, bin, directive.timeout)?;
+            // Execute the code
+            let result = execute_code(&block.content, bin, directive.timeout)?;
 
-                // Only store non-empty outputs
-                if !result.output.trim().is_empty() {
-                    execution_results.insert(directive.id.clone(), result.output);
-                }
+            // Only store non-empty outputs
+            if !result.output.trim().is_empty() {
+                execution_results.insert(directive.id.clone(), result.output);
             }
         }
     }
@@ -186,20 +184,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_process_code_blocks_no_execute() {
+    fn test_process_code_blocks_no_directive() {
         let input = r#"# Test
 
 ```python
 print("hello")
 ```
-<!-- md-code: id="test" -->
 
 More text."#;
 
         let result = process_code_blocks(input);
         assert!(result.is_ok());
         let output = result.unwrap();
-        // Should be unchanged since execute is not set
+        // Should be unchanged since there's no md-code directive
         assert_eq!(output, input);
     }
 
@@ -208,7 +205,7 @@ More text."#;
         let input = r#"```python
 print("hello world")
 ```
-<!-- md-code: id="test"; execute; bin="python3" -->"#;
+<!-- md-code: id="test"; bin="python3" -->"#;
 
         let result = process_code_blocks(input);
 
@@ -245,7 +242,7 @@ print("world")
         let input = r#"```python
 print("hello")
 ```
-<!-- md-code: id="test"; execute -->"#;
+<!-- md-code: id="test" -->"#;
 
         let result = process_code_blocks(input);
         assert!(result.is_err());
@@ -260,7 +257,7 @@ print("hello")
         let input = r#"```python
 print("new output")
 ```
-<!-- md-code: id="test"; execute; bin="python3" -->
+<!-- md-code: id="test"; bin="python3" -->
 
 Some text.
 
@@ -289,7 +286,7 @@ More text."#;
         let input = r#"```python
 x = 1 + 1
 ```
-<!-- md-code: id="test"; execute; bin="python3" -->
+<!-- md-code: id="test"; bin="python3" -->
 
 End."#;
 
@@ -309,7 +306,7 @@ sys.stdout.write("This should not appear\n")
 sys.stderr.write("Error message\n")
 sys.exit(1)
 ```
-<!-- md-code: id="test"; execute; bin="python3" -->"#;
+<!-- md-code: id="test"; bin="python3" -->"#;
 
         let result = process_code_blocks(input);
         // Should succeed (not error out), but capture stderr in output
@@ -356,7 +353,7 @@ second
         let input = r#"```python
 print("test")
 ```
-<!-- md-code: id="test"; execute; bin="python3 -u" -->"#;
+<!-- md-code: id="test"; bin="python3 -u" -->"#;
 
         let result = process_code_blocks(input);
         if let Ok(output) = result {
@@ -371,7 +368,7 @@ import time
 time.sleep(0.1)
 print("done")
 ```
-<!-- md-code: id="test"; execute; bin="python3"; timeout=5 -->"#;
+<!-- md-code: id="test"; bin="python3"; timeout=5 -->"#;
 
         let result = process_code_blocks(input);
         if let Ok(output) = result {

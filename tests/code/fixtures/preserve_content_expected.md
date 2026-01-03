@@ -9,7 +9,7 @@ More text before code.
 ```python
 print("Output here")
 ```
-<!-- md-code: id="preserve_test"; execute; bin="python3" -->
+<!-- md-code: id="preserve_test"; bin="python3" -->
 
 Output:
 ```

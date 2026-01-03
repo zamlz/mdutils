@@ -5,4 +5,4 @@ import sys
 print("stdout output")
 print("stderr output", file=sys.stderr)
 ```
-<!-- md-code: id="stderr_test"; execute; bin="python3" -->
+<!-- md-code: id="stderr_test"; bin="python3" -->

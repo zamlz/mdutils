@@ -58,8 +58,8 @@ fn test_no_execute_flag() {
 
     let output = process_code_blocks(&input).expect("Failed to process code blocks");
     assert_eq!(output.trim(), expected.trim());
-    // Verify only the block with execute flag ran (has output block)
-    assert!(!output.contains("<!-- md-code-output: id=\"no_exec\" -->"));
+    // Verify both blocks executed (both have md-code directives)
+    assert!(output.contains("<!-- md-code-output: id=\"no_exec\" -->"));
     assert!(output.contains("<!-- md-code-output: id=\"yes_exec\" -->"));
 }
 

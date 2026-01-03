@@ -5,7 +5,7 @@
 ```python
 print("First")
 ```
-<!-- md-code: id="first"; execute; bin="python3" -->
+<!-- md-code: id="first"; bin="python3" -->
 
 Output:
 ```
@@ -19,7 +19,7 @@ First
 ```python
 print("Second")
 ```
-<!-- md-code: id="second"; execute; bin="python3" -->
+<!-- md-code: id="second"; bin="python3" -->
 
 Output:
 ```
@@ -33,7 +33,7 @@ Second
 ```bash
 echo "Third"
 ```
-<!-- md-code: id="third"; execute; bin="bash" -->
+<!-- md-code: id="third"; bin="bash" -->
 
 Output:
 ```

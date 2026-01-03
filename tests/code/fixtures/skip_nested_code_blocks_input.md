@@ -5,7 +5,7 @@ This code block should execute:
 ```python
 print("This should execute")
 ```
-<!-- md-code: id="real"; execute; bin="python3" -->
+<!-- md-code: id="real"; bin="python3" -->
 
 This is a markdown example showing code - the directive inside should NOT execute:
 
@@ -14,7 +14,7 @@ This is a markdown example showing code - the directive inside should NOT execut
 \```python
 print("Example code")
 \```
-<!-- md-code: id="example"; execute; bin="python3" -->
+<!-- md-code: id="example"; bin="python3" -->
 ```
 
 Another real code block:
@@ -22,4 +22,4 @@ Another real code block:
 ```bash
 echo "Real output"
 ```
-<!-- md-code: id="real2"; execute; bin="bash" -->
+<!-- md-code: id="real2"; bin="bash" -->

@@ -5,7 +5,7 @@
 ```python
 print("test1")
 ```
-<!-- md-code: id="default_fence"; execute; bin="python3" -->
+<!-- md-code: id="default_fence"; bin="python3" -->
 
 Output:
 ```
@@ -19,7 +19,7 @@ test1
 ```python
 print("test2")
 ```
-<!-- md-code: id="custom_tilde"; execute; bin="python3"; fence="~~~" -->
+<!-- md-code: id="custom_tilde"; bin="python3"; fence="~~~" -->
 
 Output:
 ~~~
@@ -33,7 +33,7 @@ test2
 ~~~~python
 print("test3")
 ~~~~
-<!-- md-code: id="custom_four_backticks"; execute; bin="python3"; fence="````" -->
+<!-- md-code: id="custom_four_backticks"; bin="python3"; fence="````" -->
 
 Output:
 ````

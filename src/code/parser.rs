@@ -5,7 +5,6 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct CodeBlockDirective {
     pub id: String,
-    pub execute: bool,
     pub bin: Option<String>,
     pub timeout: Option<u64>,
     pub fence: Option<String>, // Optional fence override for output block (e.g., "```", "~~~", "````")
@@ -83,7 +82,7 @@ pub fn is_md_code_output_comment(line: &str) -> bool {
 }
 
 /// Parses an md-code directive comment into a CodeBlockDirective
-/// Format: <!-- md-code: id="foo"; execute; bin="python3"; timeout=60 -->
+/// Format: <!-- md-code: id="foo"; bin="python3"; timeout=60 -->
 pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeError> {
     let trimmed = line.trim();
 
@@ -102,7 +101,6 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
         .trim();
 
     let mut id = None;
-    let mut execute = false;
     let mut bin = None;
     let mut timeout = None;
     let mut fence = None;
@@ -112,9 +110,7 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
     for part in content.split(';') {
         let part = part.trim();
 
-        if part == "execute" {
-            execute = true;
-        } else if part.starts_with("id=") {
+        if part.starts_with("id=") {
             // Extract id value from quotes
             let value = part.strip_prefix("id=").unwrap().trim();
             id = Some(extract_quoted_value(value)?);
@@ -158,7 +154,6 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
 
     Ok(CodeBlockDirective {
         id,
-        execute,
         bin,
         timeout,
         fence,
@@ -359,12 +354,10 @@ mod tests {
 
     #[test]
     fn test_parse_md_code_directive() {
-        let result =
-            parse_md_code_directive(r#"<!-- md-code: id="test"; execute; bin="python3" -->"#);
+        let result = parse_md_code_directive(r#"<!-- md-code: id="test"; bin="python3" -->"#);
         assert!(result.is_ok());
         let directive = result.unwrap();
         assert_eq!(directive.id, "test");
-        assert!(directive.execute);
         assert_eq!(directive.bin, Some("python3".to_string()));
         assert_eq!(directive.timeout, None);
     }
@@ -375,7 +368,6 @@ mod tests {
         assert!(result.is_ok());
         let directive = result.unwrap();
         assert_eq!(directive.id, "test");
-        assert!(!directive.execute);
         assert_eq!(directive.timeout, Some(60));
     }
 

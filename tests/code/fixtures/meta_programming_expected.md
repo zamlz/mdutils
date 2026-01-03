@@ -11,7 +11,7 @@ This demonstrates md-code executing md commands on markdown examples.
 | 3 | 7 | 0 |
 <!-- md-table: C_ = A_ + B_ -->
 ```
-<!-- md-code: id="table_demo"; execute; bin="cargo run --quiet -- table" -->
+<!-- md-code: id="table_demo"; bin="cargo run --quiet -- table" -->
 
 Output:
 ```
@@ -34,7 +34,7 @@ Output:
 ## Subsection B
 # Section Two
 ```
-<!-- md-code: id="toc_demo"; execute; bin="cargo run --quiet -- toc" -->
+<!-- md-code: id="toc_demo"; bin="cargo run --quiet -- toc" -->
 
 Output:
 ```

@@ -5,18 +5,18 @@
 ```python
 print("test1")
 ```
-<!-- md-code: id="default_fence"; execute; bin="python3" -->
+<!-- md-code: id="default_fence"; bin="python3" -->
 
 ## Test 2: Custom fence with tildes
 
 ```python
 print("test2")
 ```
-<!-- md-code: id="custom_tilde"; execute; bin="python3"; fence="~~~" -->
+<!-- md-code: id="custom_tilde"; bin="python3"; fence="~~~" -->
 
 ## Test 3: Custom fence with four backticks
 
 ~~~~python
 print("test3")
 ~~~~
-<!-- md-code: id="custom_four_backticks"; execute; bin="python3"; fence="````" -->
+<!-- md-code: id="custom_four_backticks"; bin="python3"; fence="````" -->

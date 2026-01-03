@@ -8,4 +8,4 @@ print("This should not execute")
 ```python
 print("This should execute")
 ```
-<!-- md-code: id="yes_exec"; execute; bin="python3" -->
+<!-- md-code: id="yes_exec"; bin="python3" -->
