@@ -41,7 +41,7 @@ pub fn is_code_fence(line: &str) -> bool {
 }
 
 /// Gets the fence type (backtick or tilde) from a fence line
-fn get_fence_type(line: &str) -> Option<char> {
+pub fn get_fence_type(line: &str) -> Option<char> {
     let trimmed = line.trim();
     if trimmed.starts_with("```") {
         Some('`')

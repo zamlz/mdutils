@@ -6,7 +6,7 @@ pub use error::CodeError;
 
 use executor::execute_code;
 use parser::{
-    is_code_fence, is_md_code_comment, is_md_code_output_comment, parse_document,
+    get_fence_type, is_code_fence, is_md_code_comment, is_md_code_output_comment, parse_document,
     parse_md_code_output_directive, validate_unique_ids, CodeBlock, OutputBlock,
 };
 use std::collections::HashMap;
@@ -110,12 +110,18 @@ fn reconstruct_document(
             }
         } else if is_code_fence(lines[i]) {
             // This might be an output block or a regular code fence
+            let _fence_start_line = i;
+            let opening_fence_type = get_fence_type(lines[i]);
             output_lines.push(lines[i].to_string());
             i += 1;
 
-            // Collect content
+            // Collect content until we find a matching closing fence
             let mut content_lines = Vec::new();
-            while i < lines.len() && !is_code_fence(lines[i]) {
+            while i < lines.len() {
+                // Check if this line closes the fence (must be same type)
+                if is_code_fence(lines[i]) && get_fence_type(lines[i]) == opening_fence_type {
+                    break;
+                }
                 content_lines.push(lines[i]);
                 i += 1;
             }
