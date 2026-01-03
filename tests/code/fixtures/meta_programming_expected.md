@@ -52,3 +52,29 @@ Output:
 
 ```
 <!-- md-code-output: id="toc_demo" -->
+
+## Example 3: md code executing code
+
+~~~markdown
+```python
+print(f"3^2 = {3**2}")
+```
+<!-- md-code: id="python_test"; bin="python3" -->
+~~~
+<!-- md-code: id="code_demo"; bin="cargo run --quiet -- code" -->
+
+Output:
+~~~
+```python
+print(f"3^2 = {3**2}")
+```
+<!-- md-code: id="python_test"; bin="python3" -->
+
+Output:
+```
+3^2 = 9
+
+```
+<!-- md-code-output: id="python_test" -->
+~~~
+<!-- md-code-output: id="code_demo" -->

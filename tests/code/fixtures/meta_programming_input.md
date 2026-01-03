@@ -25,3 +25,13 @@ This demonstrates md-code executing md commands on markdown examples.
 # Section Two
 ```
 <!-- md-code: id="toc_demo"; bin="cargo run --quiet -- toc" -->
+
+## Example 3: md code executing code
+
+~~~markdown
+```python
+print(f"3^2 = {3**2}")
+```
+<!-- md-code: id="python_test"; bin="python3" -->
+~~~
+<!-- md-code: id="code_demo"; bin="cargo run --quiet -- code" -->
