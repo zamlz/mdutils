@@ -74,11 +74,11 @@ Input:
 <!-- md-toc: -->
 ## Heading 1
 ### Heading 2
-~~~markdown
-<!-- md-code: id="toc-example"; bin="md toc" -->
+~~~
+<!-- md-code: id="toc-example"; bin="md toc"; syntax="markdown" -->
 
 Output:
-~~~
+~~~markdown
 # Title Heading
 <!-- md-toc: -->
 - [Heading 1](#heading-1)
@@ -103,11 +103,11 @@ Input:
 | 2   | 3   | 4   |
 |     |     |     |
 <!-- md-table: _2 = _1 ^ 3 -->
-~~~markdown
-<!-- md-code: id="table-example"; bin="md table" -->
+~~~
+<!-- md-code: id="table-example"; bin="md table"; syntax="markdown" -->
 
 Output:
-~~~
+~~~markdown
 | x   | y   | z   |
 | --- | --- | --- |
 | 2   | 3   | 4   |
@@ -135,11 +135,11 @@ result_sequence = list(collatz_sequence(start_num))
 print(f"Collatz sequence for {start_num}:\n{result_sequence}")
 ```
 <!-- md-code: id="code-test"; bin="python3" -->
-~~~markdown
-<!-- md-code: id="code-example"; bin="md code" -->
+~~~
+<!-- md-code: id="code-example"; bin="md code"; syntax="markdown" -->
 
 Output:
-~~~
+~~~markdown
 ```python
 def collatz_sequence(n):
     while n != 1:
@@ -168,10 +168,10 @@ Collatz sequence for 300:
 ```bash
 md new table:7:7
 ```
-<!-- md-code: id="new-example"; bin="bash" -->
+<!-- md-code: id="new-example"; bin="bash"; syntax="markdown" -->
 
 Output:
-```
+```markdown
 |     |     |     |     |     |     |     |
 | --- | --- | --- | --- | --- | --- | --- |
 |     |     |     |     |     |     |     |
