@@ -1,19 +1,29 @@
 Markdown Utils
 ==============
 
+**Version:** 0.1.0
+
 <!-- md-toc: -->
 - [Why?](#why)
+- [Features](#features)
 - [Disclaimer](#disclaimer)
 - [Usage](#usage)
   - [TOC Example](#toc-example)
   - [Table Example](#table-example)
   - [Code Example](#code-example)
   - [New Example](#new-example)
+- [Idempotency](#idempotency)
+- [Meta-Programming](#meta-programming)
+- [Examples](#examples)
 - [Development](#development)
   - [Build](#build)
   - [Run](#run)
   - [Test](#test)
   - [Debug](#debug)
+- [Troubleshooting](#troubleshooting)
+  - [Binary not found after `nix build`](#binary-not-found-after-nix-build)
+  - [Command-specific issues](#command-specific-issues)
+  - [Getting help](#getting-help)
 <!-- md-toc: end -->
 
 ## Why?
@@ -30,6 +40,19 @@ and then replaces the highlighted text with it's output. This tool
 does just that. It is not editor specific and utilizes HTML comments in
 markdown (which is valid syntax) to tag and extend markdown with some
 of these capabilities.
+
+## Features
+
+- **Table Formatting** - Auto-align and format markdown tables
+- **Spreadsheet Formulas** - Excel-like formulas with vectors, matrices, and functions (`sum`, `avg`, `min`, `max`, `count`, `prod`)
+- **Code Execution** - Execute code blocks and capture output directly in markdown
+- **Table of Contents** - Auto-generate TOCs with GitHub-style anchors
+- **Cross-Table References** - Reference data between tables using table IDs
+- **Variables** - Store intermediate results in formulas with `let` statements
+- **Matrix Operations** - Transpose (`.T`), matrix multiplication (`@`), ranges (`A1:C3`)
+- **Idempotent** - Running commands multiple times produces the same result
+- **Editor Agnostic** - Works with any editor that can pipe text (Vim, Neovim, Kakoune, Helix, etc.)
+- **Meta-Programmable** - This README and all docs are generated using `md` itself!
 
 ## Disclaimer
 
@@ -197,12 +220,21 @@ This tool is __ONLY__ idempotent if the following conditions are met!
 
 ## Meta-Programming
 
-The tool is designed to allow meta-programming of itself! This means
-that this very `README.md` file is built and modified using the same `md`
-tool. All the examples working examples of `md` and their commands since
-they are updated automatically when we execute `md code` on the README!
-This includes all files in the [`docs/`](docs/) sub-folder and the
-[`meta-programming.md`](examples/meta-programming.md) file.
+The tool is designed to allow meta-programming of itself! This means that
+this very `README.md` file is built and modified using the same `md`
+tool. This includes all files in the [`docs/`](docs/) sub-folder.
+
+## Examples
+
+The [`examples/`](examples/) directory contains real-world usage examples:
+
+- [`data-analysis.md`](examples/data-analysis.md) - Data analysis workflows
+- [`grades.md`](examples/grades.md) - Grade calculation spreadsheet
+- [`meta-programming.md`](examples/meta-programming.md) - Using `md` to document itself
+- [`project-docs.md`](examples/project-docs.md) - Project documentation example
+- [`scientific-computation.md`](examples/scientific-computation.md) - Scientific computing examples
+
+Each example demonstrates different features and can be processed with `md` commands.
 
 ## Development
 
@@ -231,9 +263,21 @@ nix develop --command cargo run -- table < input.md
 
 ### Test
 
-Run tests:
+Run all tests (389 total tests including unit, integration, and doc tests):
 ```bash
 nix develop --command cargo test
+```
+
+Run specific test:
+```bash
+nix develop --command cargo test test_name
+```
+
+Run tests for a specific module:
+```bash
+nix develop --command cargo test table::
+nix develop --command cargo test code::
+nix develop --command cargo test toc::
 ```
 
 ### Debug
@@ -258,3 +302,25 @@ For debugging with GDB or LLDB:
 nix develop --command cargo build
 nix develop --command gdb ./target/debug/md
 ```
+
+## Troubleshooting
+
+### Binary not found after `nix build`
+
+After running `nix build`, the binary is available at `./result/bin/md`. You can either:
+- Use the full path: `./result/bin/md table < input.md`
+- Add to PATH: `export PATH="$PWD/result/bin:$PATH"`
+- Copy to a location in your PATH: `cp result/bin/md ~/.local/bin/`
+
+### Command-specific issues
+
+For troubleshooting specific to each command, see:
+- **Table formulas** - See [docs/table.md](docs/table.md#troubleshooting)
+- **Code execution** - See [docs/code.md](docs/code.md#troubleshooting)
+- **TOC generation** - See [docs/toc.md](docs/toc.md#troubleshooting)
+
+### Getting help
+
+- Check the detailed documentation in [`docs/`](docs/)
+- View examples in [`examples/`](examples/)
+- Report issues on GitHub (if repository is public)

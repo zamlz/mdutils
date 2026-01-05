@@ -2,7 +2,10 @@ Command: `new` (New Markdown Element Creation)
 ==============================================
 
 <!-- md-toc: -->
+- [New Table](#new-table)
 <!-- md-toc: end -->
+
+## New Table
 
 The `new` subcommand creates a new empty markdown table with the specified
 dimensions and outputs it to STDOUT.

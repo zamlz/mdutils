@@ -12,6 +12,21 @@ Command: `table` (Auto-formatting and Spreadsheet Formulas)
 - [Formula Error Handling](#formula-error-handling)
 - [Table IDs](#table-ids)
 - [Cross-Table References](#cross-table-references)
+- [Troubleshooting](#troubleshooting)
+  - [Table formulas not working](#table-formulas-not-working)
+  - [Cell reference errors](#cell-reference-errors)
+  - [Formula dimension mismatch errors](#formula-dimension-mismatch-errors)
+  - [Variable errors](#variable-errors)
+  - [Cross-table reference errors](#cross-table-reference-errors)
+  - [Assignment errors](#assignment-errors)
+  - [Parse errors](#parse-errors)
+  - [Function errors](#function-errors)
+  - [Division by zero](#division-by-zero)
+  - [Performance issues with large tables](#performance-issues-with-large-tables)
+  - [Formula execution order](#formula-execution-order)
+  - [Error messages with position indicators](#error-messages-with-position-indicators)
+  - [Common formula patterns](#common-formula-patterns)
+  - [Getting more help](#getting-more-help)
 <!-- md-toc: end -->
 
 ## Table Formatting
@@ -1261,3 +1276,305 @@ All aggregate functions work with cross-table references:
 - Empty or non-numeric cells in the source table are treated as 0
 - String literals in formulas (like `"table_id"`) must be enclosed in double quotes
 - Cross-table references can be combined with other operations and functions
+
+## Troubleshooting
+
+### Table formulas not working
+
+**Problem:** Formulas aren't being evaluated or cells aren't updating.
+
+**Common causes:**
+
+1. **Missing formula directive**
+   - Directive must be immediately after the table
+   - Format: `<!-- md-table: FORMULAS -->`
+   - Check for typos: `md-table` not `md-formula` or `table`
+
+2. **Syntax errors**
+   - Check formula syntax matches documentation
+   - Common: Missing semicolons between formulas
+   - Example: `A1 = 5; B1 = 10; C1 = A1 + B1`
+
+3. **Invalid cell references**
+   - Row 1 is the first DATA row (not header)
+   - Header is Row 0, separator is Row 1, data starts at Row 2 in the table
+   - But in formulas: Row 1 = first data row
+   - Columns use letters: A, B, C, etc.
+
+**Check for error comments in output:**
+```markdown
+<!-- md-error: Failed to evaluate expression ... -->
+```
+
+### Cell reference errors
+
+**Error:** `column vector X_ is out of bounds`
+
+**Causes:**
+- Referencing a column that doesn't exist
+- Typo in column letter
+- Table has fewer columns than expected
+
+**Solution:**
+- Verify column exists: Table with 3 columns has A, B, C only
+- Check for typos: `X_` vs `C_`
+
+**Error:** `row vector _5 is out of bounds`
+
+**Causes:**
+- Referencing a row that doesn't exist
+- Remember: Row 1 is first data row (after header and separator)
+
+**Solution:**
+- Count your data rows (not including header/separator)
+- Table with 2 data rows only has `_1` and `_2`
+
+### Formula dimension mismatch errors
+
+**Error:** `dimension mismatch in elementwise operation`
+
+**Problem:** Trying to add/subtract/multiply vectors of different lengths.
+
+**Example of error:**
+```markdown
+| A | B | C |
+|---|---|---|
+| 1 | 2 | 0 |
+| 3 | 4 | 0 |
+| 5 |   | 0 |
+<!-- md-table: C_ = A_ + B_ -->
+```
+
+Column A has 3 values, column B has only 2 (third is empty).
+
+**Solutions:**
+- Ensure vectors have the same length
+- Fill missing cells with 0 or numbers
+- Empty cells are treated as 0, but missing rows cause issues
+
+**Error:** `matrix multiplication dimension mismatch`
+
+**Problem:** Matrix dimensions don't match for multiplication.
+
+**Rule:** `(m×n) @ (n×p) = (m×p)`
+- Inner dimensions must match
+- `A_.T @ B_` where A_ is 3×1 and B_ is 3×1 works (1×3 @ 3×1 = 1×1)
+- `A_ @ B_` where both are 3×1 fails (3×1 @ 3×1 is invalid)
+
+**Solution:**
+- Use transpose `.T` to convert between row and column vectors
+- Row vector: `_1` or `A_.T`
+- Column vector: `A_` or `_1.T`
+
+### Variable errors
+
+**Error:** `undefined variable: 'x'`
+
+**Cause:** Using a variable before defining it.
+
+**Solution:**
+```markdown
+<!-- Correct order -->
+<!-- md-table: let x = 10; B1 = x -->
+
+<!-- Wrong order -->
+<!-- md-table: B1 = x; let x = 10 -->
+```
+
+**Error:** `invalid variable name`
+
+**Cause:** Variable name looks like a cell reference.
+
+**Invalid names:** `A1`, `B_`, `_2` (these are cell references)
+**Valid names:** `x`, `total`, `sum_col`, `result`
+
+### Cross-table reference errors
+
+**Error:** `table 'sales' not found`
+
+**Causes:**
+1. Table ID doesn't exist
+2. Table hasn't been defined yet (tables processed top-to-bottom)
+3. Typo in table ID
+
+**Solution:**
+```markdown
+<!-- Define table with ID first -->
+| Value |
+|-------|
+| 100   |
+<!-- md-table: id="sales" -->
+
+<!-- Reference it later -->
+| Total |
+|-------|
+| 0     |
+<!-- md-table: A1 = sum(from("sales", A_)) -->
+```
+
+**Error:** `table ID cannot be empty`
+
+**Solution:** Provide a non-empty ID:
+```markdown
+<!-- Wrong -->
+<!-- md-table: id="" -->
+
+<!-- Correct -->
+<!-- md-table: id="my_table" -->
+```
+
+### Assignment errors
+
+**Error:** `expected column vector but got matrix result`
+
+**Problem:** Trying to assign a matrix to a column vector or vice versa.
+
+**Example:**
+```markdown
+<!-- Wrong: A1:B2 is 2×2 matrix, C_ expects column vector -->
+<!-- md-table: C_ = A1:B2 -->
+
+<!-- Correct: Use matching dimensions -->
+<!-- md-table: C1:D2 = A1:B2 -->
+```
+
+**Solution:** Match dimensions on both sides:
+- `A1 = scalar_expression` ✓
+- `A_ = column_vector_expression` ✓
+- `_1 = row_vector_expression` ✓
+- `A1:B2 = matrix_2x2_expression` ✓
+
+### Parse errors
+
+**Error:** `unexpected token`
+
+**Causes:**
+- Unmatched parentheses: `(A1 + B1`
+- Invalid operators: `A1 & B1` (use `+`, `-`, `*`, `/`, `^`, `@`)
+- Missing operands: `A1 + ` or `* B1`
+
+**Error:** `unmatched parenthesis`
+
+**Solution:** Count your parentheses:
+```markdown
+<!-- Wrong -->
+C1 = (A1 + B1
+
+<!-- Correct -->
+C1 = (A1 + B1)
+```
+
+### Function errors
+
+**Error:** `unknown function: 'foo'`
+
+**Cause:** Function doesn't exist.
+
+**Supported functions:** `sum`, `avg`, `min`, `max`, `count`, `prod`, `from`
+
+**Check spelling:**
+- `average` ✗ → `avg` ✓
+- `Sum` ✗ → `sum` ✓ (case-insensitive, but use lowercase)
+
+### Division by zero
+
+**Error:** `division by zero`
+
+**Cause:** Denominator evaluates to zero.
+
+**Example:**
+```markdown
+| A | B | C   |
+|---|---|-----|
+| 10| 0 | 0   |
+<!-- md-table: C1 = A1 / B1 -->
+```
+
+**Solution:** Check your data or add conditional logic (if supported).
+
+### Performance issues with large tables
+
+**Problem:** Formula evaluation is slow on large tables.
+
+**Tips for optimization:**
+
+1. **Use variables to avoid recalculation:**
+```markdown
+<!-- Slow: calculates A_ + B_ twice -->
+C_ = (A_ + B_) * 2; D_ = (A_ + B_) / 2
+
+<!-- Fast: calculates once -->
+let sum = A_ + B_; C_ = sum * 2; D_ = sum / 2
+```
+
+2. **Use aggregate functions instead of ranges:**
+```markdown
+<!-- Prefer -->
+A1 = sum(B_)
+
+<!-- Over -->
+A1 = B1 + B2 + B3 + B4 + B5 + ...
+```
+
+3. **Break large tables into smaller ones:**
+   - Use cross-table references with table IDs
+   - Process sections independently
+   - Aggregate results in a summary table
+
+### Formula execution order
+
+Formulas are evaluated in the order they appear, left to right.
+
+**This matters when formulas depend on each other:**
+```markdown
+<!-- Correct order -->
+B1 = A1 * 2; C1 = B1 + 10
+
+<!-- Wrong order - C1 evaluated before B1 is set -->
+C1 = B1 + 10; B1 = A1 * 2
+```
+
+**Solution:** Order formulas by their dependencies.
+
+### Error messages with position indicators
+
+Look for caret `^^^` indicators showing exactly where the error occurred:
+
+```markdown
+<!-- md-error: Failed to evaluate expression:
+unknown function: 'foo'
+foo(A_)
+^^^ -->
+```
+
+The `^^^` points to the problematic part of your formula.
+
+### Common formula patterns
+
+**Percentage calculations:**
+```markdown
+<!-- Percent of total -->
+let total = sum(A_); B_ = A_ / total * 100
+```
+
+**Weighted averages:**
+```markdown
+<!-- Weights in A_, values in B_ -->
+C1 = sum(A_ * B_) / sum(A_)
+```
+
+**Running totals:**
+```markdown
+<!-- Not supported yet - each cell is independent -->
+<!-- Workaround: Use ranges -->
+B1 = sum(A1:A1)
+B2 = sum(A1:A2)
+B3 = sum(A1:A3)
+```
+
+### Getting more help
+
+- Check the examples in the documentation above
+- Look for error comments in your output: `<!-- md-error: ... -->`
+- Verify formula syntax matches the documentation exactly
+- Test formulas incrementally (add one at a time)
