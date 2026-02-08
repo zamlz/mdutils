@@ -1,0 +1,3 @@
+- [x] ~~Buy groceries~~ `COMPLETED: 2024-01-15 14:30:00`
+- [x] ~~Walk the dog~~ `COMPLETED: 2024-01-15 14:30:00`
+- [x] ~~Write code~~ `COMPLETED: 2024-01-15 14:30:00`

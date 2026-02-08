@@ -1,10 +1,12 @@
 mod code;
 mod common;
+mod done;
 mod table;
 mod toc;
 
 use clap::{Parser, Subcommand};
 use code::process_code_blocks;
+use done::process_done;
 use std::io::{self, Read};
 use table::{create_table, format_tables, parse_table_spec};
 use toc::process_toc;
@@ -25,6 +27,8 @@ enum Commands {
     Code,
     /// Generate or update table of contents
     Toc,
+    /// Mark checklist items as done with strikethrough and timestamp
+    Done,
     /// Create a new markdown table
     New {
         /// Table specification in format "table:R:C" (e.g., "table:2:3")
@@ -86,6 +90,18 @@ fn main() {
             };
 
             let output = process_toc(&input);
+            print!("{}", output);
+        }
+        Commands::Done => {
+            let input = match read_stdin() {
+                Ok(content) => content,
+                Err(e) => {
+                    eprintln!("{}", e);
+                    std::process::exit(1);
+                }
+            };
+
+            let output = process_done(&input);
             print!("{}", output);
         }
         Commands::New { spec } => match parse_table_spec(&spec) {

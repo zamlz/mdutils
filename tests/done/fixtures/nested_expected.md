@@ -1,0 +1,5 @@
+- [x] ~~Parent task~~ `COMPLETED: 2024-01-15 14:30:00`
+  - [x] ~~Child task 1~~ `COMPLETED: 2024-01-15 14:30:00`
+  - [x] ~~Child task 2~~ `COMPLETED: 2024-01-15 14:30:00`
+    - [x] ~~Grandchild task~~ `COMPLETED: 2024-01-15 14:30:00`
+- [x] ~~Another parent~~ `COMPLETED: 2024-01-15 14:30:00`

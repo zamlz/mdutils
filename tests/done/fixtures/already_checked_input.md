@@ -1,0 +1,3 @@
+- [x] Already checked task
+- [X] Another checked task
+- [ ] Open task

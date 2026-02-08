@@ -1,0 +1,3 @@
+- [x] Already checked task
+- [X] Another checked task
+- [x] ~~Open task~~ `COMPLETED: 2024-01-15 14:30:00`

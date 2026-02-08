@@ -8,6 +8,7 @@ name = "md"
 path = "src/main.rs"
 
 [dependencies]
+chrono = "0.4"
 clap = { version = "4.5", features = ["derive"] }
 rust_decimal = "1.35"
 thiserror = "2.0"
