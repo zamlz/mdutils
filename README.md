@@ -47,6 +47,7 @@ of these capabilities.
 - **Spreadsheet Formulas** - Excel-like formulas with vectors, matrices, and functions (`sum`, `avg`, `min`, `max`, `count`, `prod`)
 - **Code Execution** - Execute code blocks and capture output directly in markdown
 - **Table of Contents** - Auto-generate TOCs with GitHub-style anchors
+- **Task Completion** - Mark checklist items as done with strikethrough and timestamp
 - **Cross-Table References** - Reference data between tables using table IDs
 - **Variables** - Store intermediate results in formulas with `let` statements
 - **Matrix Operations** - Transpose (`.T`), matrix multiplication (`@`), ranges (`A1:C3`)
@@ -74,6 +75,7 @@ _(Please click on the links to see more detailed documentation)_
 - [`table`](docs/table.md): Format and apply formulas to existing tables
 - [`code`](docs/code.md): Evaluation of code blocks
 - [`toc`](docs/toc.md): Generation of table of contents
+- [`done`](docs/done.md): Mark checklist items as completed
 
 All commands (with the exception of `new`) operate with the idea that
 it reads from STDIN and then tranforms the input to produce some output
@@ -207,6 +209,31 @@ Output:
 ```
 <!-- md-code-output: id="new-example" -->
 
+### Done Example
+
+```bash
+cat EXAMPLE.md | md done
+```
+
+Input:
+~~~markdown
+- [ ] Buy groceries
+- [ ] Walk the dog
+- [x] Already completed
+~~~
+<!-- md-code: id="table-example"; bin="md done"; syntax="markdown" -->
+
+Output:
+~~~markdown
+- [x] ~~Buy groceries~~ `COMPLETED: 2026-02-07 17:44:08`
+- [x] ~~Walk the dog~~ `COMPLETED: 2026-02-07 17:44:08`
+- [x] Already completed
+~~~
+<!-- md-code-output: id="table-example" -->
+
+
+Note: Already checked items (`- [x]`) are left unchanged.
+
 ## Idempotency
 
 Idempotency means that the following is true,
@@ -318,6 +345,7 @@ For troubleshooting specific to each command, see:
 - **Table formulas** - See [docs/table.md](docs/table.md#troubleshooting)
 - **Code execution** - See [docs/code.md](docs/code.md#troubleshooting)
 - **TOC generation** - See [docs/toc.md](docs/toc.md#troubleshooting)
+- **Task completion** - See [docs/done.md](docs/done.md#troubleshooting)
 
 ### Getting help
 
