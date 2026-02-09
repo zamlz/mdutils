@@ -12,13 +12,13 @@ fn test_basic_done() {
     let expected = fs::read_to_string("tests/done/fixtures/basic_expected.md")
         .expect("Failed to read expected fixture");
 
-    let output = process_done_with_timestamp(&input, TEST_TIMESTAMP);
-    assert_eq!(output.trim(), expected.trim());
+    let result = process_done_with_timestamp(&input, TEST_TIMESTAMP);
+    assert_eq!(result.output.trim(), expected.trim());
 
     // Idempotency check: command(expected) should equal expected
-    let output2 = process_done_with_timestamp(&expected, TEST_TIMESTAMP);
+    let result2 = process_done_with_timestamp(&expected, TEST_TIMESTAMP);
     assert_eq!(
-        output2.trim(),
+        result2.output.trim(),
         expected.trim(),
         "Not idempotent: running on expected output produced different result"
     );
@@ -31,13 +31,13 @@ fn test_already_checked_items() {
     let expected = fs::read_to_string("tests/done/fixtures/already_checked_expected.md")
         .expect("Failed to read expected fixture");
 
-    let output = process_done_with_timestamp(&input, TEST_TIMESTAMP);
-    assert_eq!(output.trim(), expected.trim());
+    let result = process_done_with_timestamp(&input, TEST_TIMESTAMP);
+    assert_eq!(result.output.trim(), expected.trim());
 
     // Idempotency check
-    let output2 = process_done_with_timestamp(&expected, TEST_TIMESTAMP);
+    let result2 = process_done_with_timestamp(&expected, TEST_TIMESTAMP);
     assert_eq!(
-        output2.trim(),
+        result2.output.trim(),
         expected.trim(),
         "Not idempotent: running on expected output produced different result"
     );
@@ -50,13 +50,13 @@ fn test_already_done_strikethrough() {
     let expected = fs::read_to_string("tests/done/fixtures/already_done_expected.md")
         .expect("Failed to read expected fixture");
 
-    let output = process_done_with_timestamp(&input, TEST_TIMESTAMP);
-    assert_eq!(output.trim(), expected.trim());
+    let result = process_done_with_timestamp(&input, TEST_TIMESTAMP);
+    assert_eq!(result.output.trim(), expected.trim());
 
     // Idempotency check
-    let output2 = process_done_with_timestamp(&expected, TEST_TIMESTAMP);
+    let result2 = process_done_with_timestamp(&expected, TEST_TIMESTAMP);
     assert_eq!(
-        output2.trim(),
+        result2.output.trim(),
         expected.trim(),
         "Not idempotent: running on expected output produced different result"
     );
@@ -69,13 +69,13 @@ fn test_nested_items() {
     let expected = fs::read_to_string("tests/done/fixtures/nested_expected.md")
         .expect("Failed to read expected fixture");
 
-    let output = process_done_with_timestamp(&input, TEST_TIMESTAMP);
-    assert_eq!(output.trim(), expected.trim());
+    let result = process_done_with_timestamp(&input, TEST_TIMESTAMP);
+    assert_eq!(result.output.trim(), expected.trim());
 
     // Idempotency check
-    let output2 = process_done_with_timestamp(&expected, TEST_TIMESTAMP);
+    let result2 = process_done_with_timestamp(&expected, TEST_TIMESTAMP);
     assert_eq!(
-        output2.trim(),
+        result2.output.trim(),
         expected.trim(),
         "Not idempotent: running on expected output produced different result"
     );
@@ -88,13 +88,13 @@ fn test_mixed_content() {
     let expected = fs::read_to_string("tests/done/fixtures/mixed_content_expected.md")
         .expect("Failed to read expected fixture");
 
-    let output = process_done_with_timestamp(&input, TEST_TIMESTAMP);
-    assert_eq!(output.trim(), expected.trim());
+    let result = process_done_with_timestamp(&input, TEST_TIMESTAMP);
+    assert_eq!(result.output.trim(), expected.trim());
 
     // Idempotency check
-    let output2 = process_done_with_timestamp(&expected, TEST_TIMESTAMP);
+    let result2 = process_done_with_timestamp(&expected, TEST_TIMESTAMP);
     assert_eq!(
-        output2.trim(),
+        result2.output.trim(),
         expected.trim(),
         "Not idempotent: running on expected output produced different result"
     );
@@ -107,13 +107,13 @@ fn test_passthrough_non_checklist() {
     let expected = fs::read_to_string("tests/done/fixtures/passthrough_expected.md")
         .expect("Failed to read expected fixture");
 
-    let output = process_done_with_timestamp(&input, TEST_TIMESTAMP);
-    assert_eq!(output.trim(), expected.trim());
+    let result = process_done_with_timestamp(&input, TEST_TIMESTAMP);
+    assert_eq!(result.output.trim(), expected.trim());
 
     // Idempotency check
-    let output2 = process_done_with_timestamp(&expected, TEST_TIMESTAMP);
+    let result2 = process_done_with_timestamp(&expected, TEST_TIMESTAMP);
     assert_eq!(
-        output2.trim(),
+        result2.output.trim(),
         expected.trim(),
         "Not idempotent: running on expected output produced different result"
     );

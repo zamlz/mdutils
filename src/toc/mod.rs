@@ -44,7 +44,7 @@
 /// ```
 mod parser;
 
-use crate::common::CodeFenceTracker;
+use crate::common::{CodeFenceTracker, ProcessingResult};
 use parser::{parse_headers, Header};
 
 const TOC_START_MARKER: &str = "<!-- md-toc: -->";
@@ -58,8 +58,9 @@ const TOC_END_MARKER: &str = "<!-- md-toc: end -->";
 ///
 /// # Returns
 ///
-/// The updated document with TOC generated or updated
-pub fn process_toc(input: &str) -> String {
+/// A [`ProcessingResult`] containing the updated document with TOC generated or updated.
+/// This operation is infallible, so the result will never contain errors.
+pub fn process_toc(input: &str) -> ProcessingResult {
     let lines: Vec<&str> = input.lines().collect();
 
     // Find TOC marker (skip those inside code fences)
@@ -75,7 +76,7 @@ pub fn process_toc(input: &str) -> String {
 
     // If no TOC marker, return input unchanged
     let Some(toc_start_line) = toc_start_line else {
-        return input.to_string();
+        return ProcessingResult::success(input.to_string());
     };
 
     // Find end marker (if it exists) - also skip those inside code fences
@@ -123,7 +124,7 @@ pub fn process_toc(input: &str) -> String {
     }
 
     // Join with newlines
-    result.join("\n") + "\n"
+    ProcessingResult::success(result.join("\n") + "\n")
 }
 
 /// Generate table of contents from headers
@@ -165,8 +166,9 @@ mod tests {
     #[test]
     fn test_no_toc_marker() {
         let input = "# Header\n## Subheader\n";
-        let output = process_toc(input);
-        assert_eq!(output, input);
+        let result = process_toc(input);
+        assert_eq!(result.output, input);
+        assert!(!result.has_errors());
     }
 
     #[test]
@@ -180,13 +182,13 @@ mod tests {
 ## Section 2
 "#;
 
-        let output = process_toc(input);
+        let result = process_toc(input);
 
-        assert!(output.contains("<!-- md-toc: -->"));
-        assert!(output.contains("<!-- md-toc: end -->"));
-        assert!(output.contains("- [Section 1](#section-1)"));
-        assert!(output.contains("  - [Subsection 1.1](#subsection-11)"));
-        assert!(output.contains("- [Section 2](#section-2)"));
+        assert!(result.output.contains("<!-- md-toc: -->"));
+        assert!(result.output.contains("<!-- md-toc: end -->"));
+        assert!(result.output.contains("- [Section 1](#section-1)"));
+        assert!(result.output.contains("  - [Subsection 1.1](#subsection-11)"));
+        assert!(result.output.contains("- [Section 2](#section-2)"));
     }
 
     #[test]
@@ -200,13 +202,13 @@ mod tests {
 ### New Subsection
 "#;
 
-        let output = process_toc(input);
+        let result = process_toc(input);
 
         // Should update with new headers
-        assert!(output.contains("- [New Section](#new-section)"));
-        assert!(output.contains("  - [New Subsection](#new-subsection)"));
+        assert!(result.output.contains("- [New Section](#new-section)"));
+        assert!(result.output.contains("  - [New Subsection](#new-subsection)"));
         // Should not contain old content
-        assert!(!output.contains("Old Section"));
+        assert!(!result.output.contains("Old Section"));
     }
 
     #[test]
@@ -217,9 +219,9 @@ mod tests {
 ## Section 1
 "#;
 
-        let output = process_toc(input);
+        let result = process_toc(input);
 
-        assert!(output.contains("<!-- md-toc: end -->"));
-        assert!(output.contains("- [Section 1](#section-1)"));
+        assert!(result.output.contains("<!-- md-toc: end -->"));
+        assert!(result.output.contains("- [Section 1](#section-1)"));
     }
 }

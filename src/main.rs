@@ -6,6 +6,7 @@ mod toc;
 
 use clap::{Parser, Subcommand};
 use code::process_code_blocks;
+use common::ProcessingResult;
 use done::process_done;
 use std::io::{self, Read};
 use table::{create_table, format_tables, parse_table_spec};
@@ -47,7 +48,22 @@ fn read_stdin() -> Result<String, String> {
     Ok(input)
 }
 
-fn main() {
+/// Handles a ProcessingResult: prints output, reports errors, and returns exit code
+fn handle_result(result: ProcessingResult) -> i32 {
+    print!("{}", result.output);
+
+    for error in &result.errors {
+        eprintln!("error: {}", error);
+    }
+
+    if result.has_errors() {
+        1
+    } else {
+        0
+    }
+}
+
+fn run() -> i32 {
     let cli = Cli::parse();
 
     match cli.command {
@@ -56,63 +72,55 @@ fn main() {
                 Ok(content) => content,
                 Err(e) => {
                     eprintln!("{}", e);
-                    std::process::exit(1);
+                    return 1;
                 }
             };
-
-            let output = format_tables(&input);
-            print!("{}", output);
+            handle_result(format_tables(&input))
         }
         Commands::Code => {
             let input = match read_stdin() {
                 Ok(content) => content,
                 Err(e) => {
                     eprintln!("{}", e);
-                    std::process::exit(1);
+                    return 1;
                 }
             };
-
-            match process_code_blocks(&input) {
-                Ok(output) => print!("{}", output),
-                Err(e) => {
-                    eprintln!("Error: {}", e);
-                    std::process::exit(1);
-                }
-            }
+            handle_result(process_code_blocks(&input))
         }
         Commands::Toc => {
             let input = match read_stdin() {
                 Ok(content) => content,
                 Err(e) => {
                     eprintln!("{}", e);
-                    std::process::exit(1);
+                    return 1;
                 }
             };
-
-            let output = process_toc(&input);
-            print!("{}", output);
+            handle_result(process_toc(&input))
         }
         Commands::Done => {
             let input = match read_stdin() {
                 Ok(content) => content,
                 Err(e) => {
                     eprintln!("{}", e);
-                    std::process::exit(1);
+                    return 1;
                 }
             };
-
-            let output = process_done(&input);
-            print!("{}", output);
+            handle_result(process_done(&input))
         }
         Commands::New { spec } => match parse_table_spec(&spec) {
             Ok((rows, cols)) => {
                 let table = create_table(rows, cols);
                 print!("{}", table);
+                0
             }
             Err(e) => {
                 eprintln!("Error: {}", e);
-                std::process::exit(1);
+                1
             }
         },
     }
+}
+
+fn main() {
+    std::process::exit(run());
 }

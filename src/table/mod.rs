@@ -3,7 +3,7 @@ mod formatter;
 mod formula;
 mod parser;
 
-use crate::common::CodeFenceTracker;
+use crate::common::{CodeFenceTracker, ProcessingError, ProcessingResult};
 use formatter::format_table_row;
 use formula::apply_formulas_with_tables;
 use parser::{
@@ -106,10 +106,17 @@ pub fn parse_table_spec(spec: &str) -> Result<(usize, usize), String> {
 }
 
 /// Formats markdown tables in the input text and returns the full text with aligned tables
-pub fn format_tables(text: &str) -> String {
+///
+/// # Returns
+///
+/// A [`ProcessingResult`] containing:
+/// - The formatted document (with tables aligned and formulas evaluated)
+/// - Any errors that occurred during formula evaluation (also embedded inline as `<!-- md-error: ... -->`)
+pub fn format_tables(text: &str) -> ProcessingResult {
     use std::collections::HashMap;
 
     let lines: Vec<&str> = text.lines().collect();
+    let mut collected_errors: Vec<ProcessingError> = Vec::new();
 
     // First pass: collect all tables with IDs (skip tables inside code fences)
     let mut table_map: HashMap<String, Vec<Vec<String>>> = HashMap::new();
@@ -172,6 +179,7 @@ pub fn format_tables(text: &str) -> String {
     // Second pass: format tables with formulas (with access to table_map)
     let mut output = Vec::new();
     let mut current_table_lines = Vec::new();
+    let mut current_table_start_line = 0usize;
     let mut i = 0;
     let mut fence_tracker = CodeFenceTracker::new();
 
@@ -188,6 +196,7 @@ pub fn format_tables(text: &str) -> String {
 
         if is_table_row(lines[i]) {
             // Start collecting table lines
+            current_table_start_line = i + 1; // 1-indexed for user display
             current_table_lines.push(lines[i]);
             i += 1;
 
@@ -258,6 +267,7 @@ pub fn format_tables(text: &str) -> String {
                 // Add parse error if present
                 if let Some(ref error) = parse_error {
                     output.push(format!("<!-- md-error: {} -->", error));
+                    collected_errors.push(ProcessingError::table(current_table_start_line, error));
                 }
 
                 // Add error comments for formulas from this comment line
@@ -265,6 +275,8 @@ pub fn format_tables(text: &str) -> String {
                     if error_idx < all_errors.len() {
                         if let Some(ref error) = all_errors[error_idx] {
                             output.push(format!("<!-- md-error: {} -->", error));
+                            collected_errors
+                                .push(ProcessingError::table(current_table_start_line, error));
                         }
                         error_idx += 1;
                     }
@@ -286,7 +298,7 @@ pub fn format_tables(text: &str) -> String {
         result.push('\n');
     }
 
-    result
+    ProcessingResult::with_errors(result, collected_errors)
 }
 
 /// Formats a table with formula evaluation and access to other tables
@@ -351,17 +363,18 @@ Some text before the table.
 
 Some text after the table."#;
 
-        let output = format_tables(input);
+        let result = format_tables(input);
 
-        assert!(output.contains("# Document Title"));
-        assert!(output.contains("Some text before the table."));
-        assert!(output.contains("Some text after the table."));
-        assert!(output.contains("Name"));
-        assert!(output.contains("Age"));
-        assert!(output.contains("John"));
-        assert!(output.contains("Jane"));
+        assert!(result.output.contains("# Document Title"));
+        assert!(result.output.contains("Some text before the table."));
+        assert!(result.output.contains("Some text after the table."));
+        assert!(result.output.contains("Name"));
+        assert!(result.output.contains("Age"));
+        assert!(result.output.contains("John"));
+        assert!(result.output.contains("Jane"));
         // Check that table rows start and end with pipes
-        assert!(output.lines().any(|line| line.trim().starts_with("| Name")));
+        assert!(result.output.lines().any(|line| line.trim().starts_with("| Name")));
+        assert!(!result.has_errors());
     }
 
     #[test]
@@ -378,18 +391,18 @@ Some text in between.
 |------|------|
 | C    | D    |"#;
 
-        let output = format_tables(input);
+        let result = format_tables(input);
 
-        assert!(output.contains("First table:"));
-        assert!(output.contains("Some text in between."));
-        assert!(output.contains("Col1"));
-        assert!(output.contains("Col2"));
-        assert!(output.contains("Col3"));
-        assert!(output.contains("Col4"));
-        assert!(output.contains("A"));
-        assert!(output.contains("B"));
-        assert!(output.contains("C"));
-        assert!(output.contains("D"));
+        assert!(result.output.contains("First table:"));
+        assert!(result.output.contains("Some text in between."));
+        assert!(result.output.contains("Col1"));
+        assert!(result.output.contains("Col2"));
+        assert!(result.output.contains("Col3"));
+        assert!(result.output.contains("Col4"));
+        assert!(result.output.contains("A"));
+        assert!(result.output.contains("B"));
+        assert!(result.output.contains("C"));
+        assert!(result.output.contains("D"));
     }
 
     #[test]
@@ -401,26 +414,26 @@ With some text but no tables.
 - List item 1
 - List item 2"#;
 
-        let output = format_tables(input);
-        assert_eq!(output, input);
+        let result = format_tables(input);
+        assert_eq!(result.output, input);
     }
 
     #[test]
     fn test_table_alignment() {
         let input = "| A | B |\n|---|---|\n| Short | VeryLongContent |";
-        let output = format_tables(input);
+        let result = format_tables(input);
 
         // Should align columns based on widest content
-        assert!(output.contains("VeryLongContent"));
+        assert!(result.output.contains("VeryLongContent"));
         // All column widths should be consistent
-        let lines: Vec<&str> = output.lines().collect();
+        let lines: Vec<&str> = result.output.lines().collect();
         assert_eq!(lines.len(), 3);
     }
 
     #[test]
     fn test_empty_input() {
-        let output = format_tables("");
-        assert_eq!(output, "");
+        let result = format_tables("");
+        assert_eq!(result.output, "");
     }
 
     #[test]
@@ -431,12 +444,12 @@ With some text but no tables.
 |--------|
 | Data   |"#;
 
-        let output = format_tables(input);
-        assert!(output.contains("Some text."));
-        assert!(output.contains("Header"));
-        assert!(output.contains("Data"));
+        let result = format_tables(input);
+        assert!(result.output.contains("Some text."));
+        assert!(result.output.contains("Header"));
+        assert!(result.output.contains("Data"));
         // Verify it's formatted as a table
-        assert!(output
+        assert!(result.output
             .lines()
             .any(|line| line.trim().starts_with("| Header")));
     }
@@ -448,8 +461,8 @@ With some text but no tables.
 | 5 | 10 | 0 |
 <!-- md-table: C1 = A1 + B1 -->"#;
 
-        let output = format_tables(input);
-        assert!(output.contains("15"));
+        let result = format_tables(input);
+        assert!(result.output.contains("15"));
     }
 
     #[test]
@@ -461,10 +474,10 @@ With some text but no tables.
 | Orange | 2.00 | 5 | 0 |
 <!-- md-table: D1 = B1 * C1; D2 = B2 * C2; D3 = B3 * C3 -->"#;
 
-        let output = format_tables(input);
+        let result = format_tables(input);
         // Check that all formulas were evaluated
-        assert!(output.contains("15")); // 1.50 * 10
-        assert!(output.contains("10")); // 2.00 * 5
+        assert!(result.output.contains("15")); // 1.50 * 10
+        assert!(result.output.contains("10")); // 2.00 * 5
     }
 
     #[test]
@@ -476,15 +489,15 @@ With some text but no tables.
 | Keyboard | 150 | 0 | 0 |
 <!-- md-table: C_ = B_ * 0.08; D_ = B_ + C_ -->"#;
 
-        let output = format_tables(input);
+        let result = format_tables(input);
 
         // Check vector formula results
-        assert!(output.contains("80")); // 1000 * 0.08 (tax on laptop)
-        assert!(output.contains("1080")); // 1000 + 80 (total for laptop)
-        assert!(output.contains("4")); // 50 * 0.08 (tax on mouse)
-        assert!(output.contains("54")); // 50 + 4 (total for mouse)
-        assert!(output.contains("12")); // 150 * 0.08 (tax on keyboard)
-        assert!(output.contains("162")); // 150 + 12 (total for keyboard)
+        assert!(result.output.contains("80")); // 1000 * 0.08 (tax on laptop)
+        assert!(result.output.contains("1080")); // 1000 + 80 (total for laptop)
+        assert!(result.output.contains("4")); // 50 * 0.08 (tax on mouse)
+        assert!(result.output.contains("54")); // 50 + 4 (total for mouse)
+        assert!(result.output.contains("12")); // 150 * 0.08 (tax on keyboard)
+        assert!(result.output.contains("162")); // 150 + 12 (total for keyboard)
     }
 
     #[test]
@@ -497,13 +510,13 @@ With some text but no tables.
 | TOTAL | 0 | 0 | 0 |
 <!-- md-table: D_ = B_ * C_; A4 = sum(B_); B4 = sum(C_); D4 = sum(D_) -->"#;
 
-        let output = format_tables(input);
+        let result = format_tables(input);
 
         // Check that sum formulas were evaluated
-        assert!(output.contains("| A    | 10    | 5        | 50")); // First row calculated
-        assert!(output.contains("| B    | 20    | 3        | 60")); // Second row calculated
-        assert!(output.contains("| C    | 15    | 2        | 30")); // Third row calculated
-        assert!(output.contains("| 45   | 10    | 0        | 140")); // Sum row (A4=45, B4=10, C4=0, D4=140)
+        assert!(result.output.contains("| A    | 10    | 5        | 50")); // First row calculated
+        assert!(result.output.contains("| B    | 20    | 3        | 60")); // Second row calculated
+        assert!(result.output.contains("| C    | 15    | 2        | 30")); // Third row calculated
+        assert!(result.output.contains("| 45   | 10    | 0        | 140")); // Sum row (A4=45, B4=10, C4=0, D4=140)
     }
 
     #[test]
@@ -515,12 +528,12 @@ With some text but no tables.
 | 4 | 0 |
 <!-- md-table: B_ = A_ ^ 2 -->"#;
 
-        let output = format_tables(input);
+        let result = format_tables(input);
 
         // Check exponentiation results
-        assert!(output.contains("| 2    | 4")); // 2^2 = 4
-        assert!(output.contains("| 3    | 9")); // 3^2 = 9
-        assert!(output.contains("| 4    | 16")); // 4^2 = 16
+        assert!(result.output.contains("| 2    | 4")); // 2^2 = 4
+        assert!(result.output.contains("| 3    | 9")); // 3^2 = 9
+        assert!(result.output.contains("| 4    | 16")); // 4^2 = 16
     }
 
     #[test]
@@ -530,14 +543,15 @@ With some text but no tables.
 | 1 | 2 | 3 |
 <!-- md-table: id="sales_data"; C1 = A1 + B1 -->"#;
 
-        let output = format_tables(input);
+        let result = format_tables(input);
 
         // Table ID directive should be preserved
-        assert!(output.contains("<!-- md-table: id=\"sales_data\"; C1 = A1 + B1 -->"));
+        assert!(result.output.contains("<!-- md-table: id=\"sales_data\"; C1 = A1 + B1 -->"));
         // Formula should work
-        assert!(output.contains("| 3"));
+        assert!(result.output.contains("| 3"));
         // Should not have any errors
-        assert!(!output.contains("md-error"));
+        assert!(!result.output.contains("md-error"));
+        assert!(!result.has_errors());
     }
 
     #[test]
@@ -547,12 +561,12 @@ With some text but no tables.
 | 1 | 2 |
 <!-- md-table: id="sales data" -->"#;
 
-        let output = format_tables(input);
+        let result = format_tables(input);
 
         // Whitespace is now allowed in IDs
-        assert!(output.contains("<!-- md-table: id=\"sales data\" -->"));
+        assert!(result.output.contains("<!-- md-table: id=\"sales data\" -->"));
         // Should not have any errors
-        assert!(!output.contains("md-error"));
+        assert!(!result.output.contains("md-error"));
     }
 
     #[test]
@@ -562,12 +576,12 @@ With some text but no tables.
 | 1 | 2 |
 <!-- md-table: id="my-table-2024" -->"#;
 
-        let output = format_tables(input);
+        let result = format_tables(input);
 
         // Special characters are now allowed in IDs
-        assert!(output.contains("<!-- md-table: id=\"my-table-2024\" -->"));
+        assert!(result.output.contains("<!-- md-table: id=\"my-table-2024\" -->"));
         // Should not have any errors
-        assert!(!output.contains("md-error"));
+        assert!(!result.output.contains("md-error"));
     }
 
     #[test]
@@ -577,12 +591,13 @@ With some text but no tables.
 | 1 | 2 |
 <!-- md-table: id="" -->"#;
 
-        let output = format_tables(input);
+        let result = format_tables(input);
 
-        // Should have an error about empty ID
-        assert!(output.contains("md-error"));
-        assert!(output.contains("Invalid table ID"));
-        assert!(output.contains("cannot be empty"));
+        // Should have an error about empty ID (inline and in result)
+        assert!(result.output.contains("md-error"));
+        assert!(result.output.contains("Invalid table ID"));
+        assert!(result.output.contains("cannot be empty"));
+        assert!(result.has_errors());
     }
 
     #[test]
@@ -597,13 +612,13 @@ With some text but no tables.
 | 3 | 4 |
 <!-- md-table: id="table2" -->"#;
 
-        let output = format_tables(input);
+        let result = format_tables(input);
 
         // Both IDs should be preserved
-        assert!(output.contains("<!-- md-table: id=\"table1\" -->"));
-        assert!(output.contains("<!-- md-table: id=\"table2\" -->"));
+        assert!(result.output.contains("<!-- md-table: id=\"table1\" -->"));
+        assert!(result.output.contains("<!-- md-table: id=\"table2\" -->"));
         // No errors
-        assert!(!output.contains("md-error"));
+        assert!(!result.output.contains("md-error"));
     }
 
     #[test]
@@ -614,14 +629,14 @@ With some text but no tables.
 | 7 | 3 | 0 |
 <!-- md-table: id="calc_table"; C_ = A_ + B_ -->"#;
 
-        let output = format_tables(input);
+        let result = format_tables(input);
 
         // ID directive should be preserved
-        assert!(output.contains("<!-- md-table: id=\"calc_table\"; C_ = A_ + B_ -->"));
+        assert!(result.output.contains("<!-- md-table: id=\"calc_table\"; C_ = A_ + B_ -->"));
         // Formulas should work
-        assert!(output.contains("| 15"));
-        assert!(output.contains("| 10"));
+        assert!(result.output.contains("| 15"));
+        assert!(result.output.contains("| 10"));
         // No errors
-        assert!(!output.contains("md-error"));
+        assert!(!result.output.contains("md-error"));
     }
 }

@@ -1,5 +1,7 @@
 //! Common utilities shared across modules
 
+use thiserror::Error;
+
 /// The type of code fence used in markdown
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FenceType {
@@ -117,6 +119,150 @@ impl CodeFenceTracker {
         } else {
             false
         }
+    }
+}
+
+// ============================================================================
+// Processing Result Types
+// ============================================================================
+
+/// The origin/category of a processing error
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrorOrigin {
+    /// Error from table/formula processing
+    Table,
+    /// Error from code block execution
+    Code,
+    /// Error from TOC generation
+    Toc,
+    /// Error from done/checklist processing
+    Done,
+}
+
+impl std::fmt::Display for ErrorOrigin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ErrorOrigin::Table => write!(f, "table"),
+            ErrorOrigin::Code => write!(f, "code"),
+            ErrorOrigin::Toc => write!(f, "toc"),
+            ErrorOrigin::Done => write!(f, "done"),
+        }
+    }
+}
+
+/// A processing error with location and context information
+#[derive(Debug, Clone, Error)]
+#[error("[{origin}] line {line}: {message}")]
+pub struct ProcessingError {
+    /// The origin module that generated this error
+    pub origin: ErrorOrigin,
+    /// The line number where the error occurred (1-indexed for user display)
+    pub line: usize,
+    /// The error message
+    pub message: String,
+}
+
+impl ProcessingError {
+    /// Create a new processing error
+    pub fn new(origin: ErrorOrigin, line: usize, message: impl Into<String>) -> Self {
+        Self {
+            origin,
+            line,
+            message: message.into(),
+        }
+    }
+
+    /// Create a table error
+    pub fn table(line: usize, message: impl Into<String>) -> Self {
+        Self::new(ErrorOrigin::Table, line, message)
+    }
+
+    /// Create a code error
+    pub fn code(line: usize, message: impl Into<String>) -> Self {
+        Self::new(ErrorOrigin::Code, line, message)
+    }
+
+    /// Create a TOC error
+    pub fn toc(line: usize, message: impl Into<String>) -> Self {
+        Self::new(ErrorOrigin::Toc, line, message)
+    }
+
+    /// Create a done error
+    pub fn done(line: usize, message: impl Into<String>) -> Self {
+        Self::new(ErrorOrigin::Done, line, message)
+    }
+}
+
+/// Result of processing a markdown document
+///
+/// This type allows modules to always produce output (even when errors occur)
+/// while still collecting and reporting errors. This enables:
+/// - Inline error markers in the output (like `<!-- md-error: ... -->`)
+/// - Proper exit codes in the CLI
+/// - Error reporting to stderr
+///
+/// # Examples
+///
+/// ```
+/// use mdutils::common::ProcessingResult;
+///
+/// // Successful processing
+/// let result = ProcessingResult::success("processed output".to_string());
+/// assert!(!result.has_errors());
+///
+/// // Processing with errors
+/// let result = ProcessingResult::success("partial output".to_string())
+///     .with_error(mdutils::common::ProcessingError::table(5, "division by zero"));
+/// assert!(result.has_errors());
+/// ```
+#[derive(Debug, Clone)]
+pub struct ProcessingResult {
+    /// The processed output (always produced, even with errors)
+    pub output: String,
+    /// Errors encountered during processing
+    pub errors: Vec<ProcessingError>,
+}
+
+impl ProcessingResult {
+    /// Create a successful result with no errors
+    pub fn success(output: String) -> Self {
+        Self {
+            output,
+            errors: vec![],
+        }
+    }
+
+    /// Create a result with output and errors
+    pub fn with_errors(output: String, errors: Vec<ProcessingError>) -> Self {
+        Self { output, errors }
+    }
+
+    /// Add an error to this result (builder pattern)
+    pub fn with_error(mut self, error: ProcessingError) -> Self {
+        self.errors.push(error);
+        self
+    }
+
+    /// Add multiple errors to this result (builder pattern)
+    pub fn with_errors_added(mut self, errors: impl IntoIterator<Item = ProcessingError>) -> Self {
+        self.errors.extend(errors);
+        self
+    }
+
+    /// Check if there are any errors
+    pub fn has_errors(&self) -> bool {
+        !self.errors.is_empty()
+    }
+
+    /// Get the number of errors
+    pub fn error_count(&self) -> usize {
+        self.errors.len()
+    }
+}
+
+impl Default for ProcessingResult {
+    fn default() -> Self {
+        Self::success(String::new())
     }
 }
 
@@ -241,6 +387,36 @@ mod tests {
         // The tracker will close the block, which matches markdown behavior
         tracker.process_line("```");
         assert!(!tracker.is_inside_code_block());
+    }
+
+    #[test]
+    fn test_processing_result_success() {
+        let result = ProcessingResult::success("output".to_string());
+        assert_eq!(result.output, "output");
+        assert!(!result.has_errors());
+        assert_eq!(result.error_count(), 0);
+    }
+
+    #[test]
+    fn test_processing_result_with_errors() {
+        let result = ProcessingResult::success("output".to_string())
+            .with_error(ProcessingError::table(5, "error 1"))
+            .with_error(ProcessingError::code(10, "error 2"));
+
+        assert_eq!(result.output, "output");
+        assert!(result.has_errors());
+        assert_eq!(result.error_count(), 2);
+        assert_eq!(result.errors[0].line, 5);
+        assert_eq!(result.errors[0].origin, ErrorOrigin::Table);
+        assert_eq!(result.errors[1].line, 10);
+        assert_eq!(result.errors[1].origin, ErrorOrigin::Code);
+    }
+
+    #[test]
+    fn test_processing_error_display() {
+        let error = ProcessingError::table(42, "division by zero");
+        let display = format!("{}", error);
+        assert_eq!(display, "[table] line 42: division by zero");
     }
 
     #[test]

@@ -4,7 +4,7 @@ mod parser;
 
 pub use error::CodeError;
 
-use crate::common::{get_fence_type, is_code_fence};
+use crate::common::{get_fence_type, is_code_fence, ProcessingError, ProcessingResult};
 use executor::execute_code;
 use parser::{
     is_md_code_comment, is_md_code_output_comment, parse_document, parse_md_code_output_directive,
@@ -13,12 +13,33 @@ use parser::{
 use std::collections::HashMap;
 
 /// Processes markdown code blocks with md-code directives
-pub fn process_code_blocks(text: &str) -> Result<String, CodeError> {
+///
+/// # Returns
+///
+/// A [`ProcessingResult`] containing:
+/// - The processed document (with code block outputs inserted/updated)
+/// - Any errors that occurred during parsing or execution
+///
+/// Note: Unlike other modules, code processing errors are often fatal (e.g., duplicate IDs,
+/// missing bin specification). In these cases, the original input is returned unchanged
+/// and the error is reported.
+pub fn process_code_blocks(text: &str) -> ProcessingResult {
+    let mut errors = Vec::new();
+
     // Parse the document to find all code blocks and output blocks
-    let (code_blocks, mut output_blocks) = parse_document(text)?;
+    let (code_blocks, mut output_blocks) = match parse_document(text) {
+        Ok(result) => result,
+        Err(e) => {
+            errors.push(ProcessingError::code(0, e.to_string()));
+            return ProcessingResult::with_errors(text.to_string(), errors);
+        }
+    };
 
     // Validate that all code block IDs are unique
-    validate_unique_ids(&code_blocks)?;
+    if let Err(e) = validate_unique_ids(&code_blocks) {
+        errors.push(ProcessingError::code(0, e.to_string()));
+        return ProcessingResult::with_errors(text.to_string(), errors);
+    }
 
     // Execute code blocks and collect results
     let mut execution_results = HashMap::new();
@@ -26,23 +47,39 @@ pub fn process_code_blocks(text: &str) -> Result<String, CodeError> {
     for block in &code_blocks {
         if let Some(ref directive) = block.directive {
             // Validate that bin is specified
-            let bin = directive
-                .bin
-                .as_ref()
-                .ok_or_else(|| CodeError::missing_field(block.start_line + 1, "bin"))?;
+            let bin = match directive.bin.as_ref() {
+                Some(bin) => bin,
+                None => {
+                    let err = CodeError::missing_field(block.start_line + 1, "bin");
+                    errors.push(ProcessingError::code(block.start_line + 1, err.to_string()));
+                    return ProcessingResult::with_errors(text.to_string(), errors);
+                }
+            };
 
             // Execute the code
-            let result = execute_code(&block.content, bin, directive.timeout)?;
-
-            // Only store non-empty outputs
-            if !result.output.trim().is_empty() {
-                execution_results.insert(directive.id.clone(), result.output);
+            match execute_code(&block.content, bin, directive.timeout) {
+                Ok(result) => {
+                    // Only store non-empty outputs
+                    if !result.output.trim().is_empty() {
+                        execution_results.insert(directive.id.clone(), result.output);
+                    }
+                }
+                Err(e) => {
+                    errors.push(ProcessingError::code(block.start_line + 1, e.to_string()));
+                    return ProcessingResult::with_errors(text.to_string(), errors);
+                }
             }
         }
     }
 
     // Reconstruct the document
-    reconstruct_document(text, &code_blocks, &mut output_blocks, &execution_results)
+    match reconstruct_document(text, &code_blocks, &mut output_blocks, &execution_results) {
+        Ok(output) => ProcessingResult::with_errors(output, errors),
+        Err(e) => {
+            errors.push(ProcessingError::code(0, e.to_string()));
+            ProcessingResult::with_errors(text.to_string(), errors)
+        }
+    }
 }
 
 /// Reconstructs the document with updated/new output blocks
@@ -201,10 +238,9 @@ print("hello")
 More text."#;
 
         let result = process_code_blocks(input);
-        assert!(result.is_ok());
-        let output = result.unwrap();
+        assert!(!result.has_errors());
         // Should be unchanged since there's no md-code directive
-        assert_eq!(output, input);
+        assert_eq!(result.output, input);
     }
 
     #[test]
@@ -217,10 +253,10 @@ print("hello world")
         let result = process_code_blocks(input);
 
         // This test requires python3 to be installed
-        if let Ok(output) = result {
+        if !result.has_errors() {
             // Should contain output block
-            assert!(output.contains("Output:"));
-            assert!(output.contains("md-code-output:"));
+            assert!(result.output.contains("Output:"));
+            assert!(result.output.contains("md-code-output:"));
         }
     }
 
@@ -237,11 +273,8 @@ print("world")
 <!-- md-code: id="test" -->"#;
 
         let result = process_code_blocks(input);
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Duplicate code block ID"));
+        assert!(result.has_errors());
+        assert!(result.errors[0].message.contains("Duplicate code block ID"));
     }
 
     #[test]
@@ -252,11 +285,8 @@ print("hello")
 <!-- md-code: id="test" -->"#;
 
         let result = process_code_blocks(input);
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("missing required field: bin"));
+        assert!(result.has_errors());
+        assert!(result.errors[0].message.contains("missing required field: bin"));
     }
 
     #[test]
@@ -277,14 +307,14 @@ old output
 More text."#;
 
         let result = process_code_blocks(input);
-        if let Ok(output) = result {
+        if !result.has_errors() {
             // Old output should be replaced
-            assert!(!output.contains("old output"));
+            assert!(!result.output.contains("old output"));
             // New output should be present
-            assert!(output.contains("new output"));
+            assert!(result.output.contains("new output"));
             // Text should be preserved
-            assert!(output.contains("Some text."));
-            assert!(output.contains("More text."));
+            assert!(result.output.contains("Some text."));
+            assert!(result.output.contains("More text."));
         }
     }
 
@@ -298,10 +328,10 @@ x = 1 + 1
 End."#;
 
         let result = process_code_blocks(input);
-        if let Ok(output) = result {
+        if !result.has_errors() {
             // No output block should be created
-            assert!(!output.contains("Output:"));
-            assert!(!output.contains("md-code-output:"));
+            assert!(!result.output.contains("Output:"));
+            assert!(!result.output.contains("md-code-output:"));
         }
     }
 
@@ -317,15 +347,15 @@ sys.exit(1)
 
         let result = process_code_blocks(input);
         // Should succeed (not error out), but capture stderr in output
-        if let Ok(output) = result {
+        if !result.has_errors() {
             // Output block should be created (stderr is not empty)
-            assert!(output.contains("md-code-output:"));
-            assert!(output.contains("Error message"));
+            assert!(result.output.contains("md-code-output:"));
+            assert!(result.output.contains("Error message"));
 
             // Extract just the output block to verify stdout was not captured
-            let output_block_start = output.find("Output:\n```").unwrap();
-            let output_block_end = output.find("<!-- md-code-output:").unwrap();
-            let output_block = &output[output_block_start..output_block_end];
+            let output_block_start = result.output.find("Output:\n```").unwrap();
+            let output_block_end = result.output.find("<!-- md-code-output:").unwrap();
+            let output_block = &result.output[output_block_start..output_block_end];
 
             // Verify that stdout is NOT captured in the output block (only stderr is)
             assert!(!output_block.contains("This should not appear"));
@@ -348,11 +378,8 @@ second
 <!-- md-code-output: id="test" -->"#;
 
         let result = process_code_blocks(input);
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Duplicate output block ID"));
+        assert!(result.has_errors());
+        assert!(result.errors[0].message.contains("Duplicate output block ID"));
     }
 
     #[test]
@@ -363,8 +390,8 @@ print("test")
 <!-- md-code: id="test"; bin="python3 -u" -->"#;
 
         let result = process_code_blocks(input);
-        if let Ok(output) = result {
-            assert!(output.contains("test"));
+        if !result.has_errors() {
+            assert!(result.output.contains("test"));
         }
     }
 
@@ -378,8 +405,8 @@ print("done")
 <!-- md-code: id="test"; bin="python3"; timeout=5 -->"#;
 
         let result = process_code_blocks(input);
-        if let Ok(output) = result {
-            assert!(output.contains("done"));
+        if !result.has_errors() {
+            assert!(result.output.contains("done"));
         }
     }
 }
