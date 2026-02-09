@@ -57,14 +57,28 @@ pub fn process_done(input: &str) -> String {
 pub fn process_done_with_timestamp(input: &str, timestamp: &str) -> String {
     let lines: Vec<&str> = input.lines().collect();
     let mut result: Vec<String> = Vec::new();
-    let mut inside_code_block = false;
+    let mut code_fence_marker: Option<&str> = None; // Track which fence type started the block
 
     for line in lines {
         // Check if this line is a code fence
-        if is_code_fence(line) {
-            inside_code_block = !inside_code_block;
-            result.push(line.to_string());
-        } else if inside_code_block {
+        if let Some(fence_type) = get_fence_type(line) {
+            match code_fence_marker {
+                None => {
+                    // Not in a code block, this fence starts one
+                    code_fence_marker = Some(fence_type);
+                    result.push(line.to_string());
+                }
+                Some(marker) if marker == fence_type => {
+                    // In a code block and found matching fence type, close it
+                    code_fence_marker = None;
+                    result.push(line.to_string());
+                }
+                Some(_) => {
+                    // In a code block but fence type doesn't match, treat as content
+                    result.push(line.to_string());
+                }
+            }
+        } else if code_fence_marker.is_some() {
             // Pass through lines inside code blocks unchanged
             result.push(line.to_string());
         } else {
@@ -80,10 +94,17 @@ pub fn process_done_with_timestamp(input: &str, timestamp: &str) -> String {
     }
 }
 
-/// Checks if a line is a code fence (``` or ~~~)
-fn is_code_fence(line: &str) -> bool {
+/// Returns the fence type if the line is a code fence, None otherwise.
+/// Returns "```" for backtick fences and "~~~" for tilde fences.
+fn get_fence_type(line: &str) -> Option<&'static str> {
     let trimmed = line.trim();
-    trimmed.starts_with("```") || trimmed.starts_with("~~~")
+    if trimmed.starts_with("```") {
+        Some("```")
+    } else if trimmed.starts_with("~~~") {
+        Some("~~~")
+    } else {
+        None
+    }
 }
 
 /// Process a single line

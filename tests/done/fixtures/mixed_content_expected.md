@@ -19,3 +19,21 @@ Some text in between.
 ```
 
 Final paragraph.
+
+## Metaprogramming
+
+~~~markdown
+# Project Tasks
+
+- [ ] Complete feature
+- Regular bullet point
+- [x] Already done
+
+Some paragraph text.
+
+```python
+# This is a code block
+- [ ] This is NOT a task
+```
+~~~
+<!-- md-code: id="table-example"; bin="md done"; syntax="markdown" -->
