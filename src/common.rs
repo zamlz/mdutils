@@ -2,6 +2,52 @@
 
 use thiserror::Error;
 
+// ============================================================================
+// Exit Codes (BSD sysexits.h)
+// ============================================================================
+
+/// Exit codes following BSD sysexits.h conventions.
+///
+/// These codes provide meaningful exit status for different error conditions,
+/// allowing callers to distinguish between different failure modes.
+///
+/// Reference: <https://man.freebsd.org/cgi/man.cgi?query=sysexits>
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExitCode {
+    /// Successful termination (0)
+    Success,
+    /// Command line usage error - invalid arguments or options (64)
+    Usage,
+    /// Data format error - input data was incorrect in some way (65)
+    DataErr,
+    /// Input/output error - error occurred during I/O operations (74)
+    IoErr,
+}
+
+impl ExitCode {
+    /// Returns the numeric exit code value
+    pub fn code(self) -> i32 {
+        match self {
+            ExitCode::Success => 0,
+            ExitCode::Usage => 64,
+            ExitCode::DataErr => 65,
+            ExitCode::IoErr => 74,
+        }
+    }
+}
+
+impl From<ExitCode> for i32 {
+    fn from(exit_code: ExitCode) -> Self {
+        exit_code.code()
+    }
+}
+
+impl std::process::Termination for ExitCode {
+    fn report(self) -> std::process::ExitCode {
+        std::process::ExitCode::from(self.code() as u8)
+    }
+}
+
 /// The type of code fence used in markdown
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FenceType {

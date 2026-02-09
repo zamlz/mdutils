@@ -15,7 +15,7 @@ pub mod table;
 pub mod toc;
 
 // Re-export commonly used types for convenience
-pub use common::{ProcessingError, ProcessingResult};
+pub use common::{ExitCode, ProcessingError, ProcessingResult};
 
 // Re-export commonly used functions for convenience
 pub use code::process_code_blocks;

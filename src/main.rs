@@ -6,7 +6,7 @@ mod toc;
 
 use clap::{Parser, Subcommand};
 use code::process_code_blocks;
-use common::ProcessingResult;
+use common::{ExitCode, ProcessingResult};
 use done::process_done;
 use std::io::{self, Read};
 use table::{create_table, format_tables, parse_table_spec};
@@ -49,7 +49,7 @@ fn read_stdin() -> Result<String, String> {
 }
 
 /// Handles a ProcessingResult: prints output, reports errors, and returns exit code
-fn handle_result(result: ProcessingResult) -> i32 {
+fn handle_result(result: ProcessingResult) -> ExitCode {
     print!("{}", result.output);
 
     for error in &result.errors {
@@ -57,13 +57,13 @@ fn handle_result(result: ProcessingResult) -> i32 {
     }
 
     if result.has_errors() {
-        1
+        ExitCode::DataErr
     } else {
-        0
+        ExitCode::Success
     }
 }
 
-fn run() -> i32 {
+fn run() -> ExitCode {
     let cli = Cli::parse();
 
     match cli.command {
@@ -72,7 +72,7 @@ fn run() -> i32 {
                 Ok(content) => content,
                 Err(e) => {
                     eprintln!("{}", e);
-                    return 1;
+                    return ExitCode::IoErr;
                 }
             };
             handle_result(format_tables(&input))
@@ -82,7 +82,7 @@ fn run() -> i32 {
                 Ok(content) => content,
                 Err(e) => {
                     eprintln!("{}", e);
-                    return 1;
+                    return ExitCode::IoErr;
                 }
             };
             handle_result(process_code_blocks(&input))
@@ -92,7 +92,7 @@ fn run() -> i32 {
                 Ok(content) => content,
                 Err(e) => {
                     eprintln!("{}", e);
-                    return 1;
+                    return ExitCode::IoErr;
                 }
             };
             handle_result(process_toc(&input))
@@ -102,7 +102,7 @@ fn run() -> i32 {
                 Ok(content) => content,
                 Err(e) => {
                     eprintln!("{}", e);
-                    return 1;
+                    return ExitCode::IoErr;
                 }
             };
             handle_result(process_done(&input))
@@ -111,16 +111,16 @@ fn run() -> i32 {
             Ok((rows, cols)) => {
                 let table = create_table(rows, cols);
                 print!("{}", table);
-                0
+                ExitCode::Success
             }
             Err(e) => {
                 eprintln!("Error: {}", e);
-                1
+                ExitCode::Usage
             }
         },
     }
 }
 
-fn main() {
-    std::process::exit(run());
+fn main() -> ExitCode {
+    run()
 }
