@@ -14,6 +14,7 @@ use toc::process_toc;
 
 #[derive(Parser)]
 #[command(name = "md")]
+#[command(version)]
 #[command(about = "Markdown utilities", long_about = None)]
 struct Cli {
     #[command(subcommand)]
