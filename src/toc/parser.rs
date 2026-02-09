@@ -2,6 +2,7 @@
 ///
 /// This module provides functionality to parse markdown headers and generate
 /// GitHub-style anchor slugs for table of contents links.
+use crate::common::CodeFenceTracker;
 use std::collections::HashMap;
 
 /// Represents a markdown header
@@ -30,18 +31,19 @@ pub(crate) struct Header {
 pub(crate) fn parse_headers(lines: &[&str], start_from: usize) -> Vec<Header> {
     let mut headers = Vec::new();
     let mut slug_counts: HashMap<String, usize> = HashMap::new();
-    let mut in_code_block = false;
+    let mut fence_tracker = CodeFenceTracker::new();
 
     for (line_num, line) in lines.iter().enumerate().skip(start_from) {
-        // Check for code block delimiters (``` or ~~~)
-        let trimmed = line.trim();
-        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
-            in_code_block = !in_code_block;
+        // Process line through fence tracker
+        fence_tracker.process_line(line);
+
+        // Skip header parsing if we're inside a code block
+        if fence_tracker.is_inside_code_block() {
             continue;
         }
 
-        // Skip header parsing if we're inside a code block
-        if in_code_block {
+        // Skip fence lines themselves
+        if crate::common::is_code_fence(line) {
             continue;
         }
 

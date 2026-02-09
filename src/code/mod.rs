@@ -4,10 +4,11 @@ mod parser;
 
 pub use error::CodeError;
 
+use crate::common::{get_fence_type, is_code_fence};
 use executor::execute_code;
 use parser::{
-    get_fence_type, is_code_fence, is_md_code_comment, is_md_code_output_comment, parse_document,
-    parse_md_code_output_directive, validate_unique_ids, CodeBlock, OutputBlock,
+    is_md_code_comment, is_md_code_output_comment, parse_document, parse_md_code_output_directive,
+    validate_unique_ids, CodeBlock, OutputBlock,
 };
 use std::collections::HashMap;
 

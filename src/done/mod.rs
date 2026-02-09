@@ -26,6 +26,7 @@
 /// assert!(output.contains("- [x] ~~Buy groceries~~ `COMPLETED: 2024-01-15 14:30:00`"));
 /// assert!(output.contains("- [x] Walk the dog")); // unchanged, already checked
 /// ```
+use crate::common::CodeFenceTracker;
 use chrono::Local;
 
 /// Process markdown and mark checklist items as done
@@ -57,32 +58,22 @@ pub fn process_done(input: &str) -> String {
 pub fn process_done_with_timestamp(input: &str, timestamp: &str) -> String {
     let lines: Vec<&str> = input.lines().collect();
     let mut result: Vec<String> = Vec::new();
-    let mut code_fence_marker: Option<&str> = None; // Track which fence type started the block
+    let mut fence_tracker = CodeFenceTracker::new();
 
     for line in lines {
-        // Check if this line is a code fence
-        if let Some(fence_type) = get_fence_type(line) {
-            match code_fence_marker {
-                None => {
-                    // Not in a code block, this fence starts one
-                    code_fence_marker = Some(fence_type);
-                    result.push(line.to_string());
-                }
-                Some(marker) if marker == fence_type => {
-                    // In a code block and found matching fence type, close it
-                    code_fence_marker = None;
-                    result.push(line.to_string());
-                }
-                Some(_) => {
-                    // In a code block but fence type doesn't match, treat as content
-                    result.push(line.to_string());
-                }
-            }
-        } else if code_fence_marker.is_some() {
-            // Pass through lines inside code blocks unchanged
+        // Process line through fence tracker (updates state if it's a fence)
+        fence_tracker.process_line(line);
+
+        if fence_tracker.is_inside_code_block() {
+            // Pass through lines inside code blocks unchanged (including the opening fence)
             result.push(line.to_string());
         } else {
-            result.push(process_line(line, timestamp));
+            // Check if this was a closing fence (we just exited the code block)
+            if crate::common::is_code_fence(line) {
+                result.push(line.to_string());
+            } else {
+                result.push(process_line(line, timestamp));
+            }
         }
     }
 
@@ -91,19 +82,6 @@ pub fn process_done_with_timestamp(input: &str, timestamp: &str) -> String {
         result.join("\n") + "\n"
     } else {
         result.join("\n")
-    }
-}
-
-/// Returns the fence type if the line is a code fence, None otherwise.
-/// Returns "```" for backtick fences and "~~~" for tilde fences.
-fn get_fence_type(line: &str) -> Option<&'static str> {
-    let trimmed = line.trim();
-    if trimmed.starts_with("```") {
-        Some("```")
-    } else if trimmed.starts_with("~~~") {
-        Some("~~~")
-    } else {
-        None
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::code::error::CodeError;
-use crate::common::validate_id;
+use crate::common::{validate_id, FenceType};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -34,28 +34,18 @@ pub struct OutputBlock {
     pub content: String,
 }
 
-/// Checks if a line is the start of a code block (opening fence)
-pub fn is_code_fence(line: &str) -> bool {
-    let trimmed = line.trim();
-    trimmed.starts_with("```") || trimmed.starts_with("~~~")
-}
-
-/// Gets the fence type (backtick or tilde) from a fence line
-pub fn get_fence_type(line: &str) -> Option<char> {
-    let trimmed = line.trim();
-    if trimmed.starts_with("```") {
-        Some('`')
-    } else if trimmed.starts_with("~~~") {
-        Some('~')
-    } else {
-        None
-    }
-}
+// Re-export from common for backward compatibility
+pub use crate::common::get_fence_type;
+pub use crate::common::is_code_fence;
 
 /// Extracts the fence string from a fence line (e.g., "```", "~~~", "````")
 fn extract_fence(line: &str) -> String {
     let trimmed = line.trim();
-    let fence_char = if trimmed.starts_with('`') { '`' } else { '~' };
+    let fence_char = match crate::common::get_fence_type(line) {
+        Some(FenceType::Backtick) => '`',
+        Some(FenceType::Tilde) => '~',
+        None => return String::new(),
+    };
     trimmed.chars().take_while(|&c| c == fence_char).collect()
 }
 
@@ -221,7 +211,7 @@ pub fn parse_document(
     let mut output_blocks = HashMap::new();
     let mut output_block_lines = HashMap::new(); // Track line numbers for duplicate detection
     let mut i = 0;
-    let mut active_fence_type: Option<char> = None; // Track fence type (` or ~)
+    let mut active_fence_type: Option<FenceType> = None; // Track fence type
 
     while i < lines.len() {
         if is_code_fence(lines[i]) {

@@ -44,16 +44,11 @@
 /// ```
 mod parser;
 
+use crate::common::CodeFenceTracker;
 use parser::{parse_headers, Header};
 
 const TOC_START_MARKER: &str = "<!-- md-toc: -->";
 const TOC_END_MARKER: &str = "<!-- md-toc: end -->";
-
-/// Checks if a line is a code fence (``` or ~~~)
-fn is_code_fence(line: &str) -> bool {
-    let trimmed = line.trim();
-    trimmed.starts_with("```") || trimmed.starts_with("~~~")
-}
 
 /// Process a markdown document and generate/update table of contents
 ///
@@ -69,11 +64,10 @@ pub fn process_toc(input: &str) -> String {
 
     // Find TOC marker (skip those inside code fences)
     let mut toc_start_line = None;
-    let mut inside_code_fence = false;
+    let mut fence_tracker = CodeFenceTracker::new();
     for (i, line) in lines.iter().enumerate() {
-        if is_code_fence(line) {
-            inside_code_fence = !inside_code_fence;
-        } else if !inside_code_fence && line.trim() == TOC_START_MARKER {
+        fence_tracker.process_line(line);
+        if !fence_tracker.is_inside_code_block() && line.trim() == TOC_START_MARKER {
             toc_start_line = Some(i);
             break;
         }
@@ -86,11 +80,10 @@ pub fn process_toc(input: &str) -> String {
 
     // Find end marker (if it exists) - also skip those inside code fences
     let mut toc_end_line = None;
-    let mut inside_code_fence = false;
+    let mut fence_tracker = CodeFenceTracker::new();
     for (i, line) in lines.iter().enumerate() {
-        if is_code_fence(line) {
-            inside_code_fence = !inside_code_fence;
-        } else if !inside_code_fence && line.trim() == TOC_END_MARKER {
+        fence_tracker.process_line(line);
+        if !fence_tracker.is_inside_code_block() && line.trim() == TOC_END_MARKER {
             toc_end_line = Some(i);
             break;
         }
