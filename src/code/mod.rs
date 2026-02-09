@@ -286,7 +286,9 @@ print("hello")
 
         let result = process_code_blocks(input);
         assert!(result.has_errors());
-        assert!(result.errors[0].message.contains("missing required field: bin"));
+        assert!(result.errors[0]
+            .message
+            .contains("missing required field: bin"));
     }
 
     #[test]
@@ -379,7 +381,9 @@ second
 
         let result = process_code_blocks(input);
         assert!(result.has_errors());
-        assert!(result.errors[0].message.contains("Duplicate output block ID"));
+        assert!(result.errors[0]
+            .message
+            .contains("Duplicate output block ID"));
     }
 
     #[test]

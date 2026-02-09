@@ -235,7 +235,9 @@ fn test_error_matrix_mult_dimension() {
     let result = format_tables(&input);
     assert_eq!(result.output.trim(), expected.trim());
     assert!(result.output.contains("md-error:"));
-    assert!(result.output.contains("matrix multiplication dimension mismatch"));
+    assert!(result
+        .output
+        .contains("matrix multiplication dimension mismatch"));
     assert!(result.output.contains("inner dimensions"));
 }
 
@@ -329,7 +331,9 @@ fn test_error_matmul_scalar() {
     let result = format_tables(&input);
     assert_eq!(result.output.trim(), expected.trim());
     assert!(result.output.contains("md-error:"));
-    assert!(result.output.contains("cannot use matrix multiplication (@)"));
+    assert!(result
+        .output
+        .contains("cannot use matrix multiplication (@)"));
     assert!(result.output.contains("scalar"));
 }
 
@@ -374,7 +378,9 @@ fn test_all_formula_functions() {
     let result = format_tables(&input);
     assert_eq!(result.output.trim(), expected.trim());
     // Verify all functions work correctly: sum, avg, min, max, count, prod
-    assert!(result.output.contains("| 10     | 100 | 25   | 10  | 40  | 4     | 240000 |"));
+    assert!(result
+        .output
+        .contains("| 10     | 100 | 25   | 10  | 40  | 4     | 240000 |"));
     assert!(!result.output.contains("md-error:"));
 }
 
@@ -580,7 +586,9 @@ fn test_variables_error_undefined() {
     assert_eq!(result.output.trim(), expected.trim());
     // Verify error for undefined variable
     assert!(result.output.contains("md-error:"));
-    assert!(result.output.contains("undefined variable: 'undefined_var'"));
+    assert!(result
+        .output
+        .contains("undefined variable: 'undefined_var'"));
 }
 
 #[test]

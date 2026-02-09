@@ -187,7 +187,9 @@ mod tests {
         assert!(result.output.contains("<!-- md-toc: -->"));
         assert!(result.output.contains("<!-- md-toc: end -->"));
         assert!(result.output.contains("- [Section 1](#section-1)"));
-        assert!(result.output.contains("  - [Subsection 1.1](#subsection-11)"));
+        assert!(result
+            .output
+            .contains("  - [Subsection 1.1](#subsection-11)"));
         assert!(result.output.contains("- [Section 2](#section-2)"));
     }
 
@@ -206,7 +208,9 @@ mod tests {
 
         // Should update with new headers
         assert!(result.output.contains("- [New Section](#new-section)"));
-        assert!(result.output.contains("  - [New Subsection](#new-subsection)"));
+        assert!(result
+            .output
+            .contains("  - [New Subsection](#new-subsection)"));
         // Should not contain old content
         assert!(!result.output.contains("Old Section"));
     }

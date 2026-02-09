@@ -11,15 +11,25 @@ fn test_basic_python_execution() {
         .expect("Failed to read expected fixture");
 
     let result = process_code_blocks(&input);
-    assert!(!result.has_errors(), "Processing failed: {:?}", result.errors);
+    assert!(
+        !result.has_errors(),
+        "Processing failed: {:?}",
+        result.errors
+    );
     assert_eq!(result.output.trim(), expected.trim());
     // Verify output block was created
-    assert!(result.output.contains("<!-- md-code-output: id=\"hello\" -->"));
+    assert!(result
+        .output
+        .contains("<!-- md-code-output: id=\"hello\" -->"));
     assert!(result.output.contains("Hello, World!"));
 
     // Idempotency check: command(expected) should equal expected
     let result2 = process_code_blocks(&expected);
-    assert!(!result2.has_errors(), "Processing expected failed: {:?}", result2.errors);
+    assert!(
+        !result2.has_errors(),
+        "Processing expected failed: {:?}",
+        result2.errors
+    );
     assert_eq!(
         result2.output.trim(),
         expected.trim(),
@@ -35,7 +45,11 @@ fn test_basic_bash_execution() {
         .expect("Failed to read expected fixture");
 
     let result = process_code_blocks(&input);
-    assert!(!result.has_errors(), "Processing failed: {:?}", result.errors);
+    assert!(
+        !result.has_errors(),
+        "Processing failed: {:?}",
+        result.errors
+    );
     assert_eq!(result.output.trim(), expected.trim());
     // Verify bash execution worked
     assert!(result.output.contains("Testing bash execution"));
@@ -43,7 +57,11 @@ fn test_basic_bash_execution() {
 
     // Idempotency check: command(expected) should equal expected
     let result2 = process_code_blocks(&expected);
-    assert!(!result2.has_errors(), "Processing expected failed: {:?}", result2.errors);
+    assert!(
+        !result2.has_errors(),
+        "Processing expected failed: {:?}",
+        result2.errors
+    );
     assert_eq!(
         result2.output.trim(),
         expected.trim(),
@@ -59,19 +77,33 @@ fn test_multiple_code_blocks() {
         .expect("Failed to read expected fixture");
 
     let result = process_code_blocks(&input);
-    assert!(!result.has_errors(), "Processing failed: {:?}", result.errors);
+    assert!(
+        !result.has_errors(),
+        "Processing failed: {:?}",
+        result.errors
+    );
     assert_eq!(result.output.trim(), expected.trim());
     // Verify all three blocks executed
-    assert!(result.output.contains("<!-- md-code-output: id=\"first\" -->"));
-    assert!(result.output.contains("<!-- md-code-output: id=\"second\" -->"));
-    assert!(result.output.contains("<!-- md-code-output: id=\"third\" -->"));
+    assert!(result
+        .output
+        .contains("<!-- md-code-output: id=\"first\" -->"));
+    assert!(result
+        .output
+        .contains("<!-- md-code-output: id=\"second\" -->"));
+    assert!(result
+        .output
+        .contains("<!-- md-code-output: id=\"third\" -->"));
     assert!(result.output.contains("First"));
     assert!(result.output.contains("Second"));
     assert!(result.output.contains("Third"));
 
     // Idempotency check: command(expected) should equal expected
     let result2 = process_code_blocks(&expected);
-    assert!(!result2.has_errors(), "Processing expected failed: {:?}", result2.errors);
+    assert!(
+        !result2.has_errors(),
+        "Processing expected failed: {:?}",
+        result2.errors
+    );
     assert_eq!(
         result2.output.trim(),
         expected.trim(),
@@ -87,15 +119,27 @@ fn test_no_execute_flag() {
         .expect("Failed to read expected fixture");
 
     let result = process_code_blocks(&input);
-    assert!(!result.has_errors(), "Processing failed: {:?}", result.errors);
+    assert!(
+        !result.has_errors(),
+        "Processing failed: {:?}",
+        result.errors
+    );
     assert_eq!(result.output.trim(), expected.trim());
     // Verify both blocks executed (both have md-code directives)
-    assert!(result.output.contains("<!-- md-code-output: id=\"no_exec\" -->"));
-    assert!(result.output.contains("<!-- md-code-output: id=\"yes_exec\" -->"));
+    assert!(result
+        .output
+        .contains("<!-- md-code-output: id=\"no_exec\" -->"));
+    assert!(result
+        .output
+        .contains("<!-- md-code-output: id=\"yes_exec\" -->"));
 
     // Idempotency check: command(expected) should equal expected
     let result2 = process_code_blocks(&expected);
-    assert!(!result2.has_errors(), "Processing expected failed: {:?}", result2.errors);
+    assert!(
+        !result2.has_errors(),
+        "Processing expected failed: {:?}",
+        result2.errors
+    );
     assert_eq!(
         result2.output.trim(),
         expected.trim(),
@@ -111,7 +155,11 @@ fn test_update_existing_output() {
         .expect("Failed to read expected fixture");
 
     let result = process_code_blocks(&input);
-    assert!(!result.has_errors(), "Processing failed: {:?}", result.errors);
+    assert!(
+        !result.has_errors(),
+        "Processing failed: {:?}",
+        result.errors
+    );
     assert_eq!(result.output.trim(), expected.trim());
     // Verify old output was replaced with new
     assert!(!result.output.contains("Old output"));
@@ -119,7 +167,11 @@ fn test_update_existing_output() {
 
     // Idempotency check: command(expected) should equal expected
     let result2 = process_code_blocks(&expected);
-    assert!(!result2.has_errors(), "Processing expected failed: {:?}", result2.errors);
+    assert!(
+        !result2.has_errors(),
+        "Processing expected failed: {:?}",
+        result2.errors
+    );
     assert_eq!(
         result2.output.trim(),
         expected.trim(),
@@ -135,14 +187,24 @@ fn test_empty_output() {
         .expect("Failed to read expected fixture");
 
     let result = process_code_blocks(&input);
-    assert!(!result.has_errors(), "Processing failed: {:?}", result.errors);
+    assert!(
+        !result.has_errors(),
+        "Processing failed: {:?}",
+        result.errors
+    );
     assert_eq!(result.output.trim(), expected.trim());
     // Verify no output block was created for empty output
-    assert!(!result.output.contains("<!-- md-code-output: id=\"no_output\" -->"));
+    assert!(!result
+        .output
+        .contains("<!-- md-code-output: id=\"no_output\" -->"));
 
     // Idempotency check: command(expected) should equal expected
     let result2 = process_code_blocks(&expected);
-    assert!(!result2.has_errors(), "Processing expected failed: {:?}", result2.errors);
+    assert!(
+        !result2.has_errors(),
+        "Processing expected failed: {:?}",
+        result2.errors
+    );
     assert_eq!(
         result2.output.trim(),
         expected.trim(),
@@ -158,7 +220,11 @@ fn test_preserve_content() {
         .expect("Failed to read expected fixture");
 
     let result = process_code_blocks(&input);
-    assert!(!result.has_errors(), "Processing failed: {:?}", result.errors);
+    assert!(
+        !result.has_errors(),
+        "Processing failed: {:?}",
+        result.errors
+    );
     assert_eq!(result.output.trim(), expected.trim());
     // Verify all content was preserved
     assert!(result.output.contains("Document Title"));
@@ -169,7 +235,11 @@ fn test_preserve_content() {
 
     // Idempotency check: command(expected) should equal expected
     let result2 = process_code_blocks(&expected);
-    assert!(!result2.has_errors(), "Processing expected failed: {:?}", result2.errors);
+    assert!(
+        !result2.has_errors(),
+        "Processing expected failed: {:?}",
+        result2.errors
+    );
     assert_eq!(
         result2.output.trim(),
         expected.trim(),
@@ -185,14 +255,22 @@ fn test_stderr_capture() {
         .expect("Failed to read expected fixture");
 
     let result = process_code_blocks(&input);
-    assert!(!result.has_errors(), "Processing failed: {:?}", result.errors);
+    assert!(
+        !result.has_errors(),
+        "Processing failed: {:?}",
+        result.errors
+    );
     assert_eq!(result.output.trim(), expected.trim());
     // Verify stdout was captured
     assert!(result.output.contains("stdout output"));
 
     // Idempotency check: command(expected) should equal expected
     let result2 = process_code_blocks(&expected);
-    assert!(!result2.has_errors(), "Processing expected failed: {:?}", result2.errors);
+    assert!(
+        !result2.has_errors(),
+        "Processing expected failed: {:?}",
+        result2.errors
+    );
     assert_eq!(
         result2.output.trim(),
         expected.trim(),
@@ -208,7 +286,11 @@ fn test_skip_nested_code_blocks() {
         .expect("Failed to read expected fixture");
 
     let result = process_code_blocks(&input);
-    assert!(!result.has_errors(), "Processing failed: {:?}", result.errors);
+    assert!(
+        !result.has_errors(),
+        "Processing failed: {:?}",
+        result.errors
+    );
     assert_eq!(result.output.trim(), expected.trim());
 
     // Verify real code blocks executed
@@ -223,11 +305,17 @@ fn test_skip_nested_code_blocks() {
     // but NOT as an output block (it was not executed)
     assert!(result.output.contains("Example code"));
     // Verify there's no output block for the "example" id
-    assert!(!result.output.contains("<!-- md-code-output: id=\"example\" -->"));
+    assert!(!result
+        .output
+        .contains("<!-- md-code-output: id=\"example\" -->"));
 
     // Idempotency check: command(expected) should equal expected
     let result2 = process_code_blocks(&expected);
-    assert!(!result2.has_errors(), "Processing expected failed: {:?}", result2.errors);
+    assert!(
+        !result2.has_errors(),
+        "Processing expected failed: {:?}",
+        result2.errors
+    );
     assert_eq!(
         result2.output.trim(),
         expected.trim(),
@@ -243,7 +331,11 @@ fn test_meta_programming() {
         .expect("Failed to read expected fixture");
 
     let result = process_code_blocks(&input);
-    assert!(!result.has_errors(), "Processing failed: {:?}", result.errors);
+    assert!(
+        !result.has_errors(),
+        "Processing failed: {:?}",
+        result.errors
+    );
     assert_eq!(result.output.trim(), expected.trim());
 
     // Verify md table was executed and computed the formula
@@ -257,12 +349,20 @@ fn test_meta_programming() {
     assert!(result.output.contains("- [Section Two](#section-two)"));
 
     // Verify both output blocks were created
-    assert!(result.output.contains("<!-- md-code-output: id=\"table_demo\" -->"));
-    assert!(result.output.contains("<!-- md-code-output: id=\"toc_demo\" -->"));
+    assert!(result
+        .output
+        .contains("<!-- md-code-output: id=\"table_demo\" -->"));
+    assert!(result
+        .output
+        .contains("<!-- md-code-output: id=\"toc_demo\" -->"));
 
     // Idempotency check: command(expected) should equal expected
     let result2 = process_code_blocks(&expected);
-    assert!(!result2.has_errors(), "Processing expected failed: {:?}", result2.errors);
+    assert!(
+        !result2.has_errors(),
+        "Processing expected failed: {:?}",
+        result2.errors
+    );
     assert_eq!(
         result2.output.trim(),
         expected.trim(),
@@ -278,11 +378,16 @@ fn test_custom_fence() {
         .expect("Failed to read expected fixture");
 
     let result = process_code_blocks(&input);
-    assert!(!result.has_errors(), "Processing failed: {:?}", result.errors);
+    assert!(
+        !result.has_errors(),
+        "Processing failed: {:?}",
+        result.errors
+    );
     assert_eq!(result.output.trim(), expected.trim());
 
     // Verify default fence behavior (uses same fence as input)
-    let default_section = result.output
+    let default_section = result
+        .output
         .split("## Test 1:")
         .nth(1)
         .unwrap()
@@ -293,7 +398,8 @@ fn test_custom_fence() {
     assert!(default_section.contains("\n```\n<!-- md-code-output: id=\"default_fence\""));
 
     // Verify custom tilde fence
-    let tilde_section = result.output
+    let tilde_section = result
+        .output
         .split("## Test 2:")
         .nth(1)
         .unwrap()
@@ -312,7 +418,11 @@ fn test_custom_fence() {
 
     // Idempotency check: command(expected) should equal expected
     let result2 = process_code_blocks(&expected);
-    assert!(!result2.has_errors(), "Processing expected failed: {:?}", result2.errors);
+    assert!(
+        !result2.has_errors(),
+        "Processing expected failed: {:?}",
+        result2.errors
+    );
     assert_eq!(
         result2.output.trim(),
         expected.trim(),
@@ -328,11 +438,16 @@ fn test_custom_syntax() {
         .expect("Failed to read expected fixture");
 
     let result = process_code_blocks(&input);
-    assert!(!result.has_errors(), "Processing failed: {:?}", result.errors);
+    assert!(
+        !result.has_errors(),
+        "Processing failed: {:?}",
+        result.errors
+    );
     assert_eq!(result.output.trim(), expected.trim());
 
     // Verify default syntax (no language specified)
-    let default_section = result.output
+    let default_section = result
+        .output
         .split("## Test 1:")
         .nth(1)
         .unwrap()
@@ -344,7 +459,8 @@ fn test_custom_syntax() {
     assert!(!default_section.contains("```text"));
 
     // Verify JSON syntax
-    let json_section = result.output
+    let json_section = result
+        .output
         .split("## Test 2:")
         .nth(1)
         .unwrap()
@@ -354,7 +470,8 @@ fn test_custom_syntax() {
     assert!(json_section.contains("Output:\n```json\n"));
 
     // Verify text syntax
-    let text_section = result.output
+    let text_section = result
+        .output
         .split("## Test 3:")
         .nth(1)
         .unwrap()
@@ -370,7 +487,11 @@ fn test_custom_syntax() {
 
     // Idempotency check: command(expected) should equal expected
     let result2 = process_code_blocks(&expected);
-    assert!(!result2.has_errors(), "Processing expected failed: {:?}", result2.errors);
+    assert!(
+        !result2.has_errors(),
+        "Processing expected failed: {:?}",
+        result2.errors
+    );
     assert_eq!(
         result2.output.trim(),
         expected.trim(),

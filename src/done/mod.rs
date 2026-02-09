@@ -214,9 +214,13 @@ mod tests {
     fn test_multiple_lines() {
         let input = "- [ ] Task 1\n- [x] Task 2\n- [ ] Task 3\n";
         let result = process_done_with_timestamp(input, TEST_TIMESTAMP);
-        assert!(result.output.contains("- [x] ~~Task 1~~ `COMPLETED: 2024-01-15 14:30:00`"));
+        assert!(result
+            .output
+            .contains("- [x] ~~Task 1~~ `COMPLETED: 2024-01-15 14:30:00`"));
         assert!(result.output.contains("- [x] Task 2")); // unchanged, already checked
-        assert!(result.output.contains("- [x] ~~Task 3~~ `COMPLETED: 2024-01-15 14:30:00`"));
+        assert!(result
+            .output
+            .contains("- [x] ~~Task 3~~ `COMPLETED: 2024-01-15 14:30:00`"));
     }
 
     #[test]
@@ -224,7 +228,9 @@ mod tests {
         let input = "# Header\n- [ ] Task\n\nSome text\n- Regular bullet\n";
         let result = process_done_with_timestamp(input, TEST_TIMESTAMP);
         assert!(result.output.contains("# Header"));
-        assert!(result.output.contains("- [x] ~~Task~~ `COMPLETED: 2024-01-15 14:30:00`"));
+        assert!(result
+            .output
+            .contains("- [x] ~~Task~~ `COMPLETED: 2024-01-15 14:30:00`"));
         assert!(result.output.contains("Some text"));
         assert!(result.output.contains("- Regular bullet"));
     }
@@ -255,7 +261,10 @@ mod tests {
         let input = "- [ ] Task\n";
         let result1 = process_done_with_timestamp(input, TEST_TIMESTAMP);
         let result2 = process_done_with_timestamp(&result1.output, TEST_TIMESTAMP);
-        assert_eq!(result1.output, result2.output, "process_done should be idempotent");
+        assert_eq!(
+            result1.output, result2.output,
+            "process_done should be idempotent"
+        );
     }
 
     #[test]
@@ -272,16 +281,22 @@ mod tests {
     fn test_code_block_passthrough() {
         let input = "- [ ] Real task\n```\n- [ ] Fake task in code\n```\n- [ ] Another real task\n";
         let result = process_done_with_timestamp(input, TEST_TIMESTAMP);
-        assert!(result.output.contains("- [x] ~~Real task~~ `COMPLETED: 2024-01-15 14:30:00`"));
+        assert!(result
+            .output
+            .contains("- [x] ~~Real task~~ `COMPLETED: 2024-01-15 14:30:00`"));
         assert!(result.output.contains("- [ ] Fake task in code")); // unchanged in code block
-        assert!(result.output.contains("- [x] ~~Another real task~~ `COMPLETED: 2024-01-15 14:30:00`"));
+        assert!(result
+            .output
+            .contains("- [x] ~~Another real task~~ `COMPLETED: 2024-01-15 14:30:00`"));
     }
 
     #[test]
     fn test_tilde_code_block_passthrough() {
         let input = "- [ ] Real task\n~~~\n- [ ] Fake task\n~~~\n";
         let result = process_done_with_timestamp(input, TEST_TIMESTAMP);
-        assert!(result.output.contains("- [x] ~~Real task~~ `COMPLETED: 2024-01-15 14:30:00`"));
+        assert!(result
+            .output
+            .contains("- [x] ~~Real task~~ `COMPLETED: 2024-01-15 14:30:00`"));
         assert!(result.output.contains("- [ ] Fake task")); // unchanged in code block
     }
 }

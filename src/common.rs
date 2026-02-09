@@ -174,6 +174,7 @@ impl CodeFenceTracker {
 
 /// The origin/category of a processing error
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum ErrorOrigin {
     /// Error from table/formula processing
     Table,
@@ -227,16 +228,6 @@ impl ProcessingError {
     pub fn code(line: usize, message: impl Into<String>) -> Self {
         Self::new(ErrorOrigin::Code, line, message)
     }
-
-    /// Create a TOC error
-    pub fn toc(line: usize, message: impl Into<String>) -> Self {
-        Self::new(ErrorOrigin::Toc, line, message)
-    }
-
-    /// Create a done error
-    pub fn done(line: usize, message: impl Into<String>) -> Self {
-        Self::new(ErrorOrigin::Done, line, message)
-    }
 }
 
 /// Result of processing a markdown document
@@ -250,15 +241,17 @@ impl ProcessingError {
 /// # Examples
 ///
 /// ```
-/// use mdutils::common::ProcessingResult;
+/// use mdutils::common::{ProcessingResult, ProcessingError};
 ///
 /// // Successful processing
 /// let result = ProcessingResult::success("processed output".to_string());
 /// assert!(!result.has_errors());
 ///
 /// // Processing with errors
-/// let result = ProcessingResult::success("partial output".to_string())
-///     .with_error(mdutils::common::ProcessingError::table(5, "division by zero"));
+/// let result = ProcessingResult::with_errors(
+///     "partial output".to_string(),
+///     vec![ProcessingError::table(5, "division by zero")],
+/// );
 /// assert!(result.has_errors());
 /// ```
 #[derive(Debug, Clone)]
@@ -283,26 +276,9 @@ impl ProcessingResult {
         Self { output, errors }
     }
 
-    /// Add an error to this result (builder pattern)
-    pub fn with_error(mut self, error: ProcessingError) -> Self {
-        self.errors.push(error);
-        self
-    }
-
-    /// Add multiple errors to this result (builder pattern)
-    pub fn with_errors_added(mut self, errors: impl IntoIterator<Item = ProcessingError>) -> Self {
-        self.errors.extend(errors);
-        self
-    }
-
     /// Check if there are any errors
     pub fn has_errors(&self) -> bool {
         !self.errors.is_empty()
-    }
-
-    /// Get the number of errors
-    pub fn error_count(&self) -> usize {
-        self.errors.len()
     }
 }
 
@@ -440,18 +416,22 @@ mod tests {
         let result = ProcessingResult::success("output".to_string());
         assert_eq!(result.output, "output");
         assert!(!result.has_errors());
-        assert_eq!(result.error_count(), 0);
+        assert!(result.errors.is_empty());
     }
 
     #[test]
     fn test_processing_result_with_errors() {
-        let result = ProcessingResult::success("output".to_string())
-            .with_error(ProcessingError::table(5, "error 1"))
-            .with_error(ProcessingError::code(10, "error 2"));
+        let result = ProcessingResult::with_errors(
+            "output".to_string(),
+            vec![
+                ProcessingError::table(5, "error 1"),
+                ProcessingError::code(10, "error 2"),
+            ],
+        );
 
         assert_eq!(result.output, "output");
         assert!(result.has_errors());
-        assert_eq!(result.error_count(), 2);
+        assert_eq!(result.errors.len(), 2);
         assert_eq!(result.errors[0].line, 5);
         assert_eq!(result.errors[0].origin, ErrorOrigin::Table);
         assert_eq!(result.errors[1].line, 10);

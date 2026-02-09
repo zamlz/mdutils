@@ -179,7 +179,6 @@ pub fn format_tables(text: &str) -> ProcessingResult {
     // Second pass: format tables with formulas (with access to table_map)
     let mut output = Vec::new();
     let mut current_table_lines = Vec::new();
-    let mut current_table_start_line = 0usize;
     let mut i = 0;
     let mut fence_tracker = CodeFenceTracker::new();
 
@@ -196,7 +195,7 @@ pub fn format_tables(text: &str) -> ProcessingResult {
 
         if is_table_row(lines[i]) {
             // Start collecting table lines
-            current_table_start_line = i + 1; // 1-indexed for user display
+            let current_table_start_line = i + 1; // 1-indexed for user display
             current_table_lines.push(lines[i]);
             i += 1;
 
@@ -373,7 +372,10 @@ Some text after the table."#;
         assert!(result.output.contains("John"));
         assert!(result.output.contains("Jane"));
         // Check that table rows start and end with pipes
-        assert!(result.output.lines().any(|line| line.trim().starts_with("| Name")));
+        assert!(result
+            .output
+            .lines()
+            .any(|line| line.trim().starts_with("| Name")));
         assert!(!result.has_errors());
     }
 
@@ -449,7 +451,8 @@ With some text but no tables.
         assert!(result.output.contains("Header"));
         assert!(result.output.contains("Data"));
         // Verify it's formatted as a table
-        assert!(result.output
+        assert!(result
+            .output
             .lines()
             .any(|line| line.trim().starts_with("| Header")));
     }
@@ -546,7 +549,9 @@ With some text but no tables.
         let result = format_tables(input);
 
         // Table ID directive should be preserved
-        assert!(result.output.contains("<!-- md-table: id=\"sales_data\"; C1 = A1 + B1 -->"));
+        assert!(result
+            .output
+            .contains("<!-- md-table: id=\"sales_data\"; C1 = A1 + B1 -->"));
         // Formula should work
         assert!(result.output.contains("| 3"));
         // Should not have any errors
@@ -564,7 +569,9 @@ With some text but no tables.
         let result = format_tables(input);
 
         // Whitespace is now allowed in IDs
-        assert!(result.output.contains("<!-- md-table: id=\"sales data\" -->"));
+        assert!(result
+            .output
+            .contains("<!-- md-table: id=\"sales data\" -->"));
         // Should not have any errors
         assert!(!result.output.contains("md-error"));
     }
@@ -579,7 +586,9 @@ With some text but no tables.
         let result = format_tables(input);
 
         // Special characters are now allowed in IDs
-        assert!(result.output.contains("<!-- md-table: id=\"my-table-2024\" -->"));
+        assert!(result
+            .output
+            .contains("<!-- md-table: id=\"my-table-2024\" -->"));
         // Should not have any errors
         assert!(!result.output.contains("md-error"));
     }
@@ -632,7 +641,9 @@ With some text but no tables.
         let result = format_tables(input);
 
         // ID directive should be preserved
-        assert!(result.output.contains("<!-- md-table: id=\"calc_table\"; C_ = A_ + B_ -->"));
+        assert!(result
+            .output
+            .contains("<!-- md-table: id=\"calc_table\"; C_ = A_ + B_ -->"));
         // Formulas should work
         assert!(result.output.contains("| 15"));
         assert!(result.output.contains("| 10"));

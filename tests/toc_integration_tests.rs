@@ -309,7 +309,9 @@ fn test_skip_code_blocks() {
     assert!(!result.output.contains("[Another Fake Header]"));
     assert!(!result.output.contains("[Nested Fake Header]"));
     assert!(!result.output.contains("[This should also be ignored]"));
-    assert!(!result.output.contains("[This TOC directive should NOT be processed]"));
+    assert!(!result
+        .output
+        .contains("[This TOC directive should NOT be processed]"));
 
     // Verify the md-toc directive inside code blocks was NOT processed
     // (it should still appear as plain text, not generate a TOC)
@@ -322,8 +324,10 @@ fn test_skip_code_blocks() {
 
     // Verify the fake directives appear as plain text inside code blocks
     // by checking the context - they should be surrounded by markdown fence markers
-    assert!(result.output.contains("```markdown\n# Fake Header in Code Block"));
-    assert!(
-        result.output.contains("<!-- md-toc: -->\n\n## This TOC directive should NOT be processed\n```")
-    );
+    assert!(result
+        .output
+        .contains("```markdown\n# Fake Header in Code Block"));
+    assert!(result
+        .output
+        .contains("<!-- md-toc: -->\n\n## This TOC directive should NOT be processed\n```"));
 }

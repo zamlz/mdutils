@@ -63,50 +63,28 @@ fn handle_result(result: ProcessingResult) -> ExitCode {
     }
 }
 
+/// Reads stdin and processes it with the given function
+fn process_stdin<F>(processor: F) -> ExitCode
+where
+    F: FnOnce(&str) -> ProcessingResult,
+{
+    match read_stdin() {
+        Ok(input) => handle_result(processor(&input)),
+        Err(e) => {
+            eprintln!("{}", e);
+            ExitCode::IoErr
+        }
+    }
+}
+
 fn run() -> ExitCode {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Table => {
-            let input = match read_stdin() {
-                Ok(content) => content,
-                Err(e) => {
-                    eprintln!("{}", e);
-                    return ExitCode::IoErr;
-                }
-            };
-            handle_result(format_tables(&input))
-        }
-        Commands::Code => {
-            let input = match read_stdin() {
-                Ok(content) => content,
-                Err(e) => {
-                    eprintln!("{}", e);
-                    return ExitCode::IoErr;
-                }
-            };
-            handle_result(process_code_blocks(&input))
-        }
-        Commands::Toc => {
-            let input = match read_stdin() {
-                Ok(content) => content,
-                Err(e) => {
-                    eprintln!("{}", e);
-                    return ExitCode::IoErr;
-                }
-            };
-            handle_result(process_toc(&input))
-        }
-        Commands::Done => {
-            let input = match read_stdin() {
-                Ok(content) => content,
-                Err(e) => {
-                    eprintln!("{}", e);
-                    return ExitCode::IoErr;
-                }
-            };
-            handle_result(process_done(&input))
-        }
+        Commands::Table => process_stdin(format_tables),
+        Commands::Code => process_stdin(process_code_blocks),
+        Commands::Toc => process_stdin(process_toc),
+        Commands::Done => process_stdin(process_done),
         Commands::New { spec } => match parse_table_spec(&spec) {
             Ok((rows, cols)) => {
                 let table = create_table(rows, cols);
