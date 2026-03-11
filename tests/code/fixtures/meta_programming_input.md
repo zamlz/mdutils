@@ -11,7 +11,7 @@ This demonstrates md-code executing md commands on markdown examples.
 | 3 | 7 | 0 |
 <!-- md-table: C_ = A_ + B_ -->
 ```
-<!-- md-code: id="table_demo"; bin="cargo run --quiet -- table" -->
+<!-- md-code: id="table_demo"; bin="cargo run --quiet -- table"; timeout=300 -->
 
 ## Example 2: md toc generating a TOC
 
@@ -24,7 +24,7 @@ This demonstrates md-code executing md commands on markdown examples.
 ## Subsection B
 # Section Two
 ```
-<!-- md-code: id="toc_demo"; bin="cargo run --quiet -- toc" -->
+<!-- md-code: id="toc_demo"; bin="cargo run --quiet -- toc"; timeout=300 -->
 
 ## Example 3: md code executing code
 
@@ -34,4 +34,4 @@ print(f"3^2 = {3**2}")
 ```
 <!-- md-code: id="python_test"; bin="python3" -->
 ~~~
-<!-- md-code: id="code_demo"; bin="cargo run --quiet -- code" -->
+<!-- md-code: id="code_demo"; bin="cargo run --quiet -- code"; timeout=300 -->
