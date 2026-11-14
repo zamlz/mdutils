@@ -1,7 +1,7 @@
 # API Documentation
 <!-- md-toc: -->
 - [Getting Started!](#getting-started)
-- [FAQ & Help](#faq-help)
+- [FAQ & Help](#faq--help)
 - [Contact: support@example.com](#contact-supportexamplecom)
 - [C++ Programming](#c-programming)
 - [What's New?](#whats-new)
