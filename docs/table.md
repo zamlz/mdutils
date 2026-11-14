@@ -1374,8 +1374,8 @@ Column `A_` is 3×1 while row `_1` is 1×3.
 
 **Cause:** Variable name looks like a cell reference.
 
-**Invalid names:** `A1`, `B_`, `_2` (these are cell references)
-**Valid names:** `x`, `total`, `sum_col`, `result`
+- **Invalid names:** `A1`, `B_`, `_2` (these are cell references)
+- **Valid names:** `x`, `total`, `sum_col`, `result`
 
 ### Cross-table reference errors
 
