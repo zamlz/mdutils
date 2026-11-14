@@ -30,6 +30,10 @@ pub enum CodeError {
     #[error("Code block at line {line} is missing required field: {field}")]
     MissingField { line: usize, field: String },
 
+    /// Output could not be rendered as a table
+    #[error("Cannot render output as a table: {0}")]
+    TableError(String),
+
     /// Empty bin specification
     #[error("Empty bin specification at line {line}")]
     EmptyBin { line: usize },

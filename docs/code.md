@@ -11,6 +11,7 @@ Command: `code` (Code Execution)
   - [Command with arguments](#command-with-arguments)
   - [Custom fence for output](#custom-fence-for-output)
   - [Custom syntax highlighting](#custom-syntax-highlighting)
+- [Table output](#table-output)
 - [Output block management](#output-block-management)
 - [Multiple execution Behaviour](#multiple-execution-behaviour)
 - [Troubleshooting](#troubleshooting)
@@ -68,6 +69,10 @@ print("Hello, world!")
 - `timeout=N` (optional) - Timeout in seconds (default: 30)
 - `fence="..."` (optional) - Custom fence for output block (e.g., `"~~~"`, `"````"`) - defaults to input block's fence
 - `syntax="..."` (optional) - Syntax highlighting language for output block (e.g., `"json"`, `"text"`) - defaults to no syntax
+- `table="tsv"|"csv"|"pipe"` (optional) - Render the output as a markdown table instead of a fenced block (see [Table output](#table-output))
+- `delimiter="..."` (optional) - Table output split on this literal string instead (implies table output; `\t` means tab)
+- `columns="A,B,C"` (optional) - Explicit table header; every output row is then data
+- `header=true|false` (optional) - Whether the first output row is the table header (default: `true`)
 
 ## Examples
 
@@ -228,6 +233,41 @@ Output:
 <!-- md-code-output: id="json" -->
 ~~~
 <!-- md-code-output: id="custom-syntax" -->
+
+## Table output
+
+Like Org-mode's `#+RESULTS:` tables, a block can render its output as a markdown
+table. Add `table="tsv"`, `"csv"` or `"pipe"` (or a custom `delimiter`) and the
+output is parsed into rows and written between the code block and the
+`md-code-output` marker, without a fence or `Output:` label:
+
+~~~markdown
+```bash
+printf 'host\tservice\tport\nserver1\tweb\t3000\n'
+```
+<!-- md-code: id="catalogue"; bin="bash"; table="tsv" -->
+
+| host    | service | port |
+| ------- | ------- | ---- |
+| server1 | web     | 3000 |
+<!-- md-code-output: id="catalogue" -->
+~~~
+
+- By default the first output row is the header. Use `columns="Host,Service,Port"`
+  to supply the header yourself (all output rows are then data), or `header=false`
+  for an empty header row.
+- Tables are aligned like `md table` output, and re-running replaces the table.
+- A `|` inside a cell is escaped as `\|`, but `md table` splits on every `|`, so
+  running `md table` on a generated table whose cells contain `|` will break it.
+  CSV supports `"` quoting, but not quoted fields spanning several lines.
+- Cells are trimmed, blank lines are skipped, and a row with a different number
+  of columns than the header is an error naming the output line.
+- Stderr is captured with stdout, so a table block should not print to stderr.
+- A `;` cannot be used as a `delimiter` since it separates directive parameters.
+- Generated tables have no table ID, since the comment after them is the
+  `md-code-output` marker. The formula and cross-table reference features of
+  `md table` therefore cannot be used on them.
+- An existing fenced output block is converted when you add or remove `table`.
 
 ## Output block management
 

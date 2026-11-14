@@ -498,3 +498,125 @@ fn test_custom_syntax() {
         "Not idempotent: running on expected output produced different result"
     );
 }
+
+#[test]
+fn test_table_output_tsv() {
+    let input = fs::read_to_string("tests/code/fixtures/table_tsv_input.md")
+        .expect("Failed to read input fixture");
+    let expected = fs::read_to_string("tests/code/fixtures/table_tsv_expected.md")
+        .expect("Failed to read expected fixture");
+
+    let result = process_code_blocks(&input);
+    assert!(
+        !result.has_errors(),
+        "Processing failed: {:?}",
+        result.errors
+    );
+    assert_eq!(result.output.trim(), expected.trim());
+
+    // Idempotency check: command(expected) should equal expected
+    let result2 = process_code_blocks(&expected);
+    assert!(!result2.has_errors());
+    assert_eq!(result2.output.trim(), expected.trim());
+}
+
+#[test]
+fn test_table_output_replaces_stale_table() {
+    let input = r#"```bash
+printf 'a,b\n1,2\n'
+```
+<!-- md-code: id="t"; bin="bash"; table="csv" -->
+
+| old | data |
+| --- | ---- |
+| x   | y    |
+<!-- md-code-output: id="t" -->
+
+Trailing text.
+"#;
+    let result = process_code_blocks(input);
+    assert!(!result.has_errors(), "{:?}", result.errors);
+    assert!(result.output.contains("| 1   | 2   |"));
+    assert!(!result.output.contains("old"));
+    assert_eq!(result.output.matches("md-code-output").count(), 1);
+    assert!(result.output.ends_with("Trailing text.\n"));
+}
+
+#[test]
+fn test_table_output_converts_existing_fenced_output() {
+    let input = r#"```bash
+printf 'a\tb\n1\t2\n'
+```
+<!-- md-code: id="t"; bin="bash"; table="tsv" -->
+
+Output:
+```
+stale
+```
+<!-- md-code-output: id="t" -->
+"#;
+    let result = process_code_blocks(input);
+    assert!(!result.has_errors(), "{:?}", result.errors);
+    assert!(result.output.contains("| 1   | 2   |"));
+    assert!(!result.output.contains("stale"));
+    assert_eq!(result.output.matches("md-code-output").count(), 1);
+}
+
+#[test]
+fn test_table_output_converts_back_to_fenced() {
+    let input = r#"```bash
+echo hello
+```
+<!-- md-code: id="t"; bin="bash" -->
+
+| old | data |
+| --- | ---- |
+<!-- md-code-output: id="t" -->
+"#;
+    let result = process_code_blocks(input);
+    assert!(!result.has_errors(), "{:?}", result.errors);
+    assert!(result.output.contains("hello"));
+    assert!(!result.output.contains("old"));
+    assert_eq!(result.output.matches("md-code-output").count(), 1);
+}
+
+#[test]
+fn test_table_output_columns_and_delimiter() {
+    let input = r#"```bash
+printf '1::2\n3::4\n'
+```
+<!-- md-code: id="t"; bin="bash"; delimiter="::"; columns="A, B" -->
+"#;
+    let result = process_code_blocks(input);
+    assert!(!result.has_errors(), "{:?}", result.errors);
+    assert!(result.output.contains("| A   | B   |"));
+    assert!(result.output.contains("| 1   | 2   |"));
+    assert!(result.output.contains("| 3   | 4   |"));
+}
+
+#[test]
+fn test_table_output_ragged_rows_error() {
+    let input = r#"```bash
+printf 'a\tb\n1\t2\t3\n'
+```
+<!-- md-code: id="t"; bin="bash"; table="tsv" -->
+"#;
+    let result = process_code_blocks(input);
+    assert!(result.has_errors());
+    assert!(result.errors[0].message.contains("3 columns, expected 2"));
+    // Input is returned unchanged on error
+    assert_eq!(result.output, input);
+}
+
+#[test]
+fn test_table_directive_errors() {
+    for directive in [
+        r#"id="t"; bin="bash"; table="xml""#,
+        r#"id="t"; bin="bash"; columns="A,B""#,
+        r#"id="t"; bin="bash"; table="tsv"; header=maybe"#,
+    ] {
+        let input = format!("```bash\necho hi\n```\n<!-- md-code: {directive} -->\n");
+        let result = process_code_blocks(&input);
+        assert!(result.has_errors(), "expected error for: {directive}");
+    }
+}

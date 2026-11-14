@@ -212,10 +212,10 @@ mod tests {
         assert_eq!(generate_slug("with_underscores"), "with_underscores");
         // Punctuation between spaces leaves consecutive hyphens, as on GitHub
         assert_eq!(generate_slug("Media & Apps"), "media--apps");
-        assert_eq!(generate_slug("DNS — Blocky"), "dns--blocky");
+        assert_eq!(generate_slug("DNS — Resolver"), "dns--resolver");
         assert_eq!(
-            generate_slug("Sonarr (port 8989) — TV shows"),
-            "sonarr-port-8989--tv-shows"
+            generate_slug("Web App (port 8080) — Status page"),
+            "web-app-port-8080--status-page"
         );
         // Leading/trailing hyphens are kept
         assert_eq!(generate_slug("(Draft) Notes"), "draft-notes");
