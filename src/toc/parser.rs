@@ -116,8 +116,10 @@ fn parse_header_line(line: &str, line_number: usize) -> Option<Header> {
 /// - Replace spaces with hyphens
 /// - Remove most special characters
 /// - Keep alphanumeric, hyphens, and underscores
-/// - Collapse consecutive hyphens to single hyphen
-/// - Remove leading/trailing hyphens
+/// - Convert each whitespace character to a hyphen
+///
+/// Hyphens are never collapsed or trimmed, matching GitHub: `Media & Apps`
+/// becomes `media--apps`, since removing `&` leaves two spaces.
 ///
 /// # Arguments
 ///
@@ -127,8 +129,7 @@ fn parse_header_line(line: &str, line_number: usize) -> Option<Header> {
 ///
 /// The slug string
 fn generate_slug(text: &str) -> String {
-    let mut result = text
-        .to_lowercase()
+    text.to_lowercase()
         .chars()
         .map(|c| {
             if c.is_alphanumeric() || c == '-' || c == '_' {
@@ -141,14 +142,7 @@ fn generate_slug(text: &str) -> String {
             }
         })
         .filter(|&c| c != '\0')
-        .collect::<String>();
-
-    // Collapse consecutive hyphens
-    while result.contains("--") {
-        result = result.replace("--", "-");
-    }
-
-    result.trim_matches('-').to_string()
+        .collect()
 }
 
 /// Make a slug unique by appending a number if necessary
@@ -213,9 +207,21 @@ mod tests {
         assert_eq!(generate_slug("Hello World"), "hello-world");
         assert_eq!(generate_slug("Test Section 1"), "test-section-1");
         assert_eq!(generate_slug("Special!@# Characters"), "special-characters");
-        assert_eq!(generate_slug("Multiple   Spaces"), "multiple-spaces");
+        assert_eq!(generate_slug("Multiple   Spaces"), "multiple---spaces");
         assert_eq!(generate_slug("CamelCase"), "camelcase");
         assert_eq!(generate_slug("with_underscores"), "with_underscores");
+        // Punctuation between spaces leaves consecutive hyphens, as on GitHub
+        assert_eq!(generate_slug("Media & Apps"), "media--apps");
+        assert_eq!(generate_slug("DNS — Blocky"), "dns--blocky");
+        assert_eq!(
+            generate_slug("Sonarr (port 8989) — TV shows"),
+            "sonarr-port-8989--tv-shows"
+        );
+        // Leading/trailing hyphens are kept
+        assert_eq!(generate_slug("(Draft) Notes"), "draft-notes");
+        assert_eq!(generate_slug("Notes (draft)"), "notes-draft");
+        assert_eq!(generate_slug("- Dash"), "--dash");
+        assert_eq!(generate_slug("Dash -"), "dash--");
     }
 
     #[test]
