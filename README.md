@@ -12,6 +12,7 @@ Markdown Utils
   - [Table Example](#table-example)
   - [Code Example](#code-example)
   - [New Example](#new-example)
+  - [Done Example](#done-example)
 - [Idempotency](#idempotency)
 - [Meta-Programming](#meta-programming)
 - [Examples](#examples)
@@ -221,7 +222,7 @@ Input:
 - [ ] Walk the dog
 - [x] Already completed
 ~~~
-<!-- md-code: id="table-example"; bin="md done"; syntax="markdown" -->
+<!-- md-code: id="done-example"; bin="md done"; syntax="markdown" -->
 
 Output:
 ~~~markdown
@@ -229,7 +230,7 @@ Output:
 - [x] ~~Walk the dog~~ `COMPLETED: 2026-02-07 17:44:08`
 - [x] Already completed
 ~~~
-<!-- md-code-output: id="table-example" -->
+<!-- md-code-output: id="done-example" -->
 
 
 Note: Already checked items (`- [x]`) are left unchanged.

@@ -122,7 +122,7 @@ print("Done!")
 
 Output:
 ~~~markdown
-Error: Code execution timed out after 1 seconds
+error: [code] line 1: Code execution timed out after 1 seconds
 
 ~~~
 <!-- md-code-output: id="code-timeout" -->

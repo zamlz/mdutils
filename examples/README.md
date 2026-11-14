@@ -318,5 +318,4 @@ Have a great example? Submit a pull request! Good examples:
 ## Learn More
 
 - See the main [README](../README.md) for complete documentation
-- Check [CLAUDE.md](../CLAUDE.md) for architecture details
 - Read the [integration tests](../tests/) for more examples
