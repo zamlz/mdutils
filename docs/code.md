@@ -257,12 +257,16 @@ printf 'host\tservice\tport\nyggdrasil\tgrafana\t3000\n'
   to supply the header yourself (all output rows are then data), or `header=false`
   for an empty header row.
 - Tables are aligned like `md table` output, and re-running replaces the table.
-- A `|` inside a cell is escaped as `\|`. CSV supports `"` quoting, but not
-  quoted fields spanning several lines.
+- A `|` inside a cell is escaped as `\|`, but `md table` splits on every `|`, so
+  running `md table` on a generated table whose cells contain `|` will break it.
+  CSV supports `"` quoting, but not quoted fields spanning several lines.
 - Cells are trimmed, blank lines are skipped, and a row with a different number
   of columns than the header is an error naming the output line.
 - Stderr is captured with stdout, so a table block should not print to stderr.
 - A `;` cannot be used as a `delimiter` since it separates directive parameters.
+- Generated tables have no table ID, since the comment after them is the
+  `md-code-output` marker. The formula and cross-table reference features of
+  `md table` therefore cannot be used on them.
 - An existing fenced output block is converted when you add or remove `table`.
 
 ## Output block management
