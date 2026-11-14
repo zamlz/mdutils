@@ -301,6 +301,12 @@ Run specific test:
 nix develop --command cargo test test_name
 ```
 
+Check that the docs are idempotent (re-running `md toc`, `md table` and `md code`
+over every doc must not change it; this also runs in CI):
+```bash
+nix build .#checks.x86_64-linux.docs -L
+```
+
 Run tests for a specific module:
 ```bash
 nix develop --command cargo test table::

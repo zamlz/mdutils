@@ -21,6 +21,20 @@ jobs:
       - name: Build & test
         run: nix build -L
 
+  # Re-runs md over all the docs and fails if any of them would change
+  docs:
+    name: Docs idempotent
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check docs
+        run: nix build .#checks.x86_64-linux.docs --no-link -L
+
   # Advisories, licenses, banned/duplicate crates and crate sources (deny.toml)
   deny:
     name: Cargo deny
@@ -33,12 +47,13 @@ jobs:
   # Single stable status for a branch ruleset to require
   ci-ok:
     name: ci-ok
-    needs: [test, deny]
+    needs: [test, docs, deny]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Require all jobs to have succeeded
         env:
           TEST: ${{ needs.test.result }}
+          DOCS: ${{ needs.docs.result }}
           DENY: ${{ needs.deny.result }}
-        run: '[ "$TEST" = success ] && [ "$DENY" = success ]'
+        run: '[ "$TEST" = success ] && [ "$DOCS" = success ] && [ "$DENY" = success ]'
