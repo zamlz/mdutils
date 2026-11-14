@@ -476,11 +476,8 @@ Undefined variable usage produces clear error messages:
 
 Output:
 ```markdown
-| A   | B   |
-| --- | --- |
-| 5   | 0   |
-<!-- md-table: B1 = undefined_var + 10 -->
-<!-- md-error: Failed to evaluate expression 'undefined_var + 10': undefined variable: 'undefined_var' -->
+error: [table] line 1: Failed to evaluate expression 'undefined_var + 10': undefined variable: 'undefined_var'
+
 ```
 <!-- md-code-output: id="undefined-variable" -->
 
@@ -496,11 +493,8 @@ Invalid variable names are caught during parsing:
 
 Output:
 ```markdown
-| A   | B   |
-| --- | --- |
-| 5   | 0   |
-<!-- md-table: let A1 = 10 -->
-<!-- md-error: Failed to parse statement 'let A1 = 10': invalid syntax (expected format: 'let VAR = EXPRESSION' or 'TARGET = EXPRESSION') -->
+error: [table] line 1: Failed to parse statement 'let A1 = 10': invalid syntax (expected format: 'let VAR = EXPRESSION' or 'TARGET = EXPRESSION')
+
 ```
 <!-- md-code-output: id="invalid-variable" -->
 
@@ -803,12 +797,8 @@ don't match, you'll get a descriptive error:
 
 Output:
 ```markdown
-| A   | B   | C   |
-| --- | --- | --- |
-| 1   | 2   | 0   |
-| 3   | 4   | 0   |
-<!-- md-table: C_ = A1:B2 -->
-<!-- md-error: Assignment failed for 'C_ = A1:B2': expected column vector but got matrix result -->
+error: [table] line 1: Assignment failed for 'C_ = A1:B2': expected column vector but got matrix result
+
 ```
 <!-- md-code-output: id="dimension-error" -->
 
@@ -936,6 +926,21 @@ When formulas contain errors, the system reports them using HTML comments
 with the `<!-- md-error: -->` marker. Error comments are inserted directly
 after the formula that failed.
 
+When you run `md table` on a file, the formatted table with its `md-error`
+comment is written to stdout and the errors are also reported on stderr with a
+non-zero exit code:
+
+~~~markdown
+| A   | B   |
+| --- | --- |
+| 5   | 0   |
+<!-- md-table: B1 = undefined_var + 10 -->
+<!-- md-error: Failed to evaluate expression 'undefined_var + 10': undefined variable: 'undefined_var' -->
+~~~
+
+The examples below are run through `md code`, which only captures stderr when a
+command fails, so their output shows the error messages as printed on stderr.
+
 **Enhanced Error Messages with Position Tracking:**
 
 Error messages now include visual indicators pointing to the exact location
@@ -961,15 +966,11 @@ Input:
 
 Output:
 ```markdown
-| A   | B   |
-| --- | --- |
-| 1   | 0   |
-| 2   | 0   |
-<!-- md-table: B1 = foo(A_) -->
-<!-- md-error: Failed to evaluate expression:
+error: [table] line 1: Failed to evaluate expression:
 unknown function: 'foo' (supported functions: sum, avg, min, max, count, prod, from)
 foo(A_)
-^^^ -->
+^^^
+
 ```
 <!-- md-code-output: id="unknown-func" -->
 
@@ -989,21 +990,19 @@ Input:
 
 Output:
 ```markdown
-| A   | B   | C   |
-| --- | --- | --- |
-| 1   | 2   | 3   |
-| 3   | 4   | 7   |
-<!-- md-table: C_ = A_ + B_; D_ = X_ + Y_ -->
-<!-- md-error: Failed to evaluate expression:
+error: [table] line 1: Failed to evaluate expression:
 column vector X_ is out of bounds: column X does not exist (table has 3 columns)
 X_ + Y_
-^ -->
+^
+
 ```
 <!-- md-code-output: id="column-out-of-bounds" -->
 
-Note: The first formula (`C_ = A_ + B_`) succeeded and updated column C,
-while the second formula (`D_ = X_ + Y_`) failed with a precise error message
-showing exactly where the problem occurs. Each formula is evaluated independently.
+Note: The first formula (`C_ = A_ + B_`) succeeds and updates column C, while
+the second formula (`D_ = X_ + Y_`) fails with a precise error message showing
+exactly where the problem occurs. Each formula is evaluated independently. The
+updated table is only visible when you run `md table` directly, as the example
+above only captures the error message.
 
 **Example - Parse Error:**
 
@@ -1019,12 +1018,8 @@ Input:
 
 Output:
 ```markdown
-| A   | B   | C   |
-| --- | --- | --- |
-| 1   | 2   | 0   |
-| 3   | 4   | 0   |
-<!-- md-table: this is invalid -->
-<!-- md-error: Failed to parse statement 'this is invalid': invalid syntax (expected format: 'let VAR = EXPRESSION' or 'TARGET = EXPRESSION') -->
+error: [table] line 1: Failed to parse statement 'this is invalid': invalid syntax (expected format: 'let VAR = EXPRESSION' or 'TARGET = EXPRESSION')
+
 ```
 <!-- md-code-output: id="parse-error" -->
 
@@ -1100,11 +1095,8 @@ Input:
 
 Output:
 ```markdown
-| A   | B   |
-| --- | --- |
-| 1   | 2   |
-<!-- md-table: id="" -->
-<!-- md-error: Invalid table ID: ID cannot be empty -->
+error: [table] line 1: Invalid table ID: ID cannot be empty
+
 ```
 <!-- md-code-output: id="empty-id" -->
 
@@ -1252,11 +1244,8 @@ If you reference a table that doesn't exist, an error is displayed:
 
 Output:
 ```markdown
-| Result |
-| ------ |
-| 0      |
-<!-- md-table: A1 = from("missing") -->
-<!-- md-error: Failed to evaluate expression 'from("missing")': table 'missing' not found (tables must have an id attribute) -->
+error: [table] line 1: Failed to evaluate expression 'from("missing")': table 'missing' not found (tables must have an id attribute)
+
 ```
 <!-- md-code-output: id="unknown-table" -->
 
@@ -1331,9 +1320,9 @@ All aggregate functions work with cross-table references:
 
 ### Formula dimension mismatch errors
 
-**Error:** `dimension mismatch in elementwise operation`
+**Error:** `element-wise operation '+' requires matching dimensions: got (3×1) and (1×3)`
 
-**Problem:** Trying to add/subtract/multiply vectors of different lengths.
+**Problem:** Trying to add/subtract/multiply operands of different dimensions, for example a column vector and a row vector, or a vector and a matrix.
 
 **Example of error:**
 ```markdown
@@ -1341,16 +1330,16 @@ All aggregate functions work with cross-table references:
 |---|---|---|
 | 1 | 2 | 0 |
 | 3 | 4 | 0 |
-| 5 |   | 0 |
-<!-- md-table: C_ = A_ + B_ -->
+| 5 | 6 | 0 |
+<!-- md-table: C_ = A_ + _1 -->
 ```
 
-Column A has 3 values, column B has only 2 (third is empty).
+Column `A_` is 3×1 while row `_1` is 1×3.
 
 **Solutions:**
-- Ensure vectors have the same length
-- Fill missing cells with 0 or numbers
-- Empty cells are treated as 0, but missing rows cause issues
+- Make both operands the same shape, using `.T` to convert between row and column vectors
+- Scalars broadcast, so `A_ + 1` always works
+- Empty cells are treated as 0, so a blank cell does not cause this error
 
 **Error:** `matrix multiplication dimension mismatch`
 
@@ -1385,8 +1374,8 @@ Column A has 3 values, column B has only 2 (third is empty).
 
 **Cause:** Variable name looks like a cell reference.
 
-**Invalid names:** `A1`, `B_`, `_2` (these are cell references)
-**Valid names:** `x`, `total`, `sum_col`, `result`
+- **Invalid names:** `A1`, `B_`, `_2` (these are cell references)
+- **Valid names:** `x`, `total`, `sum_col`, `result`
 
 ### Cross-table reference errors
 

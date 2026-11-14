@@ -12,6 +12,7 @@ Markdown Utils
   - [Table Example](#table-example)
   - [Code Example](#code-example)
   - [New Example](#new-example)
+  - [Done Example](#done-example)
 - [Idempotency](#idempotency)
 - [Meta-Programming](#meta-programming)
 - [Examples](#examples)
@@ -45,7 +46,7 @@ of these capabilities.
 
 - **Table Formatting** - Auto-align and format markdown tables
 - **Spreadsheet Formulas** - Excel-like formulas with vectors, matrices, and functions (`sum`, `avg`, `min`, `max`, `count`, `prod`)
-- **Code Execution** - Execute code blocks and capture output directly in markdown
+- **Code Execution** - Execute code blocks and capture output directly in markdown, optionally rendered as a table
 - **Table of Contents** - Auto-generate TOCs with GitHub-style anchors
 - **Task Completion** - Mark checklist items as done with strikethrough and timestamp
 - **Cross-Table References** - Reference data between tables using table IDs
@@ -221,7 +222,7 @@ Input:
 - [ ] Walk the dog
 - [x] Already completed
 ~~~
-<!-- md-code: id="table-example"; bin="md done"; syntax="markdown" -->
+<!-- md-code: id="done-example"; bin="md done"; syntax="markdown" -->
 
 Output:
 ~~~markdown
@@ -229,7 +230,7 @@ Output:
 - [x] ~~Walk the dog~~ `COMPLETED: 2026-02-07 17:44:08`
 - [x] Already completed
 ~~~
-<!-- md-code-output: id="table-example" -->
+<!-- md-code-output: id="done-example" -->
 
 
 Note: Already checked items (`- [x]`) are left unchanged.
@@ -274,7 +275,7 @@ Build the project using Nix:
 nix build
 ```
 
-The binary will be available at `md`.
+The binary will be available at `./result/bin/md`.
 
 ### Run
 
@@ -290,7 +291,7 @@ nix develop --command cargo run -- table < input.md
 
 ### Test
 
-Run all tests (389 total tests including unit, integration, and doc tests):
+Run all tests (unit and integration):
 ```bash
 nix develop --command cargo test
 ```
@@ -298,6 +299,18 @@ nix develop --command cargo test
 Run specific test:
 ```bash
 nix develop --command cargo test test_name
+```
+
+Check that the docs are idempotent (re-running `md toc`, `md table` and `md code`
+over every doc must not change it; this also runs in CI):
+```bash
+nix build .#checks.x86_64-linux.docs -L
+```
+
+Check that the docs render as written (every TOC entry must render as a heading,
+so a misplaced code fence cannot swallow part of a page; this also runs in CI):
+```bash
+nix build .#checks.x86_64-linux.docs-rendering -L
 ```
 
 Run tests for a specific module:
@@ -351,4 +364,4 @@ For troubleshooting specific to each command, see:
 
 - Check the detailed documentation in [`docs/`](docs/)
 - View examples in [`examples/`](examples/)
-- Report issues on GitHub (if repository is public)
+- Report issues at <https://github.com/zamlz/mdutils/issues>

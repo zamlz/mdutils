@@ -12,8 +12,9 @@ dimensions and outputs it to STDOUT.
 
 **Create a table with specified rows and columns:**
 
-Here is how to create a table with 3 rows and 2 columns. The format is
-`table:R:C` where R is the number of rows and C is the number of columns.
+Here is how to create a table with 2 rows and 3 columns. The format is
+`table:R:C` where R is the number of data rows and C is the number of columns.
+The header and separator rows are always added on top of the data rows.
 
 **Example:**
 

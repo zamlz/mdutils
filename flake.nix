@@ -26,6 +26,29 @@
             cargo clippy --all-targets --all-features -- -D warnings
           '';
         };
+
+        # Re-runs md over all docs and fails if any of them would change
+        checks.docs = pkgs.runCommand "check-docs"
+          { nativeBuildInputs = [ self.packages.${system}.default pkgs.python3 ]; }
+          ''
+            cp -r ${./.} src
+            chmod -R u+w src
+            cd src
+            bash scripts/check-docs.sh
+            touch $out
+          '';
+
+        # Renders all docs with cmark-gfm and checks the structure survives
+        checks.docs-rendering = pkgs.runCommand "check-docs-rendering"
+          { nativeBuildInputs = [ pkgs.cmark-gfm pkgs.python3 ]; }
+          ''
+            cp -r ${./.} src
+            chmod -R u+w src
+            cd src
+            python3 scripts/check-rendering.py
+            touch $out
+          '';
+
         devShells.default = with pkgs; mkShell {
           buildInputs = [
             cargo
