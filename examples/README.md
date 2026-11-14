@@ -127,9 +127,9 @@ nix build
 # The binary is at ./result/bin/md
 ```
 
-Or use it through nix develop:
+Or run it through the development shell:
 ```bash
-./result/bin/md --help
+nix develop --command cargo run -- --help
 ```
 
 ### Running Examples
