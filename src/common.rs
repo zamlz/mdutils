@@ -441,7 +441,7 @@ mod tests {
     #[test]
     fn test_processing_error_display() {
         let error = ProcessingError::table(42, "division by zero");
-        let display = format!("{}", error);
+        let display = format!("{error}");
         assert_eq!(display, "[table] line 42: division by zero");
     }
 

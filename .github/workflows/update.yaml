@@ -1,0 +1,80 @@
+name: Update
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Daily 11:07 UTC; off the hour because runs queued at :00 are most
+    # likely to be delayed.
+    - cron: "7 11 * * *"
+
+# Auth for pushing and opening the PR comes from the PAT below; the job token
+# only needs to read the repo.
+permissions:
+  contents: read
+
+# Overlapping runs would race on the force-push and the PR existence check.
+concurrency:
+  group: update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Update dependencies
+    # A manual dispatch from another ref would branch the update PR off that
+    # ref instead of main.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      BRANCH: auto/update
+
+    steps:
+    # The PAT is withheld from checkout and from the update step: those run
+    # third-party build code, which must not be able to read a repo-write token.
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+
+    - name: Install Nix
+      uses: cachix/install-nix-action@v31
+      with:
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+
+    - name: Update flake inputs
+      run: nix flake update
+
+    - name: Update cargo dependencies
+      run: nix develop -c cargo update
+
+    - name: Open PR and enable auto-merge
+      env:
+        # Pushes and PRs made with the default GITHUB_TOKEN never trigger other
+        # workflows, so CI would not run on the PR and it could never satisfy the
+        # required `ci-ok` check. A PAT (contents + pull-requests write) does.
+        GH_TOKEN: ${{ secrets.UPDATE_PAT }}
+      run: |
+        if git diff --quiet; then
+          echo "Nothing to update"
+          exit 0
+        fi
+
+        git config user.name "Amlesh Sivanantham (zamlz)"
+        git config user.email "zamlz@pm.me"
+        git checkout -B "$BRANCH"
+        git commit -am "chore: update flake inputs and cargo dependencies"
+        # Always rebuilt from main, so a stale PR from a previous run is
+        # replaced rather than rebased.
+        git push --force \
+          "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
+
+        # An open PR from an earlier run already tracks the branch; the force
+        # push above updated it, so only create one when none exists.
+        if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+          gh pr create --head "$BRANCH" --base main \
+            --title "chore: automated dependency update" \
+            --body "Automated run of \`nix flake update\` and \`cargo update\`."
+        fi
+
+        # Merges once the ruleset's required checks pass.
+        gh pr merge "$BRANCH" --auto --squash

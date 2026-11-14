@@ -22,7 +22,7 @@ pub(crate) fn eval_ast_with_tables(
         Expr::Variable(name, _span) => variable_map
             .get(name)
             .cloned()
-            .ok_or_else(|| FormulaError::RuntimeError(format!("undefined variable: '{}'", name))),
+            .ok_or_else(|| FormulaError::RuntimeError(format!("undefined variable: '{name}'"))),
 
         Expr::CellRef(cell_ref, _span) => resolve_reference(cell_ref, rows),
 
@@ -108,8 +108,7 @@ fn eval_function_call_with_tables(
                     // Look up the table
                     let target_rows = table_map.get(table_id).ok_or_else(|| {
                         FormulaError::RuntimeError(format!(
-                            "table '{}' not found (tables must have an id attribute)",
-                            table_id
+                            "table '{table_id}' not found (tables must have an id attribute)"
                         ))
                     })?;
 
@@ -137,14 +136,13 @@ fn eval_function_call_with_tables(
                 Expr::Variable(var_name, _) => {
                     // Look up the variable
                     let var_value = variable_map.get(var_name).ok_or_else(|| {
-                        FormulaError::RuntimeError(format!("undefined variable: '{}'", var_name))
+                        FormulaError::RuntimeError(format!("undefined variable: '{var_name}'"))
                     })?;
 
                     // Variables used in from() must be matrices
                     if let Value::Scalar(_) = var_value {
                         return Err(FormulaError::RuntimeError(format!(
-                            "cannot use from() with scalar variable '{}' - expected matrix",
-                            var_name
+                            "cannot use from() with scalar variable '{var_name}' - expected matrix"
                         )));
                     }
 
@@ -180,8 +178,7 @@ fn eval_function_call_with_tables(
             eval_function(name, arg)
         }
         _ => Err(FormulaError::RuntimeError(format!(
-            "unknown function: '{}' (supported functions: sum, avg, min, max, count, prod, from)",
-            name
+            "unknown function: '{name}' (supported functions: sum, avg, min, max, count, prod, from)"
         ))),
     }
 }
@@ -246,8 +243,7 @@ pub(crate) fn eval_function(name: &str, arg: Value) -> Result<Value, FormulaErro
             }
         },
         _ => Err(FormulaError::RuntimeError(format!(
-            "unknown function: '{}'",
-            name
+            "unknown function: '{name}'"
         ))),
     }
 }
@@ -299,7 +295,7 @@ pub(crate) fn evaluate_operation(
                 // Check dimension compatibility: (m×n) @ (n2×p) requires n == n2
                 if n != n2 {
                     return Err(FormulaError::RuntimeError(
-                        format!("matrix multiplication dimension mismatch: cannot multiply ({}×{}) @ ({}×{}) - inner dimensions {} and {} must match", m, n, n2, p, n, n2)
+                        format!("matrix multiplication dimension mismatch: cannot multiply ({m}×{n}) @ ({n2}×{p}) - inner dimensions {n} and {n2} must match")
                     ));
                 }
 
@@ -329,12 +325,12 @@ pub(crate) fn evaluate_operation(
             }
             (Value::Scalar(_), Value::Matrix { rows, cols, .. }) => {
                 Err(FormulaError::RuntimeError(
-                    format!("cannot use matrix multiplication (@) with scalar on left side and ({}×{}) matrix on right side", rows, cols)
+                    format!("cannot use matrix multiplication (@) with scalar on left side and ({rows}×{cols}) matrix on right side")
                 ))
             }
             (Value::Matrix { rows, cols, .. }, Value::Scalar(_)) => {
                 Err(FormulaError::RuntimeError(
-                    format!("cannot use matrix multiplication (@) with ({}×{}) matrix on left side and scalar on right side", rows, cols)
+                    format!("cannot use matrix multiplication (@) with ({rows}×{cols}) matrix on left side and scalar on right side")
                 ))
             }
         };
@@ -346,8 +342,7 @@ pub(crate) fn evaluate_operation(
         (Value::Scalar(l), Value::Scalar(r)) => {
             let result = apply_scalar_op(op, l, r).ok_or_else(|| {
                 FormulaError::RuntimeError(format!(
-                    "division by zero in scalar operation: {} {} {}",
-                    l, op, r
+                    "division by zero in scalar operation: {l} {op} {r}"
                 ))
             })?;
             Ok(Value::Scalar(result))
@@ -369,7 +364,7 @@ pub(crate) fn evaluate_operation(
             // For element-wise operations, dimensions must match
             if m1 != m2 || n1 != n2 {
                 return Err(FormulaError::RuntimeError(
-                    format!("element-wise operation '{}' requires matching dimensions: got ({}×{}) and ({}×{})", op, m1, n1, m2, n2)
+                    format!("element-wise operation '{op}' requires matching dimensions: got ({m1}×{n1}) and ({m2}×{n2})")
                 ));
             }
 
@@ -377,8 +372,7 @@ pub(crate) fn evaluate_operation(
             for (i, (&a, &b)) in data1.iter().zip(data2.iter()).enumerate() {
                 let value = apply_scalar_op(op, a, b).ok_or_else(|| {
                     FormulaError::RuntimeError(format!(
-                        "division by zero in element-wise operation at position {}",
-                        i
+                        "division by zero in element-wise operation at position {i}"
                     ))
                 })?;
                 result.push(value);
@@ -397,8 +391,7 @@ pub(crate) fn evaluate_operation(
             for (i, &v) in data.iter().enumerate() {
                 let value = apply_scalar_op(op, v, scalar).ok_or_else(|| {
                     FormulaError::RuntimeError(format!(
-                        "division by zero when broadcasting scalar to matrix at position {}",
-                        i
+                        "division by zero when broadcasting scalar to matrix at position {i}"
                     ))
                 })?;
                 result.push(value);
@@ -417,8 +410,7 @@ pub(crate) fn evaluate_operation(
             for (i, &v) in data.iter().enumerate() {
                 let value = apply_scalar_op(op, scalar, v).ok_or_else(|| {
                     FormulaError::RuntimeError(format!(
-                        "division by zero when broadcasting scalar to matrix at position {}",
-                        i
+                        "division by zero when broadcasting scalar to matrix at position {i}"
                     ))
                 })?;
                 result.push(value);

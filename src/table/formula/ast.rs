@@ -233,8 +233,7 @@ impl Parser {
 
             if self.pos >= self.tokens.len() || self.tokens[self.pos].value != ")" {
                 return Err(FormulaError::RuntimeError(format!(
-                    "unmatched '(' in function call '{}'",
-                    func_name
+                    "unmatched '(' in function call '{func_name}'"
                 )));
             }
             let close_span = self.tokens[self.pos].span;

@@ -120,10 +120,10 @@ impl FormulaError {
 
     /// Format error with visual context showing position in expression
     pub fn with_context(&self, expression: &str, span: crate::table::formula::Span) -> String {
-        let mut result = format!("{}\n", self);
+        let mut result = format!("{self}\n");
 
         // Add visual indicator
-        result.push_str(&format!("{}\n", expression));
+        result.push_str(&format!("{expression}\n"));
 
         // Add pointer to error location
         let pointer = " ".repeat(span.start) + &"^".repeat((span.end - span.start).max(1));

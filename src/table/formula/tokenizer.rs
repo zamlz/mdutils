@@ -103,7 +103,7 @@ pub(crate) fn tokenize_expression(expr: &str) -> Vec<Token> {
 
                 // Store the string without quotes, but mark it as a string token with special prefix
                 tokens.push(Token::new(
-                    format!("\"{}\"", string_value),
+                    format!("\"{string_value}\""),
                     Span::new(string_start, i),
                 ));
                 token_start = i;

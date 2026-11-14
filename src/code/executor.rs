@@ -37,13 +37,13 @@ pub fn execute_code(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| CodeError::ProcessError(format!("Failed to execute '{}': {}", bin, e)))?;
+        .map_err(|e| CodeError::ProcessError(format!("Failed to execute '{bin}': {e}")))?;
 
     // Write code to stdin
     if let Some(mut stdin) = child.stdin.take() {
         stdin
             .write_all(code.as_bytes())
-            .map_err(|e| CodeError::IoError(format!("Failed to write to stdin: {}", e)))?;
+            .map_err(|e| CodeError::IoError(format!("Failed to write to stdin: {e}")))?;
     }
 
     // Wait for the process with timeout
@@ -86,8 +86,7 @@ fn wait_with_timeout(
             })
         }
         Ok(Err(e)) => Err(CodeError::ProcessError(format!(
-            "Process execution failed: {}",
-            e
+            "Process execution failed: {e}"
         ))),
         Err(_) => Err(CodeError::Timeout {
             seconds: timeout.as_secs(),

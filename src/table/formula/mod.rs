@@ -235,12 +235,9 @@ pub fn apply_formulas_with_tables(
         let formula_trimmed = formula.trim();
 
         // Try to parse the statement (let or assignment)
-        let (statement, expr) = match parse_statement(formula_trimmed) {
-            Some(parsed) => parsed,
-            None => {
-                errors.push(Some(format!("Failed to parse statement '{}': invalid syntax (expected format: 'let VAR = EXPRESSION' or 'TARGET = EXPRESSION')", formula_trimmed)));
-                continue;
-            }
+        let Some((statement, expr)) = parse_statement(formula_trimmed) else {
+            errors.push(Some(format!("Failed to parse statement '{formula_trimmed}': invalid syntax (expected format: 'let VAR = EXPRESSION' or 'TARGET = EXPRESSION')")));
+            continue;
         };
 
         // Handle let statements - evaluate and store in variable map
@@ -264,10 +261,7 @@ pub fn apply_formulas_with_tables(
                             )
                         }
                         None => {
-                            format!(
-                                "Failed to evaluate expression for variable '{}': {}",
-                                name, error
-                            )
+                            format!("Failed to evaluate expression for variable '{name}': {error}")
                         }
                     };
                     errors.push(Some(error_msg));
@@ -282,9 +276,8 @@ pub fn apply_formulas_with_tables(
         }
 
         // Handle assignment statements - evaluate and apply to cells
-        let assignment = match statement {
-            Statement::Assignment(a) => a,
-            _ => unreachable!("Already handled Let statements above"),
+        let Statement::Assignment(assignment) = statement else {
+            unreachable!("Already handled Let statements above")
         };
 
         // Try to evaluate the expression (with table_map and variable_map)
@@ -303,7 +296,7 @@ pub fn apply_formulas_with_tables(
                         }
                         None => {
                             // Fallback to simple error message
-                            format!("Failed to evaluate expression '{}': {}", expr, error)
+                            format!("Failed to evaluate expression '{expr}': {error}")
                         }
                     };
                     errors.push(Some(error_msg));
@@ -318,14 +311,14 @@ pub fn apply_formulas_with_tables(
                 match value.as_scalar() {
                     Some(decimal) => {
                         if row >= rows.len() || col >= rows[row].len() {
-                            Some(format!("Assignment failed for '{}': cell index out of bounds", formula_trimmed))
+                            Some(format!("Assignment failed for '{formula_trimmed}': cell index out of bounds"))
                         } else {
                             rows[row][col] = decimal.to_string();
                             None  // Success
                         }
                     }
                     None => {
-                        Some(format!("Assignment failed for '{}': cannot assign matrix to scalar cell (use a cell vector assignment like C_ instead)", formula_trimmed))
+                        Some(format!("Assignment failed for '{formula_trimmed}': cannot assign matrix to scalar cell (use a cell vector assignment like C_ instead)"))
                     }
                 }
             }
@@ -350,10 +343,9 @@ pub fn apply_formulas_with_tables(
                             }
                         }
                     ))
-                } else if col >= rows.first().map(|r| r.len()).unwrap_or(0) {
+                } else if col >= rows.first().map(std::vec::Vec::len).unwrap_or(0) {
                     Some(format!(
-                        "Assignment failed for '{}': column index out of bounds",
-                        formula_trimmed
+                        "Assignment failed for '{formula_trimmed}': column index out of bounds"
                     ))
                 } else {
                     apply_column_vector_assignment(rows, col, &value);
@@ -366,17 +358,17 @@ pub fn apply_formulas_with_tables(
                 match value {
                     Value::Matrix { rows: 1, cols: _, .. } => {
                         if table_row >= rows.len() {
-                            Some(format!("Assignment failed for '{}': row index out of bounds", formula_trimmed))
+                            Some(format!("Assignment failed for '{formula_trimmed}': row index out of bounds"))
                         } else {
                             apply_row_vector_assignment(rows, table_row, &value);
                             None  // Success
                         }
                     }
                     Value::Scalar(_) => {
-                        Some(format!("Assignment failed for '{}': cannot assign scalar to row vector (expected row vector)", formula_trimmed))
+                        Some(format!("Assignment failed for '{formula_trimmed}': cannot assign scalar to row vector (expected row vector)"))
                     }
                     Value::Matrix { rows: num_rows, .. } => {
-                        Some(format!("Assignment failed for '{}': expected row vector but got matrix with {} rows", formula_trimmed, num_rows))
+                        Some(format!("Assignment failed for '{formula_trimmed}': expected row vector but got matrix with {num_rows} rows"))
                     }
                 }
             }
@@ -393,17 +385,16 @@ pub fn apply_formulas_with_tables(
                         let expected_cols = end_col - start_col + 1;
 
                         if num_rows != expected_rows || num_cols != expected_cols {
-                            Some(format!("Assignment failed for '{}': dimension mismatch (expected {}×{} but got {}×{})",
-                                formula_trimmed, expected_rows, expected_cols, num_rows, num_cols))
+                            Some(format!("Assignment failed for '{formula_trimmed}': dimension mismatch (expected {expected_rows}×{expected_cols} but got {num_rows}×{num_cols})"))
                         } else if end_row >= rows.len() {
-                            Some(format!("Assignment failed for '{}': range extends beyond table bounds", formula_trimmed))
+                            Some(format!("Assignment failed for '{formula_trimmed}': range extends beyond table bounds"))
                         } else {
                             apply_range_assignment(rows, start_row, start_col, end_row, end_col, &value);
                             None  // Success
                         }
                     }
                     Value::Scalar(_) => {
-                        Some(format!("Assignment failed for '{}': cannot assign scalar to range (expected matrix)", formula_trimmed))
+                        Some(format!("Assignment failed for '{formula_trimmed}': cannot assign scalar to range (expected matrix)"))
                     }
                 }
             }
@@ -414,17 +405,16 @@ pub fn apply_formulas_with_tables(
                         let expected_cols = end_col - start_col + 1;
 
                         if num_cols != expected_cols {
-                            Some(format!("Assignment failed for '{}': column dimension mismatch (expected {} columns but got {})",
-                                formula_trimmed, expected_cols, num_cols))
-                        } else if end_col >= rows.first().map(|r| r.len()).unwrap_or(0) {
-                            Some(format!("Assignment failed for '{}': column range extends beyond table bounds", formula_trimmed))
+                            Some(format!("Assignment failed for '{formula_trimmed}': column dimension mismatch (expected {expected_cols} columns but got {num_cols})"))
+                        } else if end_col >= rows.first().map(std::vec::Vec::len).unwrap_or(0) {
+                            Some(format!("Assignment failed for '{formula_trimmed}': column range extends beyond table bounds"))
                         } else {
                             apply_column_range_assignment(rows, start_col, end_col, &value);
                             None  // Success
                         }
                     }
                     Value::Scalar(_) => {
-                        Some(format!("Assignment failed for '{}': cannot assign scalar to column range (expected matrix)", formula_trimmed))
+                        Some(format!("Assignment failed for '{formula_trimmed}': cannot assign scalar to column range (expected matrix)"))
                     }
                 }
             }
@@ -435,12 +425,11 @@ pub fn apply_formulas_with_tables(
                         let expected_rows = end_row - start_row + 1;
 
                         if num_rows != expected_rows {
-                            Some(format!("Assignment failed for '{}': row dimension mismatch (expected {} rows but got {})",
-                                formula_trimmed, expected_rows, num_rows))
+                            Some(format!("Assignment failed for '{formula_trimmed}': row dimension mismatch (expected {expected_rows} rows but got {num_rows})"))
                         } else {
                             let table_end_row = formula_row_to_table_index(end_row);
                             if table_end_row >= rows.len() {
-                                Some(format!("Assignment failed for '{}': row range extends beyond table bounds", formula_trimmed))
+                                Some(format!("Assignment failed for '{formula_trimmed}': row range extends beyond table bounds"))
                             } else {
                                 apply_row_range_assignment(rows, start_row, end_row, &value);
                                 None  // Success
@@ -448,7 +437,7 @@ pub fn apply_formulas_with_tables(
                         }
                     }
                     Value::Scalar(_) => {
-                        Some(format!("Assignment failed for '{}': cannot assign scalar to row range (expected matrix)", formula_trimmed))
+                        Some(format!("Assignment failed for '{formula_trimmed}': cannot assign scalar to row range (expected matrix)"))
                     }
                 }
             }
@@ -610,7 +599,7 @@ fn extract_error_span(expr: &str, error: &FormulaError) -> Option<Span> {
         }
         FormulaError::RowOutOfBounds { row, .. } => {
             // Try to find the row reference pattern (e.g., "_1", "_2")
-            let row_ref = format!("_{}", row);
+            let row_ref = format!("_{row}");
             expr.find(&row_ref)
                 .map(|pos| Span::new(pos, pos + row_ref.len()))
         }
@@ -1626,7 +1615,7 @@ mod tests {
         ];
 
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][2], "30"); // avg
         assert_eq!(rows[2][3], "10"); // min
@@ -1650,7 +1639,7 @@ mod tests {
 
         let formulas = vec!["B1 = sum(A1:A3)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][1], "6"); // 1 + 2 + 3 = 6
     }
@@ -1681,7 +1670,7 @@ mod tests {
 
         let formulas = vec!["D1 = sum(A1:C1)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][3], "30"); // 5 + 10 + 15 = 30
     }
@@ -1718,7 +1707,7 @@ mod tests {
 
         let formulas = vec!["D1 = sum(A1:C2)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][3], "21"); // 1+2+3+4+5+6 = 21
     }
@@ -1734,7 +1723,7 @@ mod tests {
 
         let formulas = vec!["B1 = A1:A1".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][1], "42");
     }
@@ -1753,7 +1742,7 @@ mod tests {
         // C1 = sum(A1:A3 + B1:B3) should be sum([11, 22, 33]) = 66
         let formulas = vec!["C1 = sum(A1:A3 + B1:B3)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][2], "66");
     }
@@ -1771,7 +1760,7 @@ mod tests {
 
         let formulas = vec!["B1 = sum(A1:A3 * 2)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][1], "12"); // (1+2+3) * 2 = 12
     }
@@ -1831,7 +1820,7 @@ mod tests {
         ];
 
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][1], "60"); // sum
         assert_eq!(rows[2][2], "20"); // avg
@@ -1856,7 +1845,7 @@ mod tests {
         // B1:B3 is a 3x1 column vector
         let formulas = vec!["A1 = A1:A3.T @ B1:B3".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][0], "32");
     }
@@ -1873,7 +1862,7 @@ mod tests {
 
         let formulas = vec!["B1 = prod(A1:A3)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][1], "24"); // 2 * 3 * 4 = 24
     }
@@ -1892,7 +1881,7 @@ mod tests {
         // A1:B3 is a 3x2 matrix, sum should be 1+2+3+4+5+6 = 21
         let formulas = vec!["C1 = sum(A1:B3)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][2], "21");
     }
@@ -1910,7 +1899,7 @@ mod tests {
 
         let formulas = vec!["B1 = sum(A1:A3)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][1], "4"); // 1 + 0 + 3 = 4
     }
@@ -1956,7 +1945,7 @@ mod tests {
         // Sum of A_:C_ should be 1+2+3+4+5+6+7+8+9 = 45
         let formulas = vec!["D1 = sum(A_:C_)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][3], "45");
     }
@@ -1974,7 +1963,7 @@ mod tests {
 
         let formulas = vec!["B1 = sum(A_:A_)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][1], "60"); // 10+20+30
     }
@@ -1993,7 +1982,7 @@ mod tests {
         // Sum of (A_:B_ * 2) should be (1+10+2+20+3+30)*2 = 132
         let formulas = vec!["C1 = sum(A_:B_ * 2)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][2], "132");
     }
@@ -2048,7 +2037,7 @@ mod tests {
         ];
 
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[2][2], "100"); // sum
         assert_eq!(rows[2][3], "25"); // avg
@@ -2072,7 +2061,7 @@ mod tests {
         // Sum of _1:_3 should be 1+2+3+4+5+6+7+8+9 = 45
         let formulas = vec!["A4 = sum(_1:_3)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[5][0], "45");
     }
@@ -2089,7 +2078,7 @@ mod tests {
 
         let formulas = vec!["A2 = sum(_1:_1)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[3][0], "30"); // 5+10+15
     }
@@ -2107,7 +2096,7 @@ mod tests {
         // Sum of (_1:_2 * 3) should be (1+2+3+4+5+6)*3 = 63
         let formulas = vec!["A3 = sum(_1:_2 * 3)".to_string()];
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[4][0], "63");
     }
@@ -2134,7 +2123,7 @@ mod tests {
         ];
 
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         assert_eq!(rows[4][0], "100"); // sum
         assert_eq!(rows[4][1], "25"); // avg
@@ -2156,7 +2145,7 @@ mod tests {
         let errors = apply_formulas(&mut rows, &formulas);
 
         // Should have an error
-        assert!(errors.iter().any(|e| e.is_some()));
+        assert!(errors.iter().any(std::option::Option::is_some));
     }
 
     #[test]
@@ -2201,7 +2190,7 @@ mod tests {
         ];
 
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         // Both should give the same result
         assert_eq!(rows[2][2], rows[2][3]);
@@ -2226,7 +2215,7 @@ mod tests {
         ];
 
         let errors = apply_formulas(&mut rows, &formulas);
-        assert!(errors.iter().all(|e| e.is_none()));
+        assert!(errors.iter().all(std::option::Option::is_none));
 
         // Both should give the same result
         assert_eq!(rows[4][0], rows[4][1]);
@@ -2263,7 +2252,7 @@ mod tests {
                 assert_eq!(c, 3);
                 assert_eq!(data.len(), 6);
             }
-            _ => panic!("Expected Matrix, got {:?}", result),
+            _ => panic!("Expected Matrix, got {result:?}"),
         }
     }
 
@@ -2297,7 +2286,7 @@ mod tests {
                 assert_eq!(c, 3);
                 assert_eq!(data.len(), 6);
             }
-            _ => panic!("Expected Matrix, got {:?}", result),
+            _ => panic!("Expected Matrix, got {result:?}"),
         }
     }
 

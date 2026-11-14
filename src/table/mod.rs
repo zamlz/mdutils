@@ -86,8 +86,7 @@ pub fn parse_table_spec(spec: &str) -> Result<(usize, usize), String> {
 
     if parts.len() != 3 || parts[0] != "table" {
         return Err(format!(
-            "Invalid spec format '{}'. Expected format: table:R:C (e.g., table:2:3)",
-            spec
+            "Invalid spec format '{spec}'. Expected format: table:R:C (e.g., table:2:3)"
         ));
     }
 
@@ -265,7 +264,7 @@ pub fn format_tables(text: &str) -> ProcessingResult {
 
                 // Add parse error if present
                 if let Some(ref error) = parse_error {
-                    output.push(format!("<!-- md-error: {} -->", error));
+                    output.push(format!("<!-- md-error: {error} -->"));
                     collected_errors.push(ProcessingError::table(current_table_start_line, error));
                 }
 
@@ -273,7 +272,7 @@ pub fn format_tables(text: &str) -> ProcessingResult {
                 for _ in 0..formulas.len() {
                     if error_idx < all_errors.len() {
                         if let Some(ref error) = all_errors[error_idx] {
-                            output.push(format!("<!-- md-error: {} -->", error));
+                            output.push(format!("<!-- md-error: {error} -->"));
                             collected_errors
                                 .push(ProcessingError::table(current_table_start_line, error));
                         }
@@ -327,7 +326,7 @@ fn format_table_with_formulas_and_tables(
     };
 
     // Find the maximum width for each column
-    let num_cols = rows.iter().map(|r| r.len()).max().unwrap_or(0);
+    let num_cols = rows.iter().map(std::vec::Vec::len).max().unwrap_or(0);
     let mut col_widths = vec![0; num_cols];
 
     for row in &rows {
@@ -351,7 +350,7 @@ mod tests {
 
     #[test]
     fn test_format_single_table() {
-        let input = r#"# Document Title
+        let input = r"# Document Title
 
 Some text before the table.
 
@@ -360,7 +359,7 @@ Some text before the table.
 | John | 30  |
 | Jane | 25  |
 
-Some text after the table."#;
+Some text after the table.";
 
         let result = format_tables(input);
 
@@ -381,7 +380,7 @@ Some text after the table."#;
 
     #[test]
     fn test_format_multiple_tables() {
-        let input = r#"First table:
+        let input = r"First table:
 
 | Col1 | Col2 |
 |------|------|
@@ -391,7 +390,7 @@ Some text in between.
 
 | Col3 | Col4 |
 |------|------|
-| C    | D    |"#;
+| C    | D    |";
 
         let result = format_tables(input);
 
@@ -409,12 +408,12 @@ Some text in between.
 
     #[test]
     fn test_no_tables() {
-        let input = r#"# Just a document
+        let input = r"# Just a document
 
 With some text but no tables.
 
 - List item 1
-- List item 2"#;
+- List item 2";
 
         let result = format_tables(input);
         assert_eq!(result.output, input);
@@ -440,11 +439,11 @@ With some text but no tables.
 
     #[test]
     fn test_table_at_end_of_file() {
-        let input = r#"Some text.
+        let input = r"Some text.
 
 | Header |
 |--------|
-| Data   |"#;
+| Data   |";
 
         let result = format_tables(input);
         assert!(result.output.contains("Some text."));
@@ -459,10 +458,10 @@ With some text but no tables.
 
     #[test]
     fn test_table_with_formulas() {
-        let input = r#"| A | B | C |
+        let input = r"| A | B | C |
 |---|---|---|
 | 5 | 10 | 0 |
-<!-- md-table: C1 = A1 + B1 -->"#;
+<!-- md-table: C1 = A1 + B1 -->";
 
         let result = format_tables(input);
         assert!(result.output.contains("15"));
@@ -470,12 +469,12 @@ With some text but no tables.
 
     #[test]
     fn test_table_with_multiple_formulas() {
-        let input = r#"| Item | Price | Quantity | Total |
+        let input = r"| Item | Price | Quantity | Total |
 |---|---|---|---|
 | Apple | 1.50 | 10 | 0 |
 | Banana | 0.75 | 20 | 0 |
 | Orange | 2.00 | 5 | 0 |
-<!-- md-table: D1 = B1 * C1; D2 = B2 * C2; D3 = B3 * C3 -->"#;
+<!-- md-table: D1 = B1 * C1; D2 = B2 * C2; D3 = B3 * C3 -->";
 
         let result = format_tables(input);
         // Check that all formulas were evaluated
@@ -485,12 +484,12 @@ With some text but no tables.
 
     #[test]
     fn test_table_with_vector_formulas() {
-        let input = r#"| Product | Base | Tax | Total |
+        let input = r"| Product | Base | Tax | Total |
 |---|---|---|---|
 | Laptop | 1000 | 0 | 0 |
 | Mouse | 50 | 0 | 0 |
 | Keyboard | 150 | 0 | 0 |
-<!-- md-table: C_ = B_ * 0.08; D_ = B_ + C_ -->"#;
+<!-- md-table: C_ = B_ * 0.08; D_ = B_ + C_ -->";
 
         let result = format_tables(input);
 
@@ -505,13 +504,13 @@ With some text but no tables.
 
     #[test]
     fn test_table_with_sum_function() {
-        let input = r#"| Item | Price | Quantity | Total |
+        let input = r"| Item | Price | Quantity | Total |
 |---|---|---|---|
 | A | 10 | 5 | 0 |
 | B | 20 | 3 | 0 |
 | C | 15 | 2 | 0 |
 | TOTAL | 0 | 0 | 0 |
-<!-- md-table: D_ = B_ * C_; A4 = sum(B_); B4 = sum(C_); D4 = sum(D_) -->"#;
+<!-- md-table: D_ = B_ * C_; A4 = sum(B_); B4 = sum(C_); D4 = sum(D_) -->";
 
         let result = format_tables(input);
 
@@ -524,12 +523,12 @@ With some text but no tables.
 
     #[test]
     fn test_table_with_exponentiation() {
-        let input = r#"| Base | Squared |
+        let input = r"| Base | Squared |
 |---|---|
 | 2 | 0 |
 | 3 | 0 |
 | 4 | 0 |
-<!-- md-table: B_ = A_ ^ 2 -->"#;
+<!-- md-table: B_ = A_ ^ 2 -->";
 
         let result = format_tables(input);
 

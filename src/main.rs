@@ -45,7 +45,7 @@ fn read_stdin() -> Result<String, String> {
     stdin
         .lock()
         .read_to_string(&mut input)
-        .map_err(|e| format!("Error reading input: {}", e))?;
+        .map_err(|e| format!("Error reading input: {e}"))?;
     Ok(input)
 }
 
@@ -54,7 +54,7 @@ fn handle_result(result: ProcessingResult) -> ExitCode {
     print!("{}", result.output);
 
     for error in &result.errors {
-        eprintln!("error: {}", error);
+        eprintln!("error: {error}");
     }
 
     if result.has_errors() {
@@ -72,7 +72,7 @@ where
     match read_stdin() {
         Ok(input) => handle_result(processor(&input)),
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("{e}");
             ExitCode::IoErr
         }
     }
@@ -89,11 +89,11 @@ fn run() -> ExitCode {
         Commands::New { spec } => match parse_table_spec(&spec) {
             Ok((rows, cols)) => {
                 let table = create_table(rows, cols);
-                print!("{}", table);
+                print!("{table}");
                 ExitCode::Success
             }
             Err(e) => {
-                eprintln!("Error: {}", e);
+                eprintln!("Error: {e}");
                 ExitCode::Usage
             }
         },

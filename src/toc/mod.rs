@@ -173,14 +173,14 @@ mod tests {
 
     #[test]
     fn test_toc_generation_simple() {
-        let input = r#"# Document
+        let input = r"# Document
 <!-- md-toc: -->
 <!-- md-toc: end -->
 
 ## Section 1
 ### Subsection 1.1
 ## Section 2
-"#;
+";
 
         let result = process_toc(input);
 
@@ -195,14 +195,14 @@ mod tests {
 
     #[test]
     fn test_toc_update_existing() {
-        let input = r#"# Document
+        let input = r"# Document
 <!-- md-toc: -->
 - [Old Section](#old-section)
 <!-- md-toc: end -->
 
 ## New Section
 ### New Subsection
-"#;
+";
 
         let result = process_toc(input);
 
@@ -217,11 +217,11 @@ mod tests {
 
     #[test]
     fn test_toc_without_end_marker() {
-        let input = r#"# Document
+        let input = r"# Document
 <!-- md-toc: -->
 
 ## Section 1
-"#;
+";
 
         let result = process_toc(input);
 

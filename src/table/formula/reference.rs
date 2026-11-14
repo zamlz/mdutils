@@ -320,7 +320,7 @@ pub(crate) fn resolve_reference(
                 let start_col_letter = col_index_to_letter(*start_col);
                 let end_col_letter = col_index_to_letter(*end_col);
                 return Err(FormulaError::column_out_of_bounds(
-                    format!("{}_:{}_", start_col_letter, end_col_letter),
+                    format!("{start_col_letter}_:{end_col_letter}_"),
                     format!("table has no data rows (only {} rows total)", rows.len()),
                 ));
             }
@@ -330,7 +330,7 @@ pub(crate) fn resolve_reference(
                 let start_col_letter = col_index_to_letter(*start_col);
                 let end_col_letter = col_index_to_letter(*end_col);
                 return Err(FormulaError::column_out_of_bounds(
-                    format!("{}_:{}_", start_col_letter, end_col_letter),
+                    format!("{start_col_letter}_:{end_col_letter}_"),
                     format!(
                         "column {} does not exist (table has {} columns)",
                         end_col_letter,

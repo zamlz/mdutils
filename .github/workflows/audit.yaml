@@ -1,0 +1,25 @@
+name: Audit
+
+# New advisories are published against dependencies that haven't changed, so
+# this runs on a schedule in addition to every dependency change.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "37 11 * * *"
+  push:
+    branches: [ main ]
+    paths: [ Cargo.toml, Cargo.lock, deny.toml ]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Check advisories
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories

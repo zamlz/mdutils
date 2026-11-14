@@ -13,7 +13,7 @@ pub fn format_table_row(cells: &[String], col_widths: &[usize]) -> String {
                 format_separator_cell(cell, width)
             } else {
                 // Regular cell - left-aligned with padding
-                format!("{:<width$}", cell, width = width)
+                format!("{cell:<width$}")
             }
         })
         .collect();

@@ -112,7 +112,7 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
             // Extract timeout value (no quotes)
             let value = part.strip_prefix("timeout=").unwrap().trim();
             timeout = Some(value.parse::<u64>().map_err(|_| {
-                CodeError::DirectiveParseError(format!("Invalid timeout value: {}", value))
+                CodeError::DirectiveParseError(format!("Invalid timeout value: {value}"))
             })?);
         } else if part.starts_with("fence=") {
             // Extract fence value from quotes
@@ -130,14 +130,13 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
     })?;
 
     // Validate ID format
-    validate_id(&id).map_err(|e| CodeError::DirectiveParseError(format!("Invalid ID: {}", e)))?;
+    validate_id(&id).map_err(|e| CodeError::DirectiveParseError(format!("Invalid ID: {e}")))?;
 
     // Validate fence if specified (must be ``` or ~~~ with optional repetitions)
     if let Some(ref f) = fence {
         if !f.chars().all(|c| c == '`' || c == '~') || f.len() < 3 {
             return Err(CodeError::DirectiveParseError(format!(
-                "Invalid fence: '{}'. Must be at least 3 backticks (`) or tildes (~)",
-                f
+                "Invalid fence: '{f}'. Must be at least 3 backticks (`) or tildes (~)"
             )));
         }
     }
@@ -178,8 +177,7 @@ pub fn parse_md_code_output_directive(line: &str) -> Result<String, CodeError> {
         let id = extract_quoted_value(value)?;
 
         // Validate ID format
-        validate_id(&id)
-            .map_err(|e| CodeError::DirectiveParseError(format!("Invalid ID: {}", e)))?;
+        validate_id(&id).map_err(|e| CodeError::DirectiveParseError(format!("Invalid ID: {e}")))?;
 
         Ok(id)
     } else {
@@ -195,8 +193,7 @@ fn extract_quoted_value(s: &str) -> Result<String, CodeError> {
         Ok(s[1..s.len() - 1].to_string())
     } else {
         Err(CodeError::DirectiveParseError(format!(
-            "Value must be quoted: {}",
-            s
+            "Value must be quoted: {s}"
         )))
     }
 }

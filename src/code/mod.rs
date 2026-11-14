@@ -47,13 +47,10 @@ pub fn process_code_blocks(text: &str) -> ProcessingResult {
     for block in &code_blocks {
         if let Some(ref directive) = block.directive {
             // Validate that bin is specified
-            let bin = match directive.bin.as_ref() {
-                Some(bin) => bin,
-                None => {
-                    let err = CodeError::missing_field(block.start_line + 1, "bin");
-                    errors.push(ProcessingError::code(block.start_line + 1, err.to_string()));
-                    return ProcessingResult::with_errors(text.to_string(), errors);
-                }
+            let Some(bin) = directive.bin.as_ref() else {
+                let err = CodeError::missing_field(block.start_line + 1, "bin");
+                errors.push(ProcessingError::code(block.start_line + 1, err.to_string()));
+                return ProcessingResult::with_errors(text.to_string(), errors);
             };
 
             // Execute the code
@@ -137,7 +134,7 @@ fn reconstruct_document(
                             // Create new output block immediately after code block
                             output_lines.push(String::new());
                             output_lines.push("Output:".to_string());
-                            output_lines.push(format!("{}{}", output_fence, output_syntax));
+                            output_lines.push(format!("{output_fence}{output_syntax}"));
                             output_lines.push(output.clone());
                             output_lines.push(output_fence.clone());
                             output_lines
@@ -190,7 +187,7 @@ fn reconstruct_document(
                         output_lines.pop(); // Remove opening fence
 
                         // Add new output block with the correct fence and syntax
-                        output_lines.push(format!("{}{}", new_fence, new_syntax));
+                        output_lines.push(format!("{new_fence}{new_syntax}"));
                         output_lines.push(new_output.clone());
                         output_lines.push(new_fence.clone());
                     }

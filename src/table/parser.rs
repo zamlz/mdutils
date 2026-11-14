@@ -82,7 +82,7 @@ pub fn extract_formulas_from_comment(line: &str) -> Result<(Option<String>, Vec<
                 let extracted_id = value[1..value.len() - 1].to_string();
 
                 // Validate ID format
-                validate_id(&extracted_id).map_err(|e| format!("Invalid table ID: {}", e))?;
+                validate_id(&extracted_id).map_err(|e| format!("Invalid table ID: {e}"))?;
 
                 id = Some(extracted_id);
             } else {
