@@ -168,7 +168,7 @@ This works because:
    - Valid: `- [ ]` ✓
 
 3. **Inside a code block**
-   - Items inside ``` or ~~~ fenced code blocks are not processed
+   - Items inside `` ``` `` or `~~~` fenced code blocks are not processed
    - This is intentional to avoid modifying code examples
 
 ### Already checked items not changing
@@ -185,7 +185,7 @@ If content inside code blocks is being modified unexpectedly:
 
 **Check:**
 - Are your code fences properly closed?
-- Are you using standard fences (``` or ~~~)?
+- Are you using standard fences (`` ``` `` or `~~~`)?
 - Is the fence on its own line?
 
 ### Timestamp format

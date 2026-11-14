@@ -191,7 +191,7 @@ If your TOC indentation looks wrong:
 
 ### Headers in code blocks showing in TOC
 
-Headers inside fenced code blocks (``` or ~~~) are ignored, so a shell comment like `# install` in a code sample does not appear in the TOC.
+Headers inside fenced code blocks (`` ``` `` or `~~~`) are ignored, so a shell comment like `# install` in a code sample does not appear in the TOC.
 
 ### Multiple TOC markers
 

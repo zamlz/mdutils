@@ -183,25 +183,24 @@ unbuffered output
 
 ~~~markdown
 ```python
-print("Using tildes for output")
+print("Using a longer fence for output")
 ```
-<!-- md-code: id="custom"; bin="python3"; fence="~~~~" -->
+<!-- md-code: id="custom"; bin="python3"; fence="````" -->
 ~~~
-<!-- md-code-disabled: id="custom-fence"; bin="md code"; syntax="markdown" -->
-<!-- meta programming custom fence is currently broken :( -->
+<!-- md-code: id="custom-fence"; bin="md code"; syntax="markdown" -->
 
 Output:
 ~~~markdown
 ```python
-print("Using tildes for output")
+print("Using a longer fence for output")
 ```
-<!-- md-code: id="custom"; bin="python3"; fence="~~~~" -->
+<!-- md-code: id="custom"; bin="python3"; fence="````" -->
 
 Output:
-~~~~
-Using tildes for output
+````
+Using a longer fence for output
 
-~~~~
+````
 <!-- md-code-output: id="custom" -->
 ~~~
 <!-- md-code-output: id="custom-fence" -->
