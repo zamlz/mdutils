@@ -998,9 +998,11 @@ X_ + Y_
 ```
 <!-- md-code-output: id="column-out-of-bounds" -->
 
-Note: The first formula (`C_ = A_ + B_`) succeeded and updated column C,
-while the second formula (`D_ = X_ + Y_`) failed with a precise error message
-showing exactly where the problem occurs. Each formula is evaluated independently.
+Note: The first formula (`C_ = A_ + B_`) succeeds and updates column C, while
+the second formula (`D_ = X_ + Y_`) fails with a precise error message showing
+exactly where the problem occurs. Each formula is evaluated independently. The
+updated table is only visible when you run `md table` directly, as the example
+above only captures the error message.
 
 **Example - Parse Error:**
 
@@ -1318,9 +1320,9 @@ All aggregate functions work with cross-table references:
 
 ### Formula dimension mismatch errors
 
-**Error:** `dimension mismatch in elementwise operation`
+**Error:** `element-wise operation '+' requires matching dimensions: got (3×1) and (1×3)`
 
-**Problem:** Trying to add/subtract/multiply vectors of different lengths.
+**Problem:** Trying to add/subtract/multiply operands of different dimensions, for example a column vector and a row vector, or a vector and a matrix.
 
 **Example of error:**
 ```markdown
@@ -1328,16 +1330,16 @@ All aggregate functions work with cross-table references:
 |---|---|---|
 | 1 | 2 | 0 |
 | 3 | 4 | 0 |
-| 5 |   | 0 |
-<!-- md-table: C_ = A_ + B_ -->
+| 5 | 6 | 0 |
+<!-- md-table: C_ = A_ + _1 -->
 ```
 
-Column A has 3 values, column B has only 2 (third is empty).
+Column `A_` is 3×1 while row `_1` is 1×3.
 
 **Solutions:**
-- Ensure vectors have the same length
-- Fill missing cells with 0 or numbers
-- Empty cells are treated as 0, but missing rows cause issues
+- Make both operands the same shape, using `.T` to convert between row and column vectors
+- Scalars broadcast, so `A_ + 1` always works
+- Empty cells are treated as 0, so a blank cell does not cause this error
 
 **Error:** `matrix multiplication dimension mismatch`
 

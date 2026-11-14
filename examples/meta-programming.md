@@ -17,10 +17,10 @@ Here's a markdown table with formulas:
 | **Sum**  |       |          | 0     |
 <!-- md-table: D_ = B_ * C_; D4 = sum(D1:D3) -->
 ```
-<!-- md-code: id="table_example"; bin="md table" -->
+<!-- md-code: id="table_example"; bin="md table"; syntax="markdown" -->
 
 Output:
-```
+```markdown
 | Product    | Price   | Quantity   | Total   |
 | ---------- | ------- | ---------- | ------- |
 | Apples     | 1.50    | 10         | 15.00   |
@@ -69,10 +69,10 @@ Advanced configuration for power users.
 
 How to use the application.
 ```
-<!-- md-code: id="toc_example"; bin="md toc" -->
+<!-- md-code: id="toc_example"; bin="md toc"; syntax="markdown" -->
 
 Output:
-```
+```markdown
 # User Guide
 
 <!-- md-toc: -->
@@ -132,10 +132,10 @@ print(f"Sum: {sum(data)}\n")
 ```
 <!-- md-code: id="stats"; bin="python3" -->
 ~~~
-<!-- md-code: id="pipeline"; bin="md code" -->
+<!-- md-code: id="pipeline"; bin="md code"; syntax="markdown" -->
 
 Output:
-~~~
+~~~markdown
 Calculate statistics on a dataset:
 
 ```python

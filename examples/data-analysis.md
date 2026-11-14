@@ -106,4 +106,4 @@ Standard Deviation: 25.68
 
 Run `md code < data-analysis.md` to execute all code blocks and see the results.
 
-The code blocks write to stderr, which is captured in the output blocks below each code section.
+The code blocks print to stdout, which is captured in the output blocks below each code section.

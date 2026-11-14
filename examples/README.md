@@ -4,28 +4,7 @@ This directory contains real-world examples demonstrating the capabilities of `m
 
 ## Examples Overview
 
-### 1. Budget Tracker (`budget.md`)
-
-**Features:** Table formulas, arithmetic operations, vector operations
-
-A monthly budget tracker that automatically calculates:
-- Total income from multiple sources
-- Budget vs. actual expenses
-- Net savings
-
-**Usage:**
-```bash
-md table < budget.md
-```
-
-**Key Features Demonstrated:**
-- `sum()` function for totaling values
-- Vector operations (`D_ = B_ - C_`) for calculating differences across rows
-- Cross-table references for summary calculations
-
----
-
-### 2. Grade Calculator (`grades.md`)
+### 1. Grade Calculator (`grades.md`)
 
 **Features:** Weighted calculations, statistical functions
 
@@ -45,7 +24,7 @@ md table < grades.md
 
 ---
 
-### 3. Data Analysis Notebook (`data-analysis.md`)
+### 2. Data Analysis Notebook (`data-analysis.md`)
 
 **Features:** Code execution, Python integration, TOC generation
 
@@ -65,13 +44,13 @@ md code < temp.md > data-analysis.md
 
 **Key Features Demonstrated:**
 - Python code execution
-- Writing output to stderr for capture
+- Printing results to stdout for capture
 - Organizing analysis into sections with TOC
 - Multi-stage data processing
 
 ---
 
-### 4. Project Documentation (`project-docs.md`)
+### 3. Project Documentation (`project-docs.md`)
 
 **Features:** Table of contents generation, document organization
 
@@ -93,7 +72,7 @@ md toc < project-docs.md
 
 ---
 
-### 5. Scientific Computation (`scientific-computation.md`)
+### 4. Scientific Computation (`scientific-computation.md`)
 
 **Features:** Advanced Python code execution, mathematical operations
 
@@ -116,30 +95,7 @@ md code < scientific-computation.md
 
 ---
 
-### 6. Invoice Generator (`invoice.md`)
-
-**Features:** Table formulas, variables, currency calculations
-
-Professional invoice with:
-- Automatic line item totals (quantity × price)
-- Subtotal calculation
-- Tax computation
-- Grand total
-
-**Usage:**
-```bash
-md table < invoice.md
-```
-
-**Key Features Demonstrated:**
-- `let` statements for reusable values
-- Vector operations for line items
-- Percentage calculations
-- Currency-style formatting
-
----
-
-### 7. Meta-Programming (`meta-programming.md`)
+### 5. Meta-Programming (`meta-programming.md`)
 
 **Features:** Self-referential markdown processing
 
@@ -173,7 +129,7 @@ nix build
 
 Or use it through nix develop:
 ```bash
-nix develop --command md --help
+./result/bin/md --help
 ```
 
 ### Running Examples
@@ -182,9 +138,7 @@ Each example can be processed with the appropriate subcommand:
 
 ```bash
 # Process tables
-md table < budget.md > budget-updated.md
 md table < grades.md > grades-updated.md
-md table < invoice.md > invoice-updated.md
 
 # Execute code
 md code < data-analysis.md > data-analysis-results.md
@@ -200,12 +154,12 @@ md toc < data-analysis.md > data-analysis-toc.md
 
 To update a file in place:
 ```bash
-md table < budget.md > temp.md && mv temp.md budget.md
+md table < grades.md > temp.md && mv temp.md grades.md
 ```
 
 Or using shell redirection (careful - test first!):
 ```bash
-md table < budget.md | sponge budget.md  # requires moreutils
+md table < grades.md | sponge grades.md  # requires moreutils
 ```
 
 ## Idempotency Property
@@ -214,7 +168,7 @@ All examples are designed to be **idempotent** - running the same command on the
 
 ```bash
 # First run
-md table < budget.md > output1.md
+md table < grades.md > output1.md
 
 # Second run (should be identical to output1.md)
 md table < output1.md > output2.md
@@ -249,10 +203,9 @@ This property ensures:
 
 ### Code Execution
 
-1. **Write to stderr for output**: Output blocks capture stderr, not stdout
+1. **Print to stdout for output**: Output blocks capture stdout when the command succeeds (stderr is only captured if it fails)
    ```python
-   import sys
-   sys.stderr.write(f"Result: {value}\n")
+   print(f"Result: {value}")
    ```
 
 2. **Use unique IDs**: Each code block needs a unique identifier
@@ -284,13 +237,12 @@ Start with a template:
 ```
 
 **For code:**
-```markdown
+~~~markdown
 ```python
-import sys
-sys.stderr.write("Hello from Python!\n")
+print("Hello from Python!")
 ```
 <!-- md-code: id="hello"; bin="python3" -->
-```
+~~~
 
 **For TOC:**
 ```markdown

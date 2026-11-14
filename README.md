@@ -46,7 +46,7 @@ of these capabilities.
 
 - **Table Formatting** - Auto-align and format markdown tables
 - **Spreadsheet Formulas** - Excel-like formulas with vectors, matrices, and functions (`sum`, `avg`, `min`, `max`, `count`, `prod`)
-- **Code Execution** - Execute code blocks and capture output directly in markdown
+- **Code Execution** - Execute code blocks and capture output directly in markdown, optionally rendered as a table
 - **Table of Contents** - Auto-generate TOCs with GitHub-style anchors
 - **Task Completion** - Mark checklist items as done with strikethrough and timestamp
 - **Cross-Table References** - Reference data between tables using table IDs
@@ -275,7 +275,7 @@ Build the project using Nix:
 nix build
 ```
 
-The binary will be available at `md`.
+The binary will be available at `./result/bin/md`.
 
 ### Run
 
@@ -291,7 +291,7 @@ nix develop --command cargo run -- table < input.md
 
 ### Test
 
-Run all tests (389 total tests including unit, integration, and doc tests):
+Run all tests (unit and integration):
 ```bash
 nix develop --command cargo test
 ```
@@ -352,4 +352,4 @@ For troubleshooting specific to each command, see:
 
 - Check the detailed documentation in [`docs/`](docs/)
 - View examples in [`examples/`](examples/)
-- Report issues on GitHub (if repository is public)
+- Report issues at <https://github.com/zamlz/mdutils/issues>

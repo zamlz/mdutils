@@ -168,6 +168,7 @@ Headers with special characters are converted to GitHub-style slugs:
 
 - Spaces → hyphens: `My Header` → `#my-header`
 - Punctuation removed: `What? How!` → `#what-how`
+- Hyphens are never collapsed or trimmed, as on GitHub: removing punctuation between two spaces leaves two hyphens, so `Media & Apps` → `#media--apps` and `DNS — Resolver` → `#dns--resolver`
 - Numbers preserved: `Section 1` → `#section-1`
 - Underscores preserved: `my_header` → `#my_header`
 
@@ -190,18 +191,11 @@ If your TOC indentation looks wrong:
 
 ### Headers in code blocks showing in TOC
 
-Currently, headers inside code blocks ARE included in the TOC. This is a known limitation.
-
-**Workaround:**
-- Use indentation instead of code fences for small code samples
-- Or use `#` without a space in code blocks: `#Not a header`
+Headers inside fenced code blocks (``` or ~~~) are ignored, so a shell comment like `# install` in a code sample does not appear in the TOC.
 
 ### Multiple TOC markers
 
-If you have multiple `<!-- md-toc: -->` markers in one document:
-- Each TOC only includes headers AFTER its own marker
-- Each TOC is independent
-- Useful for per-section TOCs in long documents
+Only the first `<!-- md-toc: -->` marker in a document is processed. Any later markers are left as they are.
 
 ### Links not working
 
@@ -212,8 +206,4 @@ If TOC links don't navigate correctly:
 - The slug generation might not match your viewer's implementation
 - Try clicking directly on a header to see the URL format used
 
-**Note:** This tool uses GitHub-style slugs, which work on:
-- GitHub
-- GitLab
-- Most static site generators (Hugo, Jekyll, etc.)
-- VS Code markdown preview
+**Note:** This tool uses GitHub's slug rule, so the links are guaranteed to work on GitHub. Other renderers (GitLab, static site generators, editor previews) may generate slugs differently, especially for headers with punctuation.

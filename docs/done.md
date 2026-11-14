@@ -186,7 +186,7 @@ If content inside code blocks is being modified unexpectedly:
 **Check:**
 - Are your code fences properly closed?
 - Are you using standard fences (``` or ~~~)?
-lear Is the fence on its own line?
+- Is the fence on its own line?
 
 ### Timestamp format
 

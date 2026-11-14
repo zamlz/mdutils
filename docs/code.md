@@ -57,7 +57,7 @@ print("Hello, world!")
 - Each code block must have a unique `id`
 - The `bin` parameter is required - it specifies what command to run
 - Regular code blocks without `md-code` directives are completely ignored
-- Both stdout and stderr are captured in the output
+- When the command succeeds its stdout is captured; if it exits with a non-zero status, its stderr is captured instead
 - The tool is idempotent - running it multiple times updates the same output blocks assuming code is deterministic
 - Use `fence` parameter to customize the fence style of output blocks
 - Use `syntax` parameter to add syntax highlighting to output blocks
@@ -262,7 +262,7 @@ printf 'host\tservice\tport\nserver1\tweb\t3000\n'
   CSV supports `"` quoting, but not quoted fields spanning several lines.
 - Cells are trimmed, blank lines are skipped, and a row with a different number
   of columns than the header is an error naming the output line.
-- Stderr is captured with stdout, so a table block should not print to stderr.
+- Only stdout is used when the command succeeds, so anything the block prints to stderr is ignored.
 - A `;` cannot be used as a `delimiter` since it separates directive parameters.
 - Generated tables have no table ID, since the comment after them is the
   `md-code-output` marker. The formula and cross-table reference features of
@@ -273,7 +273,7 @@ printf 'host\tservice\tport\nserver1\tweb\t3000\n'
 
 - Output blocks are automatically created after code blocks when they produce output
 - If you run the command again, existing output blocks are updated
-- Empty output (no stdout/stderr) does not create an output block
+- Empty output does not create an output block
 - Output blocks are marked with `<!-- md-code-output: id="..." -->` for tracking
 
 ## Multiple execution Behaviour
@@ -360,17 +360,16 @@ Some text here
 
 If your code takes too long to execute, you'll see:
 ```
-Error: Code execution timed out after 30 seconds
+error: [code] line 12: Code execution timed out after 30 seconds
 ```
 
 **Solutions:**
 - Add a custom timeout: `<!-- md-code: id="slow"; bin="python3"; timeout=60 -->`
 - Default timeout is 30 seconds
-- Maximum timeout is configurable in your code
 
 ### Command not found
 
-If you see errors like `sh: python3: not found`, the interpreter isn't in your PATH.
+If you see `Process execution failed: Failed to execute 'python3': No such file or directory`, the command isn't in your PATH. The `bin` value is run directly, not through a shell.
 
 **Solutions:**
 - Use full path to interpreter: `bin="/usr/bin/python3"`
@@ -394,7 +393,8 @@ If running `md code` doesn't update your output:
 Output blocks are only created when there's output to capture.
 
 **Reasons for no output:**
-- Code produces no stdout/stderr
+- Code produces no stdout
+- Code only writes to stderr but exits successfully (stderr is only captured when the command fails)
 - Code executed successfully but silently
 - Only want output? Add a print statement!
 
@@ -402,7 +402,7 @@ Output blocks are only created when there's output to capture.
 
 Each code block must have a unique ID within the document.
 
-**Error:** `Duplicate code block ID: 'example'`
+**Error:** `Duplicate code block ID 'example' found at line 12 (previously defined at line 5)`
 
 **Solution:** Rename one of the IDs:
 ```
