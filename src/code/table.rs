@@ -156,13 +156,13 @@ mod tests {
 
     #[test]
     fn test_tsv_with_header() {
-        let lines = render_table("host\tport\nyggdrasil\t3000\n", &spec(Delimiter::Tsv)).unwrap();
+        let lines = render_table("host\tport\nserver1\t3000\n", &spec(Delimiter::Tsv)).unwrap();
         assert_eq!(
             lines,
             vec![
-                "| host      | port |",
-                "| --------- | ---- |",
-                "| yggdrasil | 3000 |",
+                "| host    | port |",
+                "| ------- | ---- |",
+                "| server1 | 3000 |",
             ]
         );
     }
