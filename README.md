@@ -307,6 +307,12 @@ over every doc must not change it; this also runs in CI):
 nix build .#checks.x86_64-linux.docs -L
 ```
 
+Check that the docs render as written (every TOC entry must render as a heading,
+so a misplaced code fence cannot swallow part of a page; this also runs in CI):
+```bash
+nix build .#checks.x86_64-linux.docs-rendering -L
+```
+
 Run tests for a specific module:
 ```bash
 nix develop --command cargo test table::
