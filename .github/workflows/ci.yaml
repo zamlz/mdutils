@@ -22,8 +22,8 @@ jobs:
         run: nix build -L
 
   # Re-runs md over all the docs and fails if any of them would change
-  docs:
-    name: Docs idempotent
+  check-docs-idempotency:
+    name: check-docs-idempotency
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,13 +47,13 @@ jobs:
   # Single stable status for a branch ruleset to require
   ci-ok:
     name: ci-ok
-    needs: [test, docs, deny]
+    needs: [test, check-docs-idempotency, deny]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Require all jobs to have succeeded
         env:
           TEST: ${{ needs.test.result }}
-          DOCS: ${{ needs.docs.result }}
+          DOCS: ${{ needs.check-docs-idempotency.result }}
           DENY: ${{ needs.deny.result }}
         run: '[ "$TEST" = success ] && [ "$DOCS" = success ] && [ "$DENY" = success ]'
