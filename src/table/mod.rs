@@ -1,7 +1,7 @@
 mod error;
 mod formatter;
 mod formula;
-mod parser;
+pub(crate) mod parser;
 
 use crate::common::{CodeFenceTracker, ProcessingError, ProcessingResult};
 use formatter::format_table_row;

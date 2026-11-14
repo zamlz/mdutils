@@ -1,5 +1,7 @@
 use crate::code::error::CodeError;
+use crate::code::table::{Delimiter, TableSpec};
 use crate::common::{validate_id, FenceType};
+use crate::table::parser::is_table_row;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -9,6 +11,7 @@ pub struct CodeBlockDirective {
     pub timeout: Option<u64>,
     pub fence: Option<String>, // Optional fence override for output block (e.g., "```", "~~~", "````")
     pub syntax: Option<String>, // Optional syntax language for output block (e.g., "json", "text")
+    pub table: Option<TableSpec>, // Render output as a markdown table instead of a fenced block
 }
 
 #[derive(Debug)]
@@ -95,6 +98,10 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
     let mut timeout = None;
     let mut fence = None;
     let mut syntax = None;
+    let mut table_format = None;
+    let mut delimiter = None;
+    let mut columns = None;
+    let mut header = None;
 
     // Split by semicolons
     for part in content.split(';') {
@@ -122,8 +129,60 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
             // Extract syntax value from quotes
             let value = part.strip_prefix("syntax=").unwrap().trim();
             syntax = Some(extract_quoted_value(value)?);
+        } else if part.starts_with("table=") {
+            let value = part.strip_prefix("table=").unwrap().trim();
+            table_format = Some(match extract_quoted_value(value)?.as_str() {
+                "tsv" => Delimiter::Tsv,
+                "csv" => Delimiter::Csv,
+                "pipe" => Delimiter::Pipe,
+                other => {
+                    return Err(CodeError::DirectiveParseError(format!(
+                        "Invalid table format: '{other}'. Must be \"tsv\", \"csv\" or \"pipe\""
+                    )))
+                }
+            });
+        } else if part.starts_with("delimiter=") {
+            let value = part.strip_prefix("delimiter=").unwrap().trim();
+            // `\t` is accepted as a tab since a literal tab is awkward in a directive
+            let value = extract_quoted_value(value)?.replace("\\t", "\t");
+            if value.is_empty() {
+                return Err(CodeError::DirectiveParseError(
+                    "Empty delimiter".to_string(),
+                ));
+            }
+            delimiter = Some(Delimiter::Custom(value));
+        } else if part.starts_with("columns=") {
+            let value = part.strip_prefix("columns=").unwrap().trim();
+            columns = Some(
+                extract_quoted_value(value)?
+                    .split(',')
+                    .map(|c| c.trim().to_string())
+                    .collect::<Vec<_>>(),
+            );
+        } else if part.starts_with("header=") {
+            let value = part.strip_prefix("header=").unwrap().trim();
+            header = Some(value.parse::<bool>().map_err(|_| {
+                CodeError::DirectiveParseError(format!(
+                    "Invalid header value: {value} (expected true or false)"
+                ))
+            })?);
         }
     }
+
+    // `delimiter` alone implies table mode; it overrides the delimiter of `table`
+    let table = match delimiter.or(table_format) {
+        Some(delimiter) => Some(TableSpec {
+            delimiter,
+            columns,
+            header: header.unwrap_or(true),
+        }),
+        None if columns.is_some() || header.is_some() => {
+            return Err(CodeError::DirectiveParseError(
+                "'columns' and 'header' require 'table' or 'delimiter'".to_string(),
+            ))
+        }
+        None => None,
+    };
 
     let id = id.ok_or_else(|| {
         CodeError::DirectiveParseError("Missing required id attribute".to_string())
@@ -147,6 +206,7 @@ pub fn parse_md_code_directive(line: &str) -> Result<CodeBlockDirective, CodeErr
         timeout,
         fence,
         syntax,
+        table,
     })
 }
 
@@ -289,6 +349,34 @@ pub fn parse_document(
             } else {
                 // We're inside a fence, just skip this line
                 i += 1;
+            }
+        } else if is_table_row(lines[i]) {
+            // A table directly followed by an md-code-output marker is an output block
+            let start_line = i;
+            while i < lines.len() && is_table_row(lines[i]) {
+                i += 1;
+            }
+            if i < lines.len() && is_md_code_output_comment(lines[i]) {
+                let id = parse_md_code_output_directive(lines[i])?;
+
+                if let Some(&prev_line) = output_block_lines.get(&id) {
+                    return Err(CodeError::duplicate_output_id(
+                        &id,
+                        start_line + 1,
+                        prev_line + 1,
+                    ));
+                }
+
+                output_block_lines.insert(id.clone(), start_line);
+                output_blocks.insert(
+                    id.clone(),
+                    OutputBlock {
+                        start_line,
+                        end_line: i - 1,
+                        id,
+                        content: lines[start_line..i].join("\n"),
+                    },
+                );
             }
         } else {
             i += 1;

@@ -1,16 +1,19 @@
 mod error;
 mod executor;
 mod parser;
+mod table;
 
 pub use error::CodeError;
 
 use crate::common::{get_fence_type, is_code_fence, ProcessingError, ProcessingResult};
+use crate::table::parser::is_table_row;
 use executor::execute_code;
 use parser::{
     is_md_code_comment, is_md_code_output_comment, parse_document, parse_md_code_output_directive,
     validate_unique_ids, CodeBlock, OutputBlock,
 };
 use std::collections::HashMap;
+use table::render_table;
 
 /// Processes markdown code blocks with md-code directives
 ///
@@ -43,6 +46,7 @@ pub fn process_code_blocks(text: &str) -> ProcessingResult {
 
     // Execute code blocks and collect results
     let mut execution_results = HashMap::new();
+    let mut table_results = HashMap::new();
 
     for block in &code_blocks {
         if let Some(ref directive) = block.directive {
@@ -58,6 +62,20 @@ pub fn process_code_blocks(text: &str) -> ProcessingResult {
                 Ok(result) => {
                     // Only store non-empty outputs
                     if !result.output.trim().is_empty() {
+                        if let Some(spec) = &directive.table {
+                            match render_table(&result.output, spec) {
+                                Ok(lines) => {
+                                    table_results.insert(directive.id.clone(), lines);
+                                }
+                                Err(e) => {
+                                    errors.push(ProcessingError::code(
+                                        block.start_line + 1,
+                                        e.to_string(),
+                                    ));
+                                    return ProcessingResult::with_errors(text.to_string(), errors);
+                                }
+                            }
+                        }
                         execution_results.insert(directive.id.clone(), result.output);
                     }
                 }
@@ -70,11 +88,47 @@ pub fn process_code_blocks(text: &str) -> ProcessingResult {
     }
 
     // Reconstruct the document
-    match reconstruct_document(text, &code_blocks, &mut output_blocks, &execution_results) {
+    match reconstruct_document(
+        text,
+        &code_blocks,
+        &mut output_blocks,
+        &execution_results,
+        &table_results,
+    ) {
         Ok(output) => ProcessingResult::with_errors(output, errors),
         Err(e) => {
             errors.push(ProcessingError::code(0, e.to_string()));
             ProcessingResult::with_errors(text.to_string(), errors)
+        }
+    }
+}
+
+/// An output block's new content
+enum Rendered {
+    /// Output written into a fenced code block
+    Fenced {
+        output: String,
+        fence: String,
+        syntax: String,
+    },
+    /// Output written as markdown table lines
+    Table(Vec<String>),
+}
+
+impl Rendered {
+    /// Appends the block's lines (without the trailing md-code-output marker)
+    fn push_to(&self, lines: &mut Vec<String>) {
+        match self {
+            Rendered::Fenced {
+                output,
+                fence,
+                syntax,
+            } => {
+                lines.push(format!("{fence}{syntax}"));
+                lines.push(output.clone());
+                lines.push(fence.clone());
+            }
+            Rendered::Table(table) => lines.extend(table.iter().cloned()),
         }
     }
 }
@@ -85,6 +139,7 @@ fn reconstruct_document(
     code_blocks: &[CodeBlock],
     output_blocks: &mut HashMap<String, OutputBlock>,
     execution_results: &HashMap<String, String>,
+    table_results: &HashMap<String, Vec<String>>,
 ) -> Result<String, CodeError> {
     let lines: Vec<&str> = text.lines().collect();
     let mut output_lines = Vec::new();
@@ -114,29 +169,36 @@ fn reconstruct_document(
                 // Check if we need to add/update output block
                 if let Some(ref directive) = block.directive {
                     if let Some(output) = execution_results.get(&directive.id) {
-                        // Determine which fence to use: directive override or code block's fence
-                        let output_fence = directive.fence.as_ref().unwrap_or(&block.fence);
-                        // Determine which syntax to use: directive syntax or empty string (default)
-                        let output_syntax = directive.syntax.as_deref().unwrap_or("");
+                        let rendered = match table_results.get(&directive.id) {
+                            Some(table) => Rendered::Table(table.clone()),
+                            None => Rendered::Fenced {
+                                output: output.clone(),
+                                // Directive override or the code block's fence
+                                fence: directive.fence.as_ref().unwrap_or(&block.fence).clone(),
+                                // Directive syntax or empty string (default)
+                                syntax: directive.syntax.clone().unwrap_or_default(),
+                            },
+                        };
 
-                        // Check if output block already exists
                         if output_blocks.contains_key(&directive.id) {
                             // Mark it as updated (we'll replace it when we encounter it)
-                            updated_output_blocks.insert(
-                                directive.id.clone(),
-                                (
-                                    output.clone(),
-                                    output_fence.clone(),
-                                    output_syntax.to_string(),
-                                ),
-                            );
+                            updated_output_blocks.insert(directive.id.clone(), rendered);
                         } else {
                             // Create new output block immediately after code block
                             output_lines.push(String::new());
-                            output_lines.push("Output:".to_string());
-                            output_lines.push(format!("{output_fence}{output_syntax}"));
-                            output_lines.push(output.clone());
-                            output_lines.push(output_fence.clone());
+                            match rendered {
+                                Rendered::Table(table) => output_lines.extend(table),
+                                Rendered::Fenced {
+                                    output,
+                                    fence,
+                                    syntax,
+                                } => {
+                                    output_lines.push("Output:".to_string());
+                                    output_lines.push(format!("{fence}{syntax}"));
+                                    output_lines.push(output);
+                                    output_lines.push(fence);
+                                }
+                            }
                             output_lines
                                 .push(format!(r#"<!-- md-code-output: id="{}" -->"#, directive.id));
                         }
@@ -176,20 +238,10 @@ fn reconstruct_document(
                     let id = parse_md_code_output_directive(lines[i])?;
 
                     // If we have an updated output for this ID, use it
-                    if let Some((new_output, new_fence, new_syntax)) =
-                        updated_output_blocks.get(&id)
-                    {
-                        // Replace the content with new output
-                        output_lines.pop(); // Remove closing fence we just added
-                        for _ in content_lines.iter() {
-                            output_lines.pop(); // Remove old content
-                        }
-                        output_lines.pop(); // Remove opening fence
-
-                        // Add new output block with the correct fence and syntax
-                        output_lines.push(format!("{new_fence}{new_syntax}"));
-                        output_lines.push(new_output.clone());
-                        output_lines.push(new_fence.clone());
+                    if let Some(rendered) = updated_output_blocks.get(&id) {
+                        // Replace the old block (opening fence, content, closing fence)
+                        output_lines.truncate(output_lines.len() - content_lines.len() - 2);
+                        rendered.push_to(&mut output_lines);
                     }
 
                     // Output the directive comment
@@ -197,6 +249,21 @@ fn reconstruct_document(
                     i += 1;
                 }
                 // If not an output block, content is already output, just continue
+            }
+        } else if is_table_row(lines[i]) {
+            // A table directly followed by an md-code-output marker is an output block
+            let table_start = i;
+            while i < lines.len() && is_table_row(lines[i]) {
+                i += 1;
+            }
+            let updated = if i < lines.len() && is_md_code_output_comment(lines[i]) {
+                updated_output_blocks.get(&parse_md_code_output_directive(lines[i])?)
+            } else {
+                None
+            };
+            match updated {
+                Some(rendered) => rendered.push_to(&mut output_lines),
+                None => output_lines.extend(lines[table_start..i].iter().map(|l| (*l).to_string())),
             }
         } else {
             // Regular line
