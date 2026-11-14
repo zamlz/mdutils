@@ -39,7 +39,9 @@ for file in README.md docs/*.md examples/*.md; do
 done
 
 if [ "$failed" -ne 0 ]; then
-  echo "docs are not idempotent: regenerate them with md and commit the result" >&2
+  # Don't paper over a diff by committing md's output: docs must be written so
+  # that md leaves them unchanged, so a diff means the doc or md needs fixing.
+  echo "docs are not idempotent: fix the doc, or md itself if its output is wrong, until md leaves every doc unchanged" >&2
   exit 1
 fi
 echo "ok: $checked checks, docs are idempotent"
