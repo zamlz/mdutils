@@ -28,7 +28,7 @@
 /// assert!(!result.has_errors());
 /// ```
 use crate::common::{CodeFenceTracker, ProcessingResult};
-use jiff::Zoned;
+use jiff::ZonedDateTime;
 
 /// Process markdown and mark checklist items as done
 ///
@@ -41,7 +41,9 @@ use jiff::Zoned;
 /// A [`ProcessingResult`] containing the updated document with checklist items marked as done.
 /// This operation is infallible, so the result will never contain errors.
 pub fn process_done(input: &str) -> ProcessingResult {
-    let timestamp = Zoned::now().strftime("%Y-%m-%d %H:%M:%S").to_string();
+    let timestamp = ZonedDateTime::now()
+        .strftime("%Y-%m-%d %H:%M:%S")
+        .to_string();
     process_done_with_timestamp(input, &timestamp)
 }
 
