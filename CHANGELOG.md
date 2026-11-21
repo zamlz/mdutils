@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.2.1 - 2026-11-21
+
+### Changed
+
+- Replaced the unmaintained `chrono` crate (RUSTSEC-2026-0543) with `jiff` for the
+  timestamp written by `md done`. Output format is unchanged (#9).
+- Updated `jiff` to 1.0 (#10).
+- Updated flake inputs and cargo dependencies (#8).
+
 ## 0.2.0 - 2026-11-14
 
 ### Added
